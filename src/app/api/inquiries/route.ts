@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { cars as demoCars } from '../../../data';
-import { isAdminRequest, isVendorSession } from '../../../server/auth';
+import { getSession, isAdminRequest, isVendorSession } from '../../../server/auth';
 import { getDb } from '../../../server/mongodb';
+import { getVendorEntitlements } from '../../../server/vendor-subscription';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -74,11 +75,15 @@ function vehicleSnapshot(car: Record<string, unknown>, requestUrl: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const session = getSession(request);
+  if (session?.role !== 'buyer') return NextResponse.json({ error: 'Sign in with Google before sending a car enquiry.' }, { status: 401 });
   const parsed = inquirySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: 'Check the required contact details and try again.' }, { status: 400 });
 
   try {
     const db = await getDb();
+    const buyer = await db.collection<Record<string, unknown>>('buyers').findOne({ id: session.sub, trackingConsentAt: { $exists: true } }, { projection: { name: 1, email: 1 } });
+    if (!buyer) return NextResponse.json({ error: 'Sign in with Google before sending a car enquiry.' }, { status: 401 });
     let car = await db.collection('cars').findOne({ id: parsed.data.carId }) as Record<string, unknown> | null;
     if (!car && process.env.NODE_ENV !== 'production') {
       car = (demoCars.find(item => item.id === parsed.data.carId) as unknown as Record<string, unknown> | undefined) ?? null;
@@ -86,22 +91,29 @@ export async function POST(request: NextRequest) {
     if (!car) return NextResponse.json({ error: 'This car is no longer available.' }, { status: 404 });
 
     const vehicle = vehicleSnapshot(car, request.url);
+    const vendor = vehicle.vendorId ? await db.collection<Record<string, unknown>>('vendors').findOne({ id: vehicle.vendorId, status: 'active' }, { projection: { businessName: 1, email: 1, inquiryEmail: 1, phone: 1, inquiryWhatsApp: 1 } }) : null;
+    if (vehicle.vendorId) {
+      const entitlements = await getVendorEntitlements(vehicle.vendorId);
+      if (entitlements.subscription && !entitlements.features.buyerInquiries) return NextResponse.json({ error: 'This dealer is not currently accepting online enquiries.' }, { status: 403 });
+    }
     const detailUrl = new URL(`/car/${encodeURIComponent(vehicle.id)}`, request.url).toString();
-    const client = parsed.data;
+    const client = { ...parsed.data, name: String(buyer.name || session.name), email: String(buyer.email || session.email || parsed.data.email || '') };
     const inquiry = {
       carId: vehicle.id,
+      userId: session.sub,
       vehicle,
       client: { name: client.name, phone: client.phone, email: client.email, city: client.city, message: client.message, preferredDate: client.preferredDate, preferredTime: client.preferredTime },
       detailUrl,
       status: 'new',
       vendorId: vehicle.vendorId || undefined,
+      vendorName: String(vendor?.businessName ?? ''),
+      notifications: { email: { status: 'queued', updatedAt: new Date() } },
       createdAt: new Date(),
     };
     const result = await db.collection('inquiries').insertOne(inquiry);
+    await db.collection('user_actions').insertOne({ userId: session.sub, clientName: client.name, clientEmail: client.email, action: 'inquiry', targetType: 'car', targetLabel: `${vehicle.year} ${vehicle.make} ${vehicle.model}`.trim(), carId: vehicle.id, carLabel: `${vehicle.year} ${vehicle.make} ${vehicle.model}`.trim(), vendorId: vehicle.vendorId || '', vendorName: '', createdAt: new Date() }).catch(() => null);
 
-    const targetNumber = normalizedWhatsAppNumber(
-      vehicle.sellerWhatsApp || vehicle.sellerPhone || process.env.WHATSAPP_ADMIN_NUMBER || '',
-    );
+    const targetNumber = normalizedWhatsAppNumber(String(vendor?.inquiryWhatsApp || vendor?.phone || vehicle.sellerWhatsApp || vehicle.sellerPhone || process.env.WHATSAPP_ADMIN_NUMBER || ''));
     const price = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(vehicle.price);
     const message = [
       'CARS21 · NEW CAR ENQUIRY',
@@ -127,8 +139,22 @@ export async function POST(request: NextRequest) {
       `Visit preference: ${client.preferredDate ? `${client.preferredDate}${client.preferredTime ? ` at ${client.preferredTime}` : ''}` : client.preferredTime ? `Flexible date at ${client.preferredTime}` : 'Callback / flexible'}`,
       `Message: ${client.message || 'Please contact me about this car.'}`,
     ].join('\n');
+    const inquiryEmail = String(vendor?.inquiryEmail || vendor?.email || '');
+    const apiKey = process.env.RESEND_API_KEY || '';
+    let emailStatus: 'sent' | 'not_configured' | 'failed' = 'not_configured';
+    if (apiKey && inquiryEmail) {
+      try {
+        const mail = await fetch('https://api.resend.com/emails', {
+          method: 'POST', signal: AbortSignal.timeout(8000),
+          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from: process.env.CARS21_EMAIL_FROM || 'Cars21 enquiries <onboarding@resend.dev>', to: [inquiryEmail], subject: `New enquiry: ${vehicle.year} ${vehicle.make} ${vehicle.model}`, text: `A new enquiry has been saved in your Cars21 dashboard.\n\nVehicle: ${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.variant}\nPrice: ${price}\nLocation: ${vehicle.city}\nListing: ${detailUrl}\n\nBuyer: ${client.name}\nPhone: ${client.phone}\nEmail: ${client.email || 'Not provided'}\nCity: ${client.city}\nPreferred time: ${client.preferredDate || client.preferredTime ? `${client.preferredDate} ${client.preferredTime}` : 'Flexible'}\nMessage: ${client.message || 'Please contact me about this car.'}\n\nThis enquiry has already been saved in your vendor dashboard and Cars21 superadmin inbox.` }),
+        });
+        emailStatus = mail.ok ? 'sent' : 'failed';
+      } catch { emailStatus = 'failed'; }
+    }
+    await db.collection('inquiries').updateOne({ _id: result.insertedId }, { $set: { 'notifications.email': { status: emailStatus, to: inquiryEmail, updatedAt: new Date() } } }).catch(() => null);
     const whatsappUrl = targetNumber ? `https://wa.me/${targetNumber}?text=${encodeURIComponent(message)}` : null;
-    return NextResponse.json({ id: result.insertedId.toString(), saved: true, whatsappUrl });
+    return NextResponse.json({ id: result.insertedId.toString(), saved: true, emailStatus, whatsappUrl });
   } catch {
     return NextResponse.json({ error: 'We could not save your enquiry right now. Please try again.' }, { status: 503 });
   }

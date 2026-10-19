@@ -7,7 +7,7 @@ const scrypt = promisify(scryptCallback);
 const cookieName = 'cars21_session';
 const sessionSeconds = 60 * 60 * 12;
 
-export type SessionUser = { sub: string; role: 'superadmin' | 'admin' | 'vendor'; name: string; email?: string; vendorId?: string; credentialVersion?: string; exp: number };
+export type SessionUser = { sub: string; role: 'superadmin' | 'admin' | 'vendor' | 'buyer'; name: string; email?: string; vendorId?: string; credentialVersion?: string; exp: number };
 
 function signingKey() {
   return process.env.CARS21_SESSION_SECRET || process.env.CARS21_SUPERADMIN_PASSWORD || process.env.CARS21_ADMIN_TOKEN || '';
@@ -49,7 +49,10 @@ export function createSession(user: Omit<SessionUser, 'exp'>) {
 }
 
 export function getSession(request: NextRequest): SessionUser | null {
-  const token = request.cookies.get(cookieName)?.value;
+  return getSessionFromToken(request.cookies.get(cookieName)?.value);
+}
+
+export function getSessionFromToken(token?: string): SessionUser | null {
   const key = signingKey();
   if (!token || !key) return null;
   const [payload, signature, extra] = token.split('.');
@@ -60,7 +63,7 @@ export function getSession(request: NextRequest): SessionUser | null {
   if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
   try {
     const user = JSON.parse(Buffer.from(payload, 'base64url').toString()) as SessionUser;
-    if (!user.sub || !['superadmin', 'admin', 'vendor'].includes(user.role) || !Number.isFinite(user.exp) || user.exp <= Date.now() / 1000) return null;
+    if (!user.sub || !['superadmin', 'admin', 'vendor', 'buyer'].includes(user.role) || !Number.isFinite(user.exp) || user.exp <= Date.now() / 1000) return null;
     if (user.role === 'superadmin' && (!user.credentialVersion || user.credentialVersion !== superadminCredentialVersion())) return null;
     return user;
   } catch { return null; }

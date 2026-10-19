@@ -18,6 +18,11 @@ export async function GET(request: NextRequest) {
       const account = await (await getDb()).collection(collectionName).findOne({ id: user.sub, status: 'active' }, { projection: { _id: 1 } });
       if (!account) return NextResponse.json({ user: null });
     }
+    if (user.role === 'buyer') {
+      const account = await (await getDb()).collection<Record<string, unknown>>('buyers').findOne({ id: user.sub, trackingConsentAt: { $exists: true } }, { projection: { _id: 0, name: 1, email: 1, picture: 1, phone: 1, city: 1 } });
+      if (!account) return NextResponse.json({ user: null });
+      return NextResponse.json({ user: { role: user.role, name: String(account.name || user.name || 'Cars21 User'), email: account.email, picture: account.picture, phone: account.phone || '', city: account.city || '' } });
+    }
     return NextResponse.json({ user: { role: user.role, name: user.name || 'Cars21 User', email: user.email } });
   } catch {
     return NextResponse.json({ user: null });

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import '../style.css';
+import { BuyerExperienceProvider } from '../components/BuyerExperienceProvider';
 
 export const metadata: Metadata = {
   title: 'Cars21 — Your next car, your best deal',
@@ -7,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en-IN"><body>{children}</body></html>;
+  return <html lang="en-IN"><body><BuyerExperienceProvider>{children}</BuyerExperienceProvider></body></html>;
 }

@@ -1,8 +1,10 @@
 export type Car = {
   id: string; make: string; model: string; variant: string; year: number; km: number;
-  fuel: string; transmission: string; owners: number; price: number; city: string; body: string;
+  fuel: string; transmission: string; owners: number; price: number; city: string; area?: string; body: string;
   score: number; badge: string; image: string; accent: string; color: string;
   sellerName?: string; sellerPhone?: string; sellerWhatsApp?: string;
+  vendorId?: string; vendorName?: string; vendorSlug?: string;
+  inspectionReviewStatus?: string; inspection?: Record<string, unknown>; photoIds?: string[]; photos?: string[];
 };
 export const cars: Car[] = [
   { id:'civic-2022', make:'Honda', model:'City', variant:'ZX CVT', year:2022, km:18400, fuel:'Petrol', transmission:'Automatic', owners:1, price:1249000, city:'Bengaluru', body:'Sedan', score:92, badge:'Cars21 verified', image:'/images/kars21-hero.png', accent:'photo-one', color:'Silver' },

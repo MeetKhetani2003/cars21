@@ -1,0 +1,30 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { BadgeCheck, Camera, Check, ClipboardCheck, Eye, RotateCcw, X } from 'lucide-react';
+
+type Inspection = { id: string; make: string; model: string; variant: string; year: number; city: string; status: string; reviewStatus: string; reviewNote: string; submittedAt: string; vendor: { id: string; name: string; email: string }; inspection: Record<string, string | string[]> };
+const checkLabels: Record<string,string> = { exterior:'Exterior body & paint', interior:'Interior & upholstery', engine:'Engine & transmission', tyres:'Tyres & brakes', electronics:'Electrical & safety systems', documents:'Registration & documents', roadTest:'Road test', accidentHistory:'Accident / repair history' };
+
+async function request<T>(url:string, init?:RequestInit):Promise<T>{const response=await fetch(url,{...init,credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json',...init?.headers}});const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.error||'Inspection request failed.');return result as T}
+
+export function InspectionReviewPanel(){
+  const [items,setItems]=useState<Inspection[]>([]);const [loading,setLoading]=useState(true);const [saving,setSaving]=useState('');const [error,setError]=useState('');const [notice,setNotice]=useState('');const [notes,setNotes]=useState<Record<string,string>>({});
+  async function load(){setLoading(true);setError('');try{const result=await request<{inspections:Inspection[]}>('/api/admin/inspections');setItems(result.inspections);setNotes(current=>Object.fromEntries(result.inspections.map(item=>[item.id,current[item.id]??item.reviewNote??''])))}catch(reason){setError(reason instanceof Error?reason.message:'Inspection queue could not be loaded.')}finally{setLoading(false)}}
+  useEffect(()=>{void load()},[]);
+  async function decide(item:Inspection,reviewStatus:'approved'|'changes_requested'|'rejected'){setSaving(item.id);setError('');setNotice('');try{await request('/api/admin/inspections',{method:'PATCH',body:JSON.stringify({carId:item.id,reviewStatus,reviewNote:notes[item.id]||''})});setItems(current=>current.map(entry=>entry.id===item.id?{...entry,reviewStatus,reviewNote:notes[item.id]||''}:entry));setNotice(`${item.year} ${item.make} ${item.model} inspection marked ${reviewStatus.replace('_',' ')}.`)}catch(reason){setError(reason instanceof Error?reason.message:'Review decision could not be saved.')}finally{setSaving('')}}
+  const pending=items.filter(item=>item.reviewStatus==='pending');
+  return <section className="inspection-review-panel"><div className="management-section-heading management-list-heading"><div><span className="eyebrow">VENDOR QUALITY REVIEW</span><h2>Inspection submissions</h2><p>Review vendor condition notes and uploaded evidence. Listings stay available for buyer enquiries while inspection is in review.</p></div><button className="management-secondary" disabled={loading} onClick={()=>void load()}>Refresh queue</button></div>
+    {error&&<p className="management-error" role="alert">{error}</p>}{notice&&<p className="buyer-profile-success" role="status">{notice}</p>}
+    <div className="inspection-review-summary"><span><ClipboardCheck size={17}/> {pending.length} pending review</span><span><BadgeCheck size={17}/> {items.length-pending.length} reviewed</span></div>
+    <div className="inspection-review-list">{items.map(item=><article key={item.id} className="inspection-review-card"><header><div><span className="eyebrow">{item.vendor.name} · {item.vendor.email}</span><h3>{item.year} {item.make} {item.model} {item.variant}</h3><small>{item.city} · Submitted {item.submittedAt?new Date(item.submittedAt).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'}):'recently'}</small></div><span className={`management-status ${item.reviewStatus==='approved'?'active':item.reviewStatus==='pending'?'pending':'paused'}`}>{item.reviewStatus.replace('_',' ')}</span></header>
+      <div className="inspection-review-checks">{Object.entries(checkLabels).map(([key,label])=><div key={key}><b>{label}</b><span>{String(item.inspection[key]||'No condition details provided')}</span></div>)}</div>
+      {item.inspection.notes&&<p className="inspection-review-notes"><b>Vendor notes</b>{item.inspection.notes}</p>}
+      {Array.isArray(item.inspection.evidencePhotoIds)&&item.inspection.evidencePhotoIds.length>0&&<div className="inspection-evidence"><b><Camera size={15}/> Evidence ({item.inspection.evidencePhotoIds.length})</b><div>{item.inspection.evidencePhotoIds.map((id,index)=><a key={id} href={`/api/photos/${encodeURIComponent(id)}`} target="_blank" rel="noreferrer"><img src={`/api/photos/${encodeURIComponent(id)}`} alt={`${item.make} ${item.model} inspection evidence ${index+1}`}/><span><Eye size={12}/> View photo</span></a>)}</div></div>}
+      <label className="management-field">Superadmin review note<textarea rows={2} maxLength={1000} value={notes[item.id]||''} onChange={event=>setNotes(current=>({...current,[item.id]:event.target.value}))} placeholder="Share what needs attention or what passed review."/></label>
+      <div className="inspection-review-actions"><button className="management-primary" disabled={saving===item.id} onClick={()=>void decide(item,'approved')}><Check size={15}/> Approve report</button><button className="management-secondary" disabled={saving===item.id} onClick={()=>void decide(item,'changes_requested')}><RotateCcw size={15}/> Request changes</button><button className="management-secondary danger" disabled={saving===item.id} onClick={()=>void decide(item,'rejected')}><X size={15}/> Reject report</button></div>
+    </article>)}
+    {!items.length&&!loading&&<div className="management-empty"><ClipboardCheck size={25}/><b>No inspection packets yet</b><span>Vendor submissions with condition notes and evidence photos will appear here.</span></div>}
+    {loading&&<p className="management-loading-inline">Loading inspection packets…</p>}</div>
+  </section>
+}

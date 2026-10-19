@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { hashPassword, isAdminRequest, isSuperAdminRequest } from '../../../../server/auth';
 import { getDb } from '../../../../server/mongodb';
+import { vendorSlug } from '../../../../lib/vendor-slug';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
   if (!isAdminRequest(request)) return NextResponse.json({ error: 'Admin access required.' }, { status: 401 });
   try {
     const vendors = await (await getDb()).collection<Record<string, unknown>>('vendors').find({}).sort({ createdAt: -1 }).limit(300).toArray();
-    return NextResponse.json({ vendors: vendors.map(vendor => ({ id: String(vendor.id ?? vendor._id), name: vendor.name, businessName: vendor.businessName, email: vendor.email, phone: vendor.phone, city: vendor.city, status: vendor.status, createdAt: vendor.createdAt })) });
+    return NextResponse.json({ vendors: vendors.map(vendor => { const id = String(vendor.id ?? vendor._id); const businessName = String(vendor.businessName ?? vendor.name ?? 'Dealer'); return { id, name: vendor.name, businessName, email: vendor.email, phone: vendor.phone, city: vendor.city, status: vendor.status, createdAt: vendor.createdAt, profileUrl: `/dealers/${vendorSlug(businessName, id)}` }; }) });
   } catch { return NextResponse.json({ error: 'Vendor accounts are temporarily unavailable.' }, { status: 503 }); }
 }
 
@@ -29,8 +30,9 @@ export async function POST(request: NextRequest) {
     const password = randomBytes(12).toString('base64url');
     const { salt, hash } = await hashPassword(password);
     const id = randomBytes(12).toString('hex');
-    await collection.insertOne({ id, ...parsed.data, email, role: 'vendor', status: 'active', passwordSalt: salt, passwordHash: hash, createdAt: new Date(), updatedAt: new Date() });
-    return NextResponse.json({ vendor: { id, ...parsed.data, email, status: 'active' }, initialPassword: password }, { status: 201 });
+    const slug = vendorSlug(parsed.data.businessName, id);
+    await collection.insertOne({ id, ...parsed.data, slug, email, role: 'vendor', status: 'active', passwordSalt: salt, passwordHash: hash, createdAt: new Date(), updatedAt: new Date() });
+    return NextResponse.json({ vendor: { id, ...parsed.data, email, status: 'active', profileUrl: `/dealers/${slug}` }, initialPassword: password }, { status: 201 });
   } catch (reason) {
     if (reason && typeof reason === 'object' && 'code' in reason && reason.code === 11000) return NextResponse.json({ error: 'A vendor account already uses that email.' }, { status: 409 });
     return NextResponse.json({ error: 'Vendor account could not be created.' }, { status: 503 });

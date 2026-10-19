@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getDb } from '../../../server/mongodb';
+import { getSession } from '../../../server/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,11 +24,16 @@ const schema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const session = getSession(request);
+  if (session?.role !== 'buyer') return NextResponse.json({ error: 'Sign in with Google before requesting to sell your car.' }, { status: 401 });
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: 'Check the vehicle, contact, and inspection details and try again.' }, { status: 400 });
   try {
+    const db = await getDb();
+    const buyer = await db.collection<Record<string, unknown>>('buyers').findOne({ id: session.sub, trackingConsentAt: { $exists: true } }, { projection: { name: 1, email: 1 } });
+    if (!buyer) return NextResponse.json({ error: 'Sign in with Google before requesting to sell your car.' }, { status: 401 });
     const id = randomBytes(12).toString('hex');
-    await (await getDb()).collection('sellerLeads').insertOne({ id, ...parsed.data, status: 'new', createdAt: new Date(), updatedAt: new Date() });
+    await db.collection('sellerLeads').insertOne({ id, ...parsed.data, userId: session.sub, name: String(buyer.name || parsed.data.name), email: String(buyer.email || parsed.data.email || ''), status: 'new', verificationStatus: 'pending', createdAt: new Date(), updatedAt: new Date() });
     return NextResponse.json({ id, saved: true }, { status: 201 });
   } catch { return NextResponse.json({ error: 'Your seller request could not be saved right now.' }, { status: 503 }); }
 }

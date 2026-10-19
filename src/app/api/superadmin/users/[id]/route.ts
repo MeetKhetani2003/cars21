@@ -3,11 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { hashPassword, isSuperAdminRequest } from '../../../../../server/auth';
 import { getDb } from '../../../../../server/mongodb';
+import { vendorSlug } from '../../../../../lib/vendor-slug';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 type Context = { params: Promise<{ id: string }> };
-const accountTypeSchema = z.object({ accountType: z.enum(['admin', 'vendor']), status: z.enum(['active', 'suspended']).optional(), name: z.string().trim().min(2).max(100).optional(), email: z.string().trim().email().max(160).optional(), businessName: z.string().trim().min(2).max(120).optional(), phone: z.string().trim().min(8).max(24).optional(), city: z.string().trim().min(2).max(80).optional() });
+const accountTypeSchema = z.object({ accountType: z.enum(['admin', 'vendor']), status: z.enum(['active', 'suspended']).optional(), name: z.string().trim().min(2).max(100).optional(), email: z.string().trim().email().max(160).optional(), businessName: z.string().trim().min(2).max(120).optional(), phone: z.string().trim().min(8).max(24).optional(), inquiryEmail: z.string().trim().email().max(160).optional(), inquiryWhatsApp: z.string().trim().min(8).max(24).regex(/^\+?[\d\s()-]+$/).optional(), city: z.string().trim().min(2).max(80).optional(), area: z.string().trim().max(120).optional(), address: z.string().trim().max(240).optional(), description: z.string().trim().max(1200).optional(), website: z.string().trim().max(240).optional().refine(value => value === undefined || value === '' || /^https?:\/\//i.test(value), 'Enter a website starting with https://.'), workingHours: z.string().trim().max(160).optional(), establishedYear: z.number().int().min(1900).max(2100).nullable().optional(), specialties: z.array(z.string().trim().min(1).max(40)).max(12).optional(), logoPhotoId: z.string().max(80).optional(), coverPhotoId: z.string().max(80).optional(), shopPhotoIds: z.array(z.string().max(80)).max(8).optional() });
 
 export async function PATCH(request: NextRequest, context: Context) {
   if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required.' }, { status: 403 });
@@ -25,9 +26,13 @@ export async function PATCH(request: NextRequest, context: Context) {
     }
     const { accountType: _accountType, ...changes } = parsed.data;
     if (changes.email) changes.email = changes.email.toLowerCase();
-    const result = await collection.updateOne({ id }, { $set: { ...changes, updatedAt: new Date() } });
+    const updates: Record<string, unknown> = { ...changes, updatedAt: new Date() };
+    if (parsed.data.accountType === 'vendor' && changes.businessName) updates.slug = vendorSlug(changes.businessName, id);
+    const result = await collection.updateOne({ id }, { $set: updates });
     if (!result.matchedCount) return NextResponse.json({ error: 'Account not found.' }, { status: 404 });
-    return NextResponse.json({ ok: true });
+    const currentVendor = parsed.data.accountType === 'vendor' ? await collection.findOne({ id }, { projection: { businessName: 1, name: 1 } }) : null;
+    const vendorProfileUrl = currentVendor ? `/dealers/${vendorSlug(String(currentVendor.businessName ?? currentVendor.name ?? 'Dealer'), id)}` : undefined;
+    return NextResponse.json({ ok: true, profileUrl: vendorProfileUrl });
   } catch { return NextResponse.json({ error: 'Account could not be updated.' }, { status: 503 }); }
 }
 

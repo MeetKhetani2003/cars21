@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cars as demoCars } from '../../../../data';
+import { vendorSlug as makeVendorSlug } from '../../../../lib/vendor-slug';
 import { isAdminRequest, isVendorSession } from '../../../../server/auth';
 import { getDb } from '../../../../server/mongodb';
 
@@ -14,7 +15,14 @@ export async function GET(_request: NextRequest, context: Context) {
     if (car) {
       if ((car.status && car.status !== 'active') && !isAdminRequest(_request)) return NextResponse.json({ error: 'Car not found.' }, { status: 404 });
       const imageId = car.imageId ? String(car.imageId) : '';
-      return NextResponse.json({ car: { ...car, _id: undefined, imageId: undefined, image: imageId ? `/api/photos/${encodeURIComponent(imageId)}` : car.image } });
+      const vendorId = String(car.vendorId ?? '');
+      const vendor = vendorId ? await (await getDb()).collection<Record<string, unknown>>('vendors').findOne({ id: vendorId, status: 'active' }, { projection: { id: 1, name: 1, businessName: 1 } }) : null;
+      const vendorName = String(vendor?.businessName ?? vendor?.name ?? '');
+      const { sellerPhone: _sellerPhone, sellerWhatsApp: _sellerWhatsApp, ...publicCar } = car;
+      const approvedInspection = car.inspectionReviewStatus === 'approved' ? car.inspection : undefined;
+      const { inspection: _inspection, inspectionReviewNote: _reviewNote, inspectionReviewedBy: _reviewedBy, inspectionReviewedAt: _reviewedAt, ...safeCar } = publicCar;
+      const photos = Array.isArray(car.photoIds) ? car.photoIds.filter((photoId): photoId is string => typeof photoId === 'string').map(photoId => `/api/photos/${encodeURIComponent(photoId)}`) : [];
+      return NextResponse.json({ car: { ...safeCar, inspection: approvedInspection, inspectionReviewStatus: car.inspectionReviewStatus || '', sellerPhone: '', sellerWhatsApp: '', vendorName, vendorSlug: vendor ? makeVendorSlug(vendorName, vendorId) : '', _id: undefined, imageId: undefined, photoIds: undefined, photos, image: imageId ? `/api/photos/${encodeURIComponent(imageId)}` : car.image } });
     }
   } catch {
     if (process.env.NODE_ENV === 'production') return NextResponse.json({ error: 'Inventory is temporarily unavailable.' }, { status: 503 });
