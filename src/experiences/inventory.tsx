@@ -1,14 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from '../lib/navigation';
-import { Search, Filter, SlidersHorizontal, X, ChevronRight } from 'lucide-react';
+import { Search, Filter, SlidersHorizontal, X, ChevronRight, ShieldCheck, Sparkles, Fuel, Settings2, CarFront, IndianRupee, RotateCcw } from 'lucide-react';
 import type { Car } from '../data';
 import { formatShort } from '../data';
 import { CarCard } from '../components/CarCard';
-import { PageHero } from '../components/shared';
 
 type InventoryResponse = { cars: Car[]; count: number; source: 'mongodb' | 'demo'; error?: string };
 type FilterOptions = { cities: string[]; makes: string[]; models: string[]; fuels: string[]; bodyTypes: string[]; transmissions: string[]; minPrice: number; maxPrice: number; source: string };
 const emptyOptions: FilterOptions = { cities: [], makes: [], models: [], fuels: [], bodyTypes: [], transmissions: [], minPrice: 0, maxPrice: 0, source: '' };
+
+const POPULAR_MAKES = ['Maruti Suzuki', 'Hyundai', 'Tata', 'Honda', 'Mahindra', 'Toyota', 'Kia', 'BMW'];
+const BUDGET_PRESETS = [
+  { label: 'Under ₹5 Lakh', min: 0, max: 500000 },
+  { label: '₹5L - ₹10 Lakh', min: 500000, max: 1000000 },
+  { label: '₹10L - ₹15 Lakh', min: 1000000, max: 1500000 },
+  { label: 'Above ₹15 Lakh', min: 1500000, max: 0 },
+];
+const BODY_TYPES = ['SUV', 'Sedan', 'Hatchback', 'Luxury'];
 
 export function InventoryPage() {
   const { city: routeCity } = useParams<{ city?: string }>();
@@ -84,38 +92,398 @@ export function InventoryPage() {
   const sliderValue = Math.min(maxPrice || sliderMax, sliderMax);
   const minSliderValue = minPrice || options.minPrice;
   const maxSliderMinimum = Math.min(minSliderValue, options.maxPrice || minSliderValue);
-  const filters = <>
-    <label className="filter-label">City<select value={city} onChange={event => setCity(event.target.value)}><option value="">All cities</option>{options.cities.map(value => <option key={value}>{value}</option>)}</select></label>
-    <label className="filter-label">Make<select value={make} onChange={event => { setMake(event.target.value); setModel(''); }}><option value="">All makes</option>{options.makes.map(value => <option key={value}>{value}</option>)}</select></label>
-    <label className="filter-label">Model<select value={model} onChange={event => setModel(event.target.value)}><option value="">All models</option>{options.models.map(value => <option key={value}>{value}</option>)}</select></label>
-    <label className="filter-label">Fuel<select value={fuel} onChange={event => setFuel(event.target.value)}><option value="">Any fuel</option>{options.fuels.map(value => <option key={value}>{value}</option>)}</select></label>
-    <label className="filter-label">Body type<select value={body} onChange={event => setBody(event.target.value)}><option value="">Any body type</option>{options.bodyTypes.map(value => <option key={value}>{value}</option>)}</select></label>
-    <label className="filter-label">Transmission<select value={transmission} onChange={event => setTransmission(event.target.value)}><option value="">Any transmission</option>{options.transmissions.map(value => <option key={value}>{value}</option>)}</select></label>
-    <label className="filter-label range-label">Minimum price <b>{minPrice ? formatShort(minPrice) : 'Any price'}</b><input type="range" min={options.minPrice} max={sliderMax} step={Math.max(10000, Math.round((sliderMax - options.minPrice) / 100))} value={minSliderValue} disabled={options.maxPrice <= options.minPrice} aria-label="Set minimum car price" onChange={event => { const value = Number(event.target.value); setMinPrice(value <= options.minPrice ? 0 : value); if (maxPrice && value >= maxPrice) setMaxPrice(0); }}/><span className="range-minmax"><small>{options.minPrice ? formatShort(options.minPrice) : '—'}</small><small>{options.maxPrice ? `${formatShort(options.maxPrice)}+` : '—'}</small></span></label>
-    <label className="filter-label range-label">Maximum price <b>{maxPrice ? formatShort(maxPrice) : 'Any price'}</b><input type="range" min={maxSliderMinimum} max={sliderMax} step={Math.max(10000, Math.round((sliderMax - options.minPrice) / 100))} value={Math.max(maxSliderMinimum, sliderValue)} disabled={options.maxPrice <= options.minPrice} aria-label="Set maximum car price" onChange={event => { const value = Number(event.target.value); setMaxPrice(value >= options.maxPrice ? 0 : value); }}/><span className="range-minmax"><small>{formatShort(maxSliderMinimum)}</small><small>{options.maxPrice ? `${formatShort(options.maxPrice)}+` : '—'}</small></span></label>
-  </>;
+
+  const applyBudgetPreset = (min: number, max: number) => {
+    setMinPrice(min);
+    setMaxPrice(max);
+  };
+
+  const filtersContent = (
+    <div className="filter-panel-inner">
+      <div className="filter-group">
+        <label className="filter-group-title">
+          <span>City / Location</span>
+          {city && <button type="button" className="filter-reset-mini" onClick={() => setCity('')}>Clear</button>}
+        </label>
+        <div className="filter-select-wrap">
+          <select value={city} onChange={event => setCity(event.target.value)} className="filter-styled-select">
+            <option value="">All Indian Cities</option>
+            {options.cities.map(value => <option key={value} value={value}>{value}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="filter-group">
+        <label className="filter-group-title">
+          <span>Brand / Make</span>
+          {make && <button type="button" className="filter-reset-mini" onClick={() => { setMake(''); setModel(''); }}>Clear</button>}
+        </label>
+        <div className="filter-select-wrap">
+          <select value={make} onChange={event => { setMake(event.target.value); setModel(''); }} className="filter-styled-select">
+            <option value="">All Brands</option>
+            {options.makes.map(value => <option key={value} value={value}>{value}</option>)}
+          </select>
+        </div>
+        <div className="filter-quick-chips">
+          {POPULAR_MAKES.slice(0, 6).map(b => (
+            <button 
+              key={b} 
+              type="button" 
+              className={`chip-toggle ${make.toLowerCase() === b.toLowerCase() ? 'active' : ''}`}
+              onClick={() => {
+                if (make.toLowerCase() === b.toLowerCase()) { setMake(''); setModel(''); }
+                else { setMake(b); setModel(''); }
+              }}
+            >
+              {b}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {make && (
+        <div className="filter-group">
+          <label className="filter-group-title">
+            <span>Model ({make})</span>
+            {model && <button type="button" className="filter-reset-mini" onClick={() => setModel('')}>Clear</button>}
+          </label>
+          <div className="filter-select-wrap">
+            <select value={model} onChange={event => setModel(event.target.value)} className="filter-styled-select">
+              <option value="">All Models</option>
+              {options.models.map(value => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </div>
+        </div>
+      )}
+
+      <div className="filter-group">
+        <label className="filter-group-title">
+          <span>Budget Range</span>
+          {(minPrice > 0 || maxPrice > 0) && (
+            <button type="button" className="filter-reset-mini" onClick={() => { setMinPrice(0); setMaxPrice(0); }}>Clear</button>
+          )}
+        </label>
+        <div className="budget-presets-grid">
+          {BUDGET_PRESETS.map((preset, idx) => {
+            const isActive = minPrice === preset.min && maxPrice === preset.max;
+            return (
+              <button
+                key={idx}
+                type="button"
+                className={`budget-preset-btn ${isActive ? 'active' : ''}`}
+                onClick={() => applyBudgetPreset(preset.min, preset.max)}
+              >
+                {preset.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="filter-sliders-wrap">
+          <div className="range-bubble-row">
+            <span>Min: <b>{minPrice ? formatShort(minPrice) : 'Any'}</b></span>
+            <span>Max: <b>{maxPrice ? formatShort(maxPrice) : `${formatShort(sliderMax)}+`}</b></span>
+          </div>
+          <input 
+            type="range" 
+            min={options.minPrice} 
+            max={sliderMax} 
+            step={Math.max(10000, Math.round((sliderMax - options.minPrice) / 100))} 
+            value={minSliderValue} 
+            disabled={options.maxPrice <= options.minPrice} 
+            aria-label="Set minimum car price" 
+            onChange={event => { 
+              const value = Number(event.target.value); 
+              setMinPrice(value <= options.minPrice ? 0 : value); 
+              if (maxPrice && value >= maxPrice) setMaxPrice(0); 
+            }}
+            className="filter-slider"
+          />
+          <input 
+            type="range" 
+            min={maxSliderMinimum} 
+            max={sliderMax} 
+            step={Math.max(10000, Math.round((sliderMax - options.minPrice) / 100))} 
+            value={Math.max(maxSliderMinimum, sliderValue)} 
+            disabled={options.maxPrice <= options.minPrice} 
+            aria-label="Set maximum car price" 
+            onChange={event => { 
+              const value = Number(event.target.value); 
+              setMaxPrice(value >= options.maxPrice ? 0 : value); 
+            }}
+            className="filter-slider"
+          />
+        </div>
+      </div>
+
+      <div className="filter-group">
+        <label className="filter-group-title">
+          <span>Fuel Type</span>
+          {fuel && <button type="button" className="filter-reset-mini" onClick={() => setFuel('')}>Clear</button>}
+        </label>
+        <div className="filter-chips-grid">
+          {['Petrol', 'Diesel', 'CNG', 'Electric'].map(f => (
+            <button
+              key={f}
+              type="button"
+              className={`chip-toggle ${fuel.toLowerCase() === f.toLowerCase() ? 'active' : ''}`}
+              onClick={() => setFuel(fuel.toLowerCase() === f.toLowerCase() ? '' : f)}
+            >
+              <Fuel size={12} /> {f}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="filter-group">
+        <label className="filter-group-title">
+          <span>Transmission</span>
+          {transmission && <button type="button" className="filter-reset-mini" onClick={() => setTransmission('')}>Clear</button>}
+        </label>
+        <div className="filter-chips-grid">
+          {['Manual', 'Automatic'].map(t => (
+            <button
+              key={t}
+              type="button"
+              className={`chip-toggle ${transmission.toLowerCase() === t.toLowerCase() ? 'active' : ''}`}
+              onClick={() => setTransmission(transmission.toLowerCase() === t.toLowerCase() ? '' : t)}
+            >
+              <Settings2 size={12} /> {t}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="filter-group">
+        <label className="filter-group-title">
+          <span>Body Type</span>
+          {body && <button type="button" className="filter-reset-mini" onClick={() => setBody('')}>Clear</button>}
+        </label>
+        <div className="filter-chips-grid">
+          {BODY_TYPES.map(b => (
+            <button
+              key={b}
+              type="button"
+              className={`chip-toggle ${body.toLowerCase() === b.toLowerCase() ? 'active' : ''}`}
+              onClick={() => setBody(body.toLowerCase() === b.toLowerCase() ? '' : b)}
+            >
+              <CarFront size={12} /> {b}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   const chips = [
-    ...(query ? [{ label: query, clear: () => setQuery('') }] : []), ...(city ? [{ label: city, clear: () => setCity('') }] : []),
-    ...(make ? [{ label: make, clear: () => { setMake(''); setModel(''); } }] : []), ...(model ? [{ label: model, clear: () => setModel('') }] : []),
-    ...(fuel ? [{ label: fuel, clear: () => setFuel('') }] : []), ...(body ? [{ label: body, clear: () => setBody('') }] : []),
+    ...(query ? [{ label: `"${query}"`, clear: () => setQuery('') }] : []),
+    ...(city ? [{ label: `City: ${city}`, clear: () => setCity('') }] : []),
+    ...(make ? [{ label: `Brand: ${make}`, clear: () => { setMake(''); setModel(''); } }] : []),
+    ...(model ? [{ label: `Model: ${model}`, clear: () => setModel('') }] : []),
+    ...(fuel ? [{ label: fuel, clear: () => setFuel('') }] : []),
+    ...(body ? [{ label: body, clear: () => setBody('') }] : []),
     ...(transmission ? [{ label: transmission, clear: () => setTransmission('') }] : []),
     ...(minPrice ? [{ label: `From ${formatShort(minPrice)}`, clear: () => setMinPrice(0) }] : []),
     ...(maxPrice ? [{ label: `Up to ${formatShort(maxPrice)}`, clear: () => setMaxPrice(0) }] : []),
   ];
 
-  return <>
-    <PageHero eyebrow="THE MARKETPLACE" title="Find your next car." copy="Search by city, make or model. Narrow the results by real listing prices and vehicle details."/>
-    <section className="container listing-section">
-      <div className="listing-toolbar"><div><div className="crumb"><Link href="/">Home</Link><ChevronRight size={14}/><span>Buy cars</span></div><h2>Used cars for sale</h2><p role="status" aria-live="polite">{loading ? 'Searching cars…' : `${result.length} ${result.length === 1 ? 'car' : 'cars'} match your search`}</p></div>
-        <div className="listing-search"><Search size={17}/><input aria-label="Search make, model, variant or city" placeholder="Search make, model, variant or city" value={query} onChange={event => setQuery(event.target.value)}/>{query && <button aria-label="Clear search" onClick={() => setQuery('')}><X size={14}/></button>}</div>
-        <button className="button button-outline mobile-filter-button" onClick={() => setMobileFilter(true)}><SlidersHorizontal size={16}/> Filters</button>
-        <label className="sort-control">Sort by <select value={sort} onChange={event => setSort(event.target.value)}><option value="recommended">Recommended</option><option value="price-asc">Price: low to high</option><option value="price-desc">Price: high to low</option><option value="newest">Newest first</option></select></label>
-      </div>
-      <div className="active-filters">{chips.map((chip, index) => <button key={`${chip.label}-${index}`} className="filter-chip" onClick={chip.clear}>{chip.label}<X size={13}/></button>)}{chips.length ? <button className="clear-filters" onClick={clear}>Clear all</button> : <span className="demo-inline"><i/>{source === 'mongodb' ? 'Live Cars21 listings' : source === 'demo' ? 'Sample listings' : 'Filters match current listings'}</span>}</div>
-      <div className="listing-layout"><aside className="filter-panel"><div className="filter-heading"><span><Filter size={16}/> Refine your search</span><button onClick={clear}>Reset</button></div>{filters}<div className="filter-note">Filter choices come from active vehicle listings.</div></aside>
-        <div className="listing-results">{error ? <div className="empty-state"><span className="empty-icon"><Search/></span><h3>We couldn’t load cars</h3><p>{error}</p><button className="button button-dark" onClick={() => setRetry(value => value + 1)}>Try again</button></div> : loading ? <div className="inventory-loading" role="status"><span className="loading-spinner"/> Searching cars that match…</div> : result.length ? <div className="car-grid listing-grid">{result.map(car => <CarCard car={car} key={car.id}/>)}</div> : <div className="empty-state"><span className="empty-icon"><Search/></span><h3>No cars match these filters</h3><p>Change your city, model or price, or clear filters to see more vehicles.</p><button className="button button-dark" onClick={clear}>Clear filters</button></div>}</div>
-      </div>
-    </section>
-    {mobileFilter && <div className="modal-backdrop" onClick={() => setMobileFilter(false)}><section className="mobile-filter-modal" role="dialog" aria-modal="true" aria-label="Filter car listings" onClick={event => event.stopPropagation()}><div className="modal-head"><b>Filter cars</b><button aria-label="Close filters" onClick={() => setMobileFilter(false)}><X/></button></div>{filters}<button className="button button-dark button-full" onClick={() => setMobileFilter(false)}>Show {result.length} cars</button></section></div>}
-  </>;
+  return (
+    <div className="inventory-experience-page">
+      {/* Luxury Marketplace Header Strip */}
+      <section className="marketplace-header-strip">
+        <div className="container">
+          <div className="market-header-breadcrumbs">
+            <Link href="/" className="market-crumb-link">Home</Link>
+            <ChevronRight size={13} />
+            <span>Buy Used Cars</span>
+            {city && (
+              <>
+                <ChevronRight size={13} />
+                <span className="current-crumb">{city}</span>
+              </>
+            )}
+          </div>
+          <div className="market-header-content">
+            <div>
+              <span className="market-badge-pill">
+                <ShieldCheck size={14} /> 100% Verified Quality Fleet
+              </span>
+              <h1 className="market-header-title">
+                {city ? `Verified Used Cars in ${city}` : 'Find Your Certified Pre-Owned Car'}
+              </h1>
+              <p className="market-header-sub">
+                Every vehicle includes a 140-point digital inspection, 7-day money-back guarantee, and 1-year comprehensive warranty.
+              </p>
+            </div>
+            <div className="market-quick-stats">
+              <div className="stat-pill">
+                <b>{result.length}</b>
+                <span>Cars Available</span>
+              </div>
+              <div className="stat-pill">
+                <b>140+</b>
+                <span>Points Checked</span>
+              </div>
+              <div className="stat-pill highlight">
+                <b>7-Day</b>
+                <span>Money Back</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Main Inventory Section */}
+      <section className="container inventory-body-layout">
+        {/* Top Control Toolbar */}
+        <div className="inventory-toolbar-card">
+          <div className="toolbar-search-box">
+            <Search size={18} className="search-icon-svg" />
+            <input 
+              aria-label="Search make, model, variant or city" 
+              placeholder="Search by brand, model, city, e.g. Hyundai Creta, Honda City..." 
+              value={query} 
+              onChange={event => setQuery(event.target.value)}
+              className="toolbar-search-input"
+            />
+            {query && (
+              <button aria-label="Clear search" onClick={() => setQuery('')} className="search-clear-btn">
+                <X size={15} />
+              </button>
+            )}
+          </div>
+
+          <div className="toolbar-controls-right">
+            <button className="button button-outline mobile-filter-button" onClick={() => setMobileFilter(true)}>
+              <SlidersHorizontal size={15} /> 
+              <span>Filters {chips.length > 0 && `(${chips.length})`}</span>
+            </button>
+
+            <div className="sort-dropdown-box">
+              <span className="sort-label-text">Sort by:</span>
+              <select value={sort} onChange={event => setSort(event.target.value)} className="sort-select-input">
+                <option value="recommended">Cars21 Recommended</option>
+                <option value="price-asc">Price: Low to High</option>
+                <option value="price-desc">Price: High to Low</option>
+                <option value="newest">Newest Listed First</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Active Filters Row */}
+        {(chips.length > 0 || source) && (
+          <div className="active-filters-bar">
+            <div className="active-chips-wrap">
+              {chips.map((chip, index) => (
+                <button key={`${chip.label}-${index}`} className="active-filter-chip" onClick={chip.clear}>
+                  <span>{chip.label}</span>
+                  <X size={13} />
+                </button>
+              ))}
+              {chips.length > 0 && (
+                <button className="clear-all-chips-btn" onClick={clear}>
+                  <RotateCcw size={12} /> Clear all filters
+                </button>
+              )}
+            </div>
+            <span className="inventory-source-badge">
+              <span className="status-live-dot" />
+              {source === 'mongodb' ? 'Live Cars21 Network' : 'Certified Dealer Inventory'}
+            </span>
+          </div>
+        )}
+
+        {/* Main 2-Column Grid (Sticky Filter Sidebar + Car Cards) */}
+        <div className="inventory-main-grid">
+          {/* Desktop Filter Sidebar */}
+          <aside className="inventory-desktop-sidebar">
+            <div className="sidebar-header-row">
+              <span className="sidebar-title">
+                <Filter size={16} /> Filters
+              </span>
+              {chips.length > 0 && (
+                <button onClick={clear} className="sidebar-reset-btn">
+                  Reset all
+                </button>
+              )}
+            </div>
+            {filtersContent}
+          </aside>
+
+          {/* Results Column */}
+          <div className="inventory-results-col">
+            {error ? (
+              <div className="inventory-empty-card">
+                <span className="empty-card-icon"><Search size={28} /></span>
+                <h3>Unable to Load Vehicles</h3>
+                <p>{error}</p>
+                <button className="button button-primary" onClick={() => setRetry(value => value + 1)}>
+                  Retry Search
+                </button>
+              </div>
+            ) : loading ? (
+              <div className="inventory-loading-grid">
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                  <div key={i} className="car-card-skeleton">
+                    <div className="skeleton-photo shimmer" />
+                    <div className="skeleton-body">
+                      <div className="skeleton-line shimmer title" />
+                      <div className="skeleton-line shimmer sub" />
+                      <div className="skeleton-line shimmer specs" />
+                      <div className="skeleton-line shimmer price" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : result.length > 0 ? (
+              <div className="car-grid inventory-card-grid">
+                {result.map(car => (
+                  <CarCard car={car} key={car.id} />
+                ))}
+              </div>
+            ) : (
+              <div className="inventory-empty-card">
+                <div className="empty-card-illustration">
+                  <CarFront size={48} />
+                </div>
+                <h3>No Matching Cars Found</h3>
+                <p>We couldn't find vehicles matching your selected criteria. Try adjusting your filters or browsing all active stock.</p>
+                <div className="empty-quick-actions">
+                  <button className="button button-primary" onClick={clear}>
+                    Reset All Filters
+                  </button>
+                  <Link href="/sell-car" className="button button-outline">
+                    Request a Vehicle
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Mobile Filters Drawer */}
+      {mobileFilter && (
+        <div className="modal-backdrop" onClick={() => setMobileFilter(false)}>
+          <section className="mobile-filter-modal" role="dialog" aria-modal="true" aria-label="Filter car listings" onClick={event => event.stopPropagation()}>
+            <div className="modal-head">
+              <span className="modal-title-bold"><Filter size={17} /> Filter Vehicles</span>
+              <button aria-label="Close filters" onClick={() => setMobileFilter(false)} className="modal-close-icon">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="mobile-filter-body">
+              {filtersContent}
+            </div>
+            <div className="mobile-filter-footer">
+              <button className="button button-outline" onClick={clear}>Reset</button>
+              <button className="button button-orange button-full" onClick={() => setMobileFilter(false)}>
+                Show {result.length} Cars
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+    </div>
+  );
 }

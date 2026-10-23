@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, MapPin, ChevronDown, Phone, ArrowRight, CarFront, UserRound, X, Home, Search, HandCoins, FileCheck2, CircleUserRound } from 'lucide-react';
+import { Menu, MapPin, ChevronDown, Phone, ArrowRight, CarFront, UserRound, X, Home, Search, HandCoins, FileCheck2, CircleUserRound, Heart } from 'lucide-react';
 import { Link } from './lib/navigation';
 import { useBuyerExperience } from './components/BuyerExperienceProvider';
 import { ManagementPanel } from './experiences/management';
@@ -11,18 +11,134 @@ import { HomePage, InventoryPage, CarPage, SellPage, VehicleDetailsPage, Valuati
 export function SiteHeader(){
   const [open,setOpen]=useState(false);
   const [city,setCity]=useState('Bengaluru');
-  const {buyer,openLoginModal}=useBuyerExperience();
+  const {buyer,openLoginModal,wishlistIds}=useBuyerExperience();
   const close=()=>setOpen(false);
-  return <>
-    <div className="utility"><div className="container utility-inner"><span><MapPin size={13}/><select aria-label="Choose city" value={city} onChange={e=>setCity(e.target.value)}><option>Bengaluru</option><option>Mumbai</option><option>Delhi NCR</option><option>Hyderabad</option><option>Pune</option><option>Chennai</option></select><ChevronDown size={12}/></span><div className="utility-links"><Link href="/help">Help &amp; support</Link><Link href="/account">Track your booking</Link><a href="tel:18001212121"><Phone size={13}/> 1800 121 2121</a></div></div></div>
-    <header className="site-header"><div className="container nav-wrap"><Link href="/" className="wordmark" aria-label="Cars21 home" onClick={close}><span className="logo-mark"><CarFront size={20}/></span><span>CARS<span>21</span></span></Link>
-      <nav className={open?'main-nav open':'main-nav'} aria-label="Main navigation"><Link href="/buy-cars" onClick={close}>Buy cars</Link><Link href="/dealers" onClick={close}>Dealers</Link><Link href="/sell-car" onClick={close}>Sell your car</Link><Link href="/about-us" onClick={close}>About us</Link><Link href="/pricing" onClick={close}>Pricing</Link><Link href="/contact-us" onClick={close}>Contact us</Link><div className="mobile-nav-extra"><Link href="/help" onClick={close}>Help &amp; support</Link></div></nav>
-      <div className="nav-actions">{buyer?<Link href="/account" className="login-link"><UserRound size={17}/><span>{buyer.name.split(' ')[0]}</span></Link>:<button type="button" onClick={()=>openLoginModal()} className="login-link"><UserRound size={17}/><span>Log in</span></button>}<Link href="/sell-car" className="button button-dark button-small">Sell your car <ArrowRight size={15}/></Link></div><button onClick={()=>setOpen(!open)} className="mobile-menu" aria-label={open?'Close navigation':'Open navigation'}>{open?<X/>:<Menu/>}</button>
-    </div></header>
-  </>;
+  return (
+    <header className="site-header">
+      <div className="container nav-wrap">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <Link href="/" className="wordmark" aria-label="Cars21 home" onClick={close}>
+            <span className="logo-mark" style={{ background: '#0f172a', color: '#ff5c00', border: '1px solid rgba(255, 92, 0, 0.35)' }}>
+              <CarFront size={20}/>
+            </span>
+            <span className="wordmark-text" style={{ color: '#0f172a', fontWeight: 900 }}>
+              CARS<span className="logo-accent" style={{ color: '#ff5c00', fontWeight: 900 }}>21</span>
+            </span>
+          </Link>
+          <div className="nav-location-pill">
+            <MapPin size={14}/>
+            <select 
+              aria-label="Choose city" 
+              value={city} 
+              onChange={e=>setCity(e.target.value)} 
+              style={{ border: 'none', background: 'transparent', outline: 'none', fontWeight: 700, fontSize: '12px', cursor: 'pointer', color: '#1e293b' }}
+            >
+              <option>Bengaluru</option>
+              <option>Mumbai</option>
+              <option>Delhi NCR</option>
+              <option>Hyderabad</option>
+              <option>Pune</option>
+              <option>Chennai</option>
+            </select>
+            <ChevronDown size={12}/>
+          </div>
+        </div>
+
+        <nav className={open?'main-nav open':'main-nav'} aria-label="Main navigation">
+          <Link href="/buy-cars" onClick={close} className="nav-item-link">Buy Cars</Link>
+          <Link href="/sell-car/valuation" onClick={close} className="nav-item-link">Car Valuation</Link>
+          <Link href="/loans24" onClick={close} className="nav-item-link">Car Loans</Link>
+          <Link href="/dealers" onClick={close} className="nav-item-link">Dealers</Link>
+          <Link href="/dealer-auctions" onClick={close} className="nav-item-link">Auctions</Link>
+          <div className="mobile-nav-extra">
+            <Link href="/sell-car" onClick={close}>Sell your car</Link>
+            <Link href="/pricing" onClick={close}>Dealer plans</Link>
+            <Link href="/about-us" onClick={close}>About us</Link>
+            <Link href="/help" onClick={close}>Help &amp; support</Link>
+            <Link href="/become-a-dealer" onClick={close}>Join dealer network</Link>
+          </div>
+        </nav>
+
+        <div className="nav-actions">
+          <Link href="/account" className="nav-wishlist-btn" aria-label="Saved vehicles">
+            <Heart size={18}/>
+            {wishlistIds?.length > 0 && <span className="nav-wishlist-counter">{wishlistIds.length}</span>}
+          </Link>
+
+          {buyer ? (
+            <Link href="/account" className="login-link">
+              <UserRound size={16}/>
+              <span>{buyer.name.split(' ')[0]}</span>
+            </Link>
+          ) : (
+            <button type="button" onClick={()=>openLoginModal()} className="login-link">
+              <UserRound size={16}/>
+              <span>Log in</span>
+            </button>
+          )}
+
+          <Link href="/sell-car" className="button button-orange button-small nav-sell-cta">
+            Sell Car <ArrowRight size={14}/>
+          </Link>
+        </div>
+
+        <button onClick={()=>setOpen(!open)} className="mobile-menu" aria-label={open?'Close navigation':'Open navigation'}>
+          {open?<X/>:<Menu/>}
+        </button>
+      </div>
+    </header>
+  );
 }
 
-export function SiteFooter(){return <footer className="site-footer"><div className="container"><div className="footer-top"><div className="footer-brand"><Link href="/" className="wordmark"><span className="logo-mark"><CarFront size={20}/></span><span>CARS<span>21</span></span></Link><p>A better way to buy and sell your next car.</p><div className="footer-demo"><span className="status-dot"/> Demo experience · Sample data</div></div><div className="footer-col"><h4>Discover</h4><Link href="/buy-cars">Buy used cars</Link><Link href="/dealers">Find dealers</Link><Link href="/pricing">Dealer pricing</Link></div><div className="footer-col"><h4>Sell with us</h4><Link href="/sell-car">Sell your car</Link><Link href="/sell-car/valuation">Check valuation</Link><Link href="/dealers">Dealer partners</Link></div><div className="footer-col"><h4>Company</h4><Link href="/about-us">About Cars21</Link><Link href="/help">Help centre</Link><Link href="/account">Track a booking</Link><Link href="/contact-us">Contact us</Link></div></div><div className="footer-bottom"><span>© 2026 Cars21 Mobility. All rights reserved.</span><span>Built for a more confident car journey.</span></div></div></footer>}
+export function SiteFooter(){
+  return <footer className="site-footer">
+    <div className="container">
+      <div className="footer-top">
+        <div className="footer-brand">
+          <Link href="/" className="wordmark wordmark-footer">
+            <span className="logo-mark" style={{ background: '#1e293b', color: '#ff5c00', border: '1px solid rgba(255, 92, 0, 0.45)' }}>
+              <CarFront size={20}/>
+            </span>
+            <span className="wordmark-text" style={{ color: '#ffffff', fontWeight: 900 }}>
+              CARS<span className="logo-accent" style={{ color: '#ff5c00', fontWeight: 900 }}>21</span>
+            </span>
+          </Link>
+          <p>The enterprise car marketplace, digital inspection standard, and dealer exchange platform.</p>
+          <div className="footer-demo">
+            <span className="status-dot"/> Platform Operational · Real-time Market Data
+          </div>
+        </div>
+        <div className="footer-col">
+          <h4>Marketplace</h4>
+          <Link href="/buy-cars">Browse used cars</Link>
+          <Link href="/sell-car">Instant cash offer</Link>
+          <Link href="/sell-car/valuation">AI Valuation engine</Link>
+          <Link href="/inspection">140-point diagnostics</Link>
+        </div>
+        <div className="footer-col">
+          <h4>Enterprise &amp; Dealers</h4>
+          <Link href="/become-a-dealer">Dealer partner program</Link>
+          <Link href="/dealer-auctions">Live wholesale auctions</Link>
+          <Link href="/dealers">Dealer showroom directory</Link>
+          <Link href="/pricing">Dealer subscription plans</Link>
+          <Link href="/vendor">Dealer CRM login</Link>
+        </div>
+        <div className="footer-col">
+          <h4>Platform &amp; Help</h4>
+          <Link href="/loans24">Loans24 financing</Link>
+          <Link href="/loans24/emi-calculator">EMI calculator</Link>
+          <Link href="/about-us">About Cars21 Mobility</Link>
+          <Link href="/help">Knowledge base &amp; FAQs</Link>
+          <Link href="/contact-us">Contact 24/7 support</Link>
+        </div>
+      </div>
+      <div className="footer-bottom">
+        <span>© 2026 Cars21 Mobility Technologies Pvt. Ltd. All rights reserved.</span>
+        <span>Standardized AI vehicle diagnostics &amp; verified automotive marketplace.</span>
+      </div>
+    </div>
+  </footer>;
+}
 
 export function MobileBottomNav(){
   const pathname=usePathname();
