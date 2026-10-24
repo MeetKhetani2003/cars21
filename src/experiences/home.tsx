@@ -615,7 +615,7 @@ export function HomePage() {
             <span><Check /> Inspection locks in guaranteed offer</span>
           </div>
 
-          <div style={{ marginTop: '28px', display: 'flex', gap: '14px' }}>
+          <div className="val-sim-actions">
             <Link className="button button-dark" href="/sell-car">
               Book Free Inspection <ArrowRight size={16} />
             </Link>
