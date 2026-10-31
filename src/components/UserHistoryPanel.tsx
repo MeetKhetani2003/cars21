@@ -5,7 +5,20 @@ import { ArrowLeft, CalendarDays, CarFront, Clock3, History, Search, Store, User
 
 type Client = { userId: string; name: string; email: string; lastSeen: string; recentCount: number; historyCount: number; totalCount: number };
 type Event = { id: string; action: string; targetType: string; targetLabel?: string; carId?: string; carLabel?: string; vendorId?: string; vendorName?: string; createdAt: string };
-const actionLabels: Record<string, string> = { search: 'Searched Cars21', car_view: 'Viewed a car', vendor_view: 'Opened a dealer page', vendor_save: 'Saved a dealer', vendor_unsave: 'Removed a saved dealer', reveal_phone: 'Revealed a contact number', inquiry: 'Sent a car enquiry', wishlist_add: 'Added a car to wishlist', wishlist_remove: 'Removed a car from wishlist' };
+const actionLabels: Record<string, string> = { 
+  search: 'Searched Cars21', 
+  car_view: 'Viewed a car', 
+  test_drive: 'Scheduled a test drive',
+  express_interest: 'Expressed interest / Offer',
+  emi_calculate: 'Calculated loan EMI',
+  vendor_view: 'Opened a dealer page', 
+  vendor_save: 'Saved a dealer', 
+  vendor_unsave: 'Removed a saved dealer', 
+  reveal_phone: 'Revealed a contact number', 
+  inquiry: 'Sent a car enquiry', 
+  wishlist_add: 'Added a car to wishlist', 
+  wishlist_remove: 'Removed a car from wishlist' 
+};
 
 async function getJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store' });

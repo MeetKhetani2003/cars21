@@ -18,8 +18,59 @@ export function BuyerExperienceProvider({ children }: { children: ReactNode }) {
   const [savedVendorIds, setSavedVendorIds] = useState<string[]>([]); const [savedVendors, setSavedVendors] = useState<SavedVendor[]>([]);
   const [loginOpen, setLoginOpen] = useState(false); const [returnTo, setReturnTo] = useState('/');
   const refreshBuyer = useCallback(async () => {
-    try { const response = await fetch('/api/auth/session', { credentials: 'same-origin', cache: 'no-store' }); const result = await response.json(); const profile = result.user?.role === 'buyer' ? result.user as BuyerProfile : null; setBuyer(profile); if (profile) { try { const pendingCar = sessionStorage.getItem('cars21:pending-wishlist'); if (pendingCar) { const pendingResponse = await fetch('/api/user/wishlist', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ carId: pendingCar, saved: true }) }); if (pendingResponse.ok) sessionStorage.removeItem('cars21:pending-wishlist'); } const pendingVendor = sessionStorage.getItem('cars21:pending-vendor'); if (pendingVendor) { const pendingResponse = await fetch('/api/user/saved-vendors', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vendorSlug: pendingVendor, saved: true }) }); if (pendingResponse.ok) sessionStorage.removeItem('cars21:pending-vendor'); } } catch {} const [saved, vendors] = await Promise.all([fetch('/api/user/wishlist', { credentials: 'same-origin', cache: 'no-store' }), fetch('/api/user/saved-vendors', { credentials: 'same-origin', cache: 'no-store' })]); if (saved.ok) { const list = await saved.json(); setWishlistIds(Array.isArray(list.ids) ? list.ids : []); setWishlistCars(Array.isArray(list.cars) ? list.cars : []); } if (vendors.ok) { const list = await vendors.json(); setSavedVendorIds(Array.isArray(list.ids) ? list.ids : []); setSavedVendors(Array.isArray(list.vendors) ? list.vendors : []); } } else { setWishlistIds([]); setWishlistCars([]); setSavedVendorIds([]); setSavedVendors([]); } }
-    catch { setBuyer(null); setWishlistIds([]); setWishlistCars([]); setSavedVendorIds([]); setSavedVendors([]); } finally { setLoadingBuyer(false); }
+    try {
+      const response = await fetch('/api/auth/session', { credentials: 'same-origin', cache: 'no-store' });
+      const result = await response.json();
+      const profile = result.user ? {
+        name: String(result.user.name || 'Cars21 Member'),
+        email: String(result.user.email || ''),
+        picture: result.user.picture,
+        phone: result.user.phone || '',
+        city: result.user.city || ''
+      } as BuyerProfile : null;
+      setBuyer(profile);
+      if (profile) {
+        try {
+          const pendingCar = sessionStorage.getItem('cars21:pending-wishlist');
+          if (pendingCar) {
+            const pendingResponse = await fetch('/api/user/wishlist', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ carId: pendingCar, saved: true }) });
+            if (pendingResponse.ok) sessionStorage.removeItem('cars21:pending-wishlist');
+          }
+          const pendingVendor = sessionStorage.getItem('cars21:pending-vendor');
+          if (pendingVendor) {
+            const pendingResponse = await fetch('/api/user/saved-vendors', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vendorSlug: pendingVendor, saved: true }) });
+            if (pendingResponse.ok) sessionStorage.removeItem('cars21:pending-vendor');
+          }
+        } catch {}
+        const [saved, vendors] = await Promise.all([
+          fetch('/api/user/wishlist', { credentials: 'same-origin', cache: 'no-store' }),
+          fetch('/api/user/saved-vendors', { credentials: 'same-origin', cache: 'no-store' })
+        ]);
+        if (saved.ok) {
+          const list = await saved.json();
+          setWishlistIds(Array.isArray(list.ids) ? list.ids : []);
+          setWishlistCars(Array.isArray(list.cars) ? list.cars : []);
+        }
+        if (vendors.ok) {
+          const list = await vendors.json();
+          setSavedVendorIds(Array.isArray(list.ids) ? list.ids : []);
+          setSavedVendors(Array.isArray(list.vendors) ? list.vendors : []);
+        }
+      } else {
+        setWishlistIds([]);
+        setWishlistCars([]);
+        setSavedVendorIds([]);
+        setSavedVendors([]);
+      }
+    } catch {
+      setBuyer(null);
+      setWishlistIds([]);
+      setWishlistCars([]);
+      setSavedVendorIds([]);
+      setSavedVendors([]);
+    } finally {
+      setLoadingBuyer(false);
+    }
   }, []);
   useEffect(() => { void refreshBuyer(); }, [refreshBuyer]);
   const openLoginModal = useCallback((next?: string) => { const path = next || currentPath(); setReturnTo(path.startsWith('/') && !path.startsWith('//') && !path.includes('\\') ? path : '/'); setLoginOpen(true); }, []);

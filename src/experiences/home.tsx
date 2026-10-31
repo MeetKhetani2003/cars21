@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { Link, useNavigate } from '../lib/navigation';
-import { 
-  ArrowRight, Check, CarFront, ShieldCheck, FileCheck2, TrendingUp, 
-  IndianRupee, Heart, BadgeCheck, ChevronDown, CircleHelp, Search, 
-  ChevronLeft, ChevronRight, Pause, Play, Sparkles, Building2, Sliders, 
-  Zap, Banknote, Star, Gavel, Cpu, CheckCircle2, Clock, MapPin, Gauge, 
+import {
+  ArrowRight, Check, CarFront, ShieldCheck, FileCheck2, TrendingUp,
+  IndianRupee, Heart, BadgeCheck, ChevronDown, CircleHelp, Search,
+  ChevronLeft, ChevronRight, Pause, Play, Sparkles, Building2, Sliders,
+  Zap, Banknote, Star, Gavel, Cpu, CheckCircle2, Clock, MapPin, Gauge,
   Fuel, Shield, ArrowUpRight, Award, Users, CheckCircle
 } from 'lucide-react';
 import type { Car } from '../data';
@@ -12,6 +12,7 @@ import { formatShort, formatINR, cars } from '../data';
 import { CarCard } from '../components/CarCard';
 import { SectionTitle, TrustStrip } from '../components/shared';
 import { HomeEmiCalculator } from '../components/HomeEmiCalculator';
+import { FeaturedCarsSection } from '../components/FeaturedCarsSection';
 
 
 
@@ -25,7 +26,7 @@ export function HomePage() {
   const [query, setQuery] = useState('');
   const [sellInput, setSellInput] = useState('');
   const [sellKm, setSellKm] = useState('30000');
-  
+
   // Interactive Simulator State
   const [simBody, setSimBody] = useState<'SUV' | 'Sedan' | 'Hatchback' | 'Electric'>('SUV');
   const [simYear, setSimYear] = useState(2021);
@@ -60,7 +61,7 @@ export function HomePage() {
       });
       setCity(current => current || filterData.cities?.[0] || '');
       setFeaturedCars(carData.cars || []);
-    }).catch(() => {});
+    }).catch(() => { });
     return () => controller.abort();
   }, []);
 
@@ -106,7 +107,7 @@ export function HomePage() {
     const ageDiscount = (2024 - simYear) * 0.085;
     const kmDiscount = Math.max(0, (simKm - 20000) / 100000) * 0.12;
     const condMult = simCondition === 'Excellent' ? 1.06 : simCondition === 'Fair' ? 0.91 : 1.0;
-    
+
     const estMid = Math.max(250000, Math.round((base * (1 - ageDiscount - kmDiscount) * condMult) / 10000) * 10000);
     const estLow = Math.round((estMid * 0.94) / 10000) * 10000;
     const estHigh = Math.round((estMid * 1.06) / 10000) * 10000;
@@ -153,22 +154,22 @@ export function HomePage() {
           {/* Integrated Multi-Tab Command Hub Card */}
           <div className="luminous-command-card">
             <div className="luminous-hub-tabs" role="tablist">
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className={`luminous-tab ${hubTab === 'buy' ? 'active' : ''}`}
                 onClick={() => setHubTab('buy')}
               >
                 <Search size={15} /> Buy Verified Cars
               </button>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className={`luminous-tab ${hubTab === 'sell' ? 'active' : ''}`}
                 onClick={() => setHubTab('sell')}
               >
                 <Zap size={15} /> Sell Your Car <span className="hub-tab-badge">Instant Cash</span>
               </button>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className={`luminous-tab ${hubTab === 'val' ? 'active' : ''}`}
                 onClick={() => setHubTab('val')}
               >
@@ -181,11 +182,11 @@ export function HomePage() {
                 <div className="luminous-search-row">
                   <div className="luminous-input-group">
                     <Search size={16} />
-                    <input 
-                      type="search" 
-                      placeholder="Search Honda City, Creta, Nexon EV..." 
-                      value={query} 
-                      onChange={e => setQuery(e.target.value)} 
+                    <input
+                      type="search"
+                      placeholder="Search Honda City, Creta, Nexon EV..."
+                      value={query}
+                      onChange={e => setQuery(e.target.value)}
                     />
                   </div>
 
@@ -229,12 +230,12 @@ export function HomePage() {
                     <div className="plate-ind-circle">●</div>
                     <span>IND</span>
                   </div>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     className="plate-input"
-                    placeholder="ENTER VEHICLE NUMBER (e.g. KA 01 AB 1234)" 
-                    value={sellInput} 
-                    onChange={e => setSellInput(e.target.value)} 
+                    placeholder="ENTER VEHICLE NUMBER (e.g. KA 01 AB 1234)"
+                    value={sellInput}
+                    onChange={e => setSellInput(e.target.value)}
                   />
                   <button type="submit" className="plate-submit-btn">
                     Get Instant Price <ArrowRight size={16} />
@@ -267,13 +268,13 @@ export function HomePage() {
         <div className="luminous-hero-right">
           <div className="showcase-stage">
             <div className="showcase-glow" />
-            <img 
-              src="/images/kars21-hero.png" 
-              alt="Cars21 Flagship Verified SUV" 
-              className="showcase-car-img" 
+            <img
+              src="/images/kars21-hero.png"
+              alt="Cars21 Flagship Verified SUV"
+              className="showcase-car-img"
               fetchPriority="high"
             />
-            
+
             {/* Floating Glassmorphic Badges */}
             <div className="floating-badge badge-top">
               <div className="badge-icon-box green"><ShieldCheck size={18} /></div>
@@ -325,6 +326,8 @@ export function HomePage() {
         </div>
       </div>
     </section>
+    {/* FEATURED CERTIFIED CAR SHOWCASE (WITH MEMBER LOGIN LOCK & ACTION TRACKING) */}
+    <FeaturedCarsSection cars={featuredCars} />
 
     {/* SMART CAR LOAN EMI CALCULATOR (GATED WITH RECORDED ACTIVITY) */}
     <HomeEmiCalculator />
@@ -410,7 +413,7 @@ export function HomePage() {
             <span className="bento-badge-pill"><ShieldCheck size={14} /> CERTIFIED STANDARD</span>
             <h3>140+ Point Cloud Diagnostics</h3>
             <p>Every vehicle undergoes multi-stage hardware and OBD-II cloud diagnostic analysis by certified vehicle engineers before being listed.</p>
-            
+
             <div className="bento-checklist">
               <div className="bento-check-row">
                 <span><CheckCircle2 size={16} /> Engine &amp; Transmission Drivetrain</span>
@@ -482,9 +485,9 @@ export function HomePage() {
 
     {/* INTENT SPLIT GATEWAY (BUYER VS SELLER) */}
     <section className="section container">
-      <SectionTitle 
-        eyebrow="YOUR CAR DESTINATION" 
-        title="Engineered for Buyers, Sellers &amp; Dealers" 
+      <SectionTitle
+        eyebrow="YOUR CAR DESTINATION"
+        title="Engineered for Buyers, Sellers &amp; Dealers"
         copy="Two transparent pathways backed by digital verification and guaranteed transactions."
       />
       <div className="intent-grid">
@@ -521,11 +524,11 @@ export function HomePage() {
     {/* BROWSE BY BODY TYPE WITH MODERN CARDS */}
     <section className="section section-soft">
       <div className="container">
-        <SectionTitle 
-          eyebrow="EXPLORE CATEGORIES" 
-          title="Browse by Body Style &amp; Purpose" 
+        <SectionTitle
+          eyebrow="EXPLORE CATEGORIES"
+          title="Browse by Body Style &amp; Purpose"
           copy="Tailored for family adventures, city commuting, or executive road trips."
-          link="/buy-cars" 
+          link="/buy-cars"
           linkText="View all listings"
         />
         <div className="category-grid">
@@ -556,48 +559,6 @@ export function HomePage() {
     </section>
 
     {/* FEATURED INVENTORY SHOWCASE WITH TABS */}
-    <section className="section container">
-      <SectionTitle 
-        eyebrow="CURRENT INVENTORY" 
-        title="Handpicked, Certified Vehicles" 
-        copy="Each vehicle has passed a 140+ point check with documented service records."
-        link="/buy-cars" 
-        linkText="See all 2,450+ cars"
-      />
-
-      <div className="inventory-tabs-row">
-        <div className="inventory-filter-pills">
-          {['All', 'SUVs', 'Sedans', 'Electric', 'Under 10L'].map(tab => (
-            <button 
-              key={tab} 
-              type="button" 
-              className={`filter-pill ${inventoryTab === tab ? 'active' : ''}`}
-              onClick={() => setInventoryTab(tab)}
-            >
-              {tab === 'All' ? 'All Featured' : tab}
-            </button>
-          ))}
-        </div>
-        <span style={{ fontSize: '12px', color: '#64748b' }}>
-          Showing verified listings available for immediate delivery
-        </span>
-      </div>
-
-      {displayedCars.length ? (
-        <div className="car-grid">
-          {displayedCars.map(car => <CarCard car={car} key={car.id} />)}
-        </div>
-      ) : (
-        <div className="home-inventory-empty">
-          <CarFront size={28} />
-          <div>
-            <b>No cars match this filter right now</b>
-            <span>Check back soon or explore dealer listings.</span>
-          </div>
-          <Link href="/dealers" className="text-link">Browse Dealer Hub <ArrowRight size={15} /></Link>
-        </div>
-      )}
-    </section>
 
     {/* INTERACTIVE REAL-TIME VALUATION SIMULATOR (SAAS WIDGET) */}
     <section className="val-sim-section">
@@ -641,9 +602,9 @@ export function HomePage() {
               </span>
               <div className="sim-type-selector">
                 {(['SUV', 'Sedan', 'Hatchback', 'Electric'] as const).map(type => (
-                  <button 
-                    key={type} 
-                    type="button" 
+                  <button
+                    key={type}
+                    type="button"
                     className={`sim-type-btn ${simBody === type ? 'active' : ''}`}
                     onClick={() => setSimBody(type)}
                   >
@@ -658,13 +619,13 @@ export function HomePage() {
                 <span>Registration Year</span>
                 <b>{simYear}</b>
               </div>
-              <input 
-                type="range" 
-                min={2018} 
-                max={2024} 
-                value={simYear} 
-                onChange={e => setSimYear(Number(e.target.value))} 
-                className="sim-range" 
+              <input
+                type="range"
+                min={2018}
+                max={2024}
+                value={simYear}
+                onChange={e => setSimYear(Number(e.target.value))}
+                className="sim-range"
               />
             </div>
 
@@ -673,14 +634,14 @@ export function HomePage() {
                 <span>Odometer Mileage</span>
                 <b>{(simKm / 1000).toFixed(0)}k km</b>
               </div>
-              <input 
-                type="range" 
-                min={10000} 
-                max={90000} 
-                step={5000} 
-                value={simKm} 
-                onChange={e => setSimKm(Number(e.target.value))} 
-                className="sim-range" 
+              <input
+                type="range"
+                min={10000}
+                max={90000}
+                step={5000}
+                value={simKm}
+                onChange={e => setSimKm(Number(e.target.value))}
+                className="sim-range"
               />
             </div>
 
@@ -691,9 +652,9 @@ export function HomePage() {
               </div>
               <div className="sim-type-selector" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
                 {(['Excellent', 'Good', 'Fair'] as const).map(c => (
-                  <button 
-                    key={c} 
-                    type="button" 
+                  <button
+                    key={c}
+                    type="button"
                     className={`sim-type-btn ${simCondition === c ? 'active' : ''}`}
                     onClick={() => setSimCondition(c)}
                   >
@@ -716,10 +677,10 @@ export function HomePage() {
                 const heightPercent = 25 + (i * 4) + ((simYear - 2018) * 4) - ((simKm / 90000) * 15);
                 const isHighlight = i >= 11 && i <= 15;
                 return (
-                  <div 
-                    key={i} 
+                  <div
+                    key={i}
                     className={`sim-bar ${isHighlight ? 'highlight' : ''}`}
-                    style={{ height: `${Math.min(100, Math.max(15, heightPercent))}%` }} 
+                    style={{ height: `${Math.min(100, Math.max(15, heightPercent))}%` }}
                   />
                 );
               })}
@@ -742,9 +703,9 @@ export function HomePage() {
 
     {/* B2B DEALER & ENTERPRISE SAAS ECOSYSTEM */}
     <section className="section container">
-      <SectionTitle 
-        eyebrow="ENTERPRISE AUTOMOTIVE SAAS" 
-        title="Built for Dealers, Fleets &amp; Tech-Driven Mobility" 
+      <SectionTitle
+        eyebrow="ENTERPRISE AUTOMOTIVE SAAS"
+        title="Built for Dealers, Fleets &amp; Tech-Driven Mobility"
         copy="Cars21 provides the operating system connecting verified sellers, certified dealerships, and retail buyers."
       />
 
@@ -819,15 +780,15 @@ export function HomePage() {
         </div>
 
         <div className="how-it-works-tabs">
-          <button 
-            type="button" 
+          <button
+            type="button"
             className={`how-tab-btn ${journeyTab === 'buy' ? 'active' : ''}`}
             onClick={() => setJourneyTab('buy')}
           >
             🚗 How Buying Works
           </button>
-          <button 
-            type="button" 
+          <button
+            type="button"
             className={`how-tab-btn ${journeyTab === 'sell' ? 'active' : ''}`}
             onClick={() => setJourneyTab('sell')}
           >
@@ -929,9 +890,9 @@ export function HomePage() {
 
     {/* VERIFIED SOCIAL PROOF / REVIEWS */}
     <section className="section container">
-      <SectionTitle 
-        eyebrow="VERIFIED EXPERIENCES" 
-        title="Trusted by Buyers, Sellers &amp; Dealers" 
+      <SectionTitle
+        eyebrow="VERIFIED EXPERIENCES"
+        title="Trusted by Buyers, Sellers &amp; Dealers"
         copy="Real reviews from drivers who completed their car journey through Cars21."
       />
 
@@ -983,9 +944,9 @@ export function HomePage() {
     {/* FREQUENTLY ASKED QUESTIONS */}
     <section className="section section-soft">
       <div className="container">
-        <SectionTitle 
-          eyebrow="TRANSPARENT ANSWERS" 
-          title="Frequently Asked Questions" 
+        <SectionTitle
+          eyebrow="TRANSPARENT ANSWERS"
+          title="Frequently Asked Questions"
           copy="Clear answers about vehicle verification, instant selling, and dealer services."
         />
         <div className="faq-grid">
