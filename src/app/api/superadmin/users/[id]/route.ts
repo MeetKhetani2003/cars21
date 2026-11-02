@@ -37,7 +37,11 @@ const accountTypeSchema = z.object({
   specialties: z.array(z.string().trim().min(1).max(40)).max(12).optional(),
   logoPhotoId: z.string().max(80).optional(),
   coverPhotoId: z.string().max(80).optional(),
-  shopPhotoIds: z.array(z.string().max(80)).max(8).optional()
+  shopPhotoIds: z.array(z.string().max(80)).max(8).optional(),
+  password: z.union([
+    z.string().trim().min(6, 'Password must have at least 6 characters').max(100),
+    z.literal('')
+  ]).optional(),
 });
 
 export async function PATCH(request: NextRequest, context: Context) {
@@ -55,9 +59,14 @@ export async function PATCH(request: NextRequest, context: Context) {
       const otherCollection = db.collection(collectionName === 'admins' ? 'vendors' : 'admins');
       if (await collection.findOne({ email, id: { $ne: id } }) || await otherCollection.findOne({ email })) return NextResponse.json({ error: 'Another account already uses that email.' }, { status: 409 });
     }
-    const { accountType: _accountType, ...changes } = parsed.data;
+    const { accountType: _accountType, password: newPassword, ...changes } = parsed.data;
     if (changes.email) changes.email = changes.email.toLowerCase();
     const updates: Record<string, unknown> = { ...changes, updatedAt: new Date() };
+    if (newPassword && newPassword.trim().length >= 6) {
+      const { salt, hash } = await hashPassword(newPassword.trim());
+      updates.passwordSalt = salt;
+      updates.passwordHash = hash;
+    }
     if (parsed.data.accountType === 'vendor' && changes.businessName) updates.slug = vendorSlug(changes.businessName, id);
     const result = await collection.updateOne(filter, { $set: updates });
     if (!result.matchedCount) return NextResponse.json({ error: 'Account not found.' }, { status: 404 });
@@ -89,7 +98,8 @@ export async function POST(request: NextRequest, context: Context) {
     const filter = buildIdFilter(id);
     const collection = (await getDb()).collection(parsed.data.accountType === 'admin' ? 'admins' : 'vendors');
     if (!await collection.findOne(filter)) return NextResponse.json({ error: 'Account not found.' }, { status: 404 });
-    const password = randomBytes(15).toString('base64url');
+    const customPassword = parsed.data.password && parsed.data.password.trim().length >= 6 ? parsed.data.password.trim() : null;
+    const password = customPassword || randomBytes(12).toString('base64url');
     const { salt, hash } = await hashPassword(password);
     await collection.updateOne(filter, { $set: { passwordSalt: salt, passwordHash: hash, updatedAt: new Date() } });
     return NextResponse.json({ initialPassword: password });

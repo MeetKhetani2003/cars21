@@ -66,6 +66,51 @@ export function FeaturedCarsSection({ cars: initialCars }: FeaturedCarsSectionPr
     }
   }, [buyer]);
 
+  // Synchronize selected city with global city changes and localStorage
+  const [cityOptions, setCityOptions] = useState<string[]>([
+    'Bengaluru', 'Mumbai', 'Delhi NCR', 'Hyderabad', 'Pune', 'Chennai', 'Ahmedabad', 'Kolkata'
+  ]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('cars21_city');
+      if (saved) {
+        setSelectedCity(saved === 'All Cities' || saved === 'Pan-India' ? 'All' : saved);
+      }
+    } catch {}
+
+    const handleGlobalCityChange = (e: any) => {
+      const newCity = e?.detail?.city || 'All';
+      setSelectedCity(newCity === 'All Cities' || newCity === 'Pan-India' ? 'All' : newCity);
+    };
+
+    window.addEventListener('cars21:city-change', handleGlobalCityChange);
+    return () => window.removeEventListener('cars21:city-change', handleGlobalCityChange);
+  }, []);
+
+  // Fetch active listed cities dynamically
+  useEffect(() => {
+    const set = new Set<string>();
+    initialCars.forEach(c => {
+      if (c.city) set.add(c.city);
+    });
+    ['Bengaluru', 'Mumbai', 'Delhi NCR', 'Hyderabad', 'Pune', 'Chennai', 'Ahmedabad', 'Kolkata'].forEach(c => set.add(c));
+
+    fetch('/api/admin/cities')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (Array.isArray(data?.cities)) {
+          data.cities.forEach((c: any) => {
+            if (c.name && c.active !== false) set.add(c.name);
+          });
+        }
+        setCityOptions(Array.from(set).sort());
+      })
+      .catch(() => {
+        setCityOptions(Array.from(set).sort());
+      });
+  }, [initialCars]);
+
   // Record an action in the database
   const captureUserAction = async (payload: {
     action: 'car_view' | 'test_drive' | 'express_interest';
@@ -249,7 +294,7 @@ export function FeaturedCarsSection({ cars: initialCars }: FeaturedCarsSectionPr
               </span>
               <span className="featured-live-badge">
                 <span className="live-pulse-dot" />
-                2,450+ Certified Cars in Bengaluru &amp; Metros
+                {selectedCity === 'All' ? '2,450+ Certified Cars Pan-India' : `Certified Cars in ${selectedCity} & Nearby Hubs`}
               </span>
             </div>
 
@@ -406,14 +451,19 @@ export function FeaturedCarsSection({ cars: initialCars }: FeaturedCarsSectionPr
               <select 
                 aria-label="Filter city"
                 value={selectedCity} 
-                onChange={e => setSelectedCity(e.target.value)}
+                onChange={e => {
+                  const val = e.target.value;
+                  setSelectedCity(val);
+                  try {
+                    localStorage.setItem('cars21_city', val === 'All' ? 'All Cities' : val);
+                    window.dispatchEvent(new CustomEvent('cars21:city-change', { detail: { city: val } }));
+                  } catch {}
+                }}
               >
-                <option value="All">All Metros</option>
-                <option value="Bengaluru">Bengaluru</option>
-                <option value="Mumbai">Mumbai</option>
-                <option value="Delhi NCR">Delhi NCR</option>
-                <option value="Hyderabad">Hyderabad</option>
-                <option value="Pune">Pune</option>
+                <option value="All">All Cities / Pan-India</option>
+                {cityOptions.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
               </select>
             </div>
 

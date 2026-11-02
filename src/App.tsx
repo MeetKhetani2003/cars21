@@ -10,14 +10,31 @@ import {
 } from 'lucide-react';
 import { Link } from './lib/navigation';
 import { useBuyerExperience } from './components/BuyerExperienceProvider';
+import { CitySelectModal } from './components/CitySelectModal';
 import { ManagementPanel } from './experiences/management';
 import { HomePage, InventoryPage, CarPage, SellPage, VehicleDetailsPage, ValuationPage, InspectionBookingPage, InspectionStatusPage, OfferPage, AuctionResultPage, InspectionPage, VehicleHistoryPage, LoansPage, EmiPage, EligibilityPage, DealerPage, AuctionPage, HelpPage, AccountPage, InspectorPage, OperationsPage, NotFoundPage } from './experiences';
 
 export function SiteHeader(){
   const [open,setOpen]=useState(false);
   const [city,setCity]=useState('Bengaluru');
+  const [cityModalOpen,setCityModalOpen]=useState(false);
   const {buyer,openLoginModal,wishlistIds}=useBuyerExperience();
   const close=()=>setOpen(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('cars21_city');
+      if (saved) setCity(saved);
+    } catch {}
+  }, []);
+
+  const handleCitySelect = (selectedCity: string) => {
+    setCity(selectedCity);
+    try {
+      localStorage.setItem('cars21_city', selectedCity);
+      window.dispatchEvent(new CustomEvent('cars21:city-change', { detail: { city: selectedCity } }));
+    } catch {}
+  };
 
   // Lock body scroll when mobile menu is open
   useEffect(() => {
@@ -44,23 +61,16 @@ export function SiteHeader(){
                 CARS<span className="logo-accent" style={{ color: '#ff5c00', fontWeight: 900 }}>21</span>
               </span>
             </Link>
-            <div className="nav-location-pill">
-              <MapPin size={14}/>
-              <select 
-                aria-label="Choose city" 
-                value={city} 
-                onChange={e=>setCity(e.target.value)} 
-                style={{ border: 'none', background: 'transparent', outline: 'none', fontWeight: 700, fontSize: '12px', cursor: 'pointer', color: '#1e293b' }}
-              >
-                <option>Bengaluru</option>
-                <option>Mumbai</option>
-                <option>Delhi NCR</option>
-                <option>Hyderabad</option>
-                <option>Pune</option>
-                <option>Chennai</option>
-              </select>
-              <ChevronDown size={12}/>
-            </div>
+            <button 
+              type="button" 
+              className="nav-location-pill"
+              onClick={() => setCityModalOpen(true)}
+              aria-label={`Current city: ${city}. Click to change or search cities.`}
+            >
+              <MapPin size={14} className="nav-location-pin"/>
+              <span className="nav-location-name">{city}</span>
+              <ChevronDown size={12} className="nav-location-arrow"/>
+            </button>
           </div>
 
           <nav className="main-nav desktop-only-nav" aria-label="Main navigation">
@@ -127,6 +137,35 @@ export function SiteHeader(){
                   </Link>
                 </div>
               )}
+
+              {/* City selector in mobile drawer */}
+              <button 
+                type="button" 
+                className="mobile-city-selector-btn"
+                onClick={() => { close(); setCityModalOpen(true); }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  width: '100%',
+                  marginTop: '10px',
+                  padding: '9px 12px',
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  textAlign: 'left'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <MapPin size={16} style={{ color: '#ff5c00' }} />
+                  <div>
+                    <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em', color: '#64748b', fontWeight: 600 }}>Selected City</div>
+                    <strong style={{ fontSize: '13px', color: '#0f172a' }}>{city}</strong>
+                  </div>
+                </div>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#ff5c00', background: 'rgba(255, 92, 0, 0.08)', padding: '3px 8px', borderRadius: '6px' }}>Change</span>
+              </button>
             </div>
 
             <div className="mobile-drawer-sections">
@@ -277,6 +316,13 @@ export function SiteHeader(){
           </aside>
         </div>
       )}
+
+      <CitySelectModal
+        isOpen={cityModalOpen}
+        onClose={() => setCityModalOpen(false)}
+        currentCity={city}
+        onSelectCity={handleCitySelect}
+      />
     </>
   );
 }

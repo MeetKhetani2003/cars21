@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { Activity, ArrowDownToLine, ArrowLeft, ArrowUpRight, BadgeCheck, Building2, CarFront, Check, ChevronDown, CircleDollarSign, ClipboardCheck, ClipboardList, CreditCard, Eye, FilePlus2, Gauge, Heart, History as HistoryIcon, ImagePlus, LayoutDashboard, LogOut, Mail, MapPin, Menu, MessageSquareText, Pencil, Plus, Search, ShieldCheck, Store, Trash2, UserRound, Users, X } from 'lucide-react';
+import { Activity, ArrowDownToLine, ArrowLeft, ArrowUpRight, BadgeCheck, Building2, CarFront, Check, ChevronDown, CircleDollarSign, ClipboardCheck, ClipboardList, CreditCard, Eye, EyeOff, FilePlus2, Gauge, Heart, History as HistoryIcon, ImagePlus, Key, LayoutDashboard, LogOut, Mail, MapPin, Menu, MessageSquareText, Pencil, Plus, RefreshCw, Search, ShieldCheck, Store, Trash2, UserRound, Users, X } from 'lucide-react';
 import { formatINR } from '../data';
 import { UserHistoryPanel } from '../components/UserHistoryPanel';
 import { WishlistInsights } from '../components/WishlistInsights';
@@ -67,7 +67,21 @@ export function ManagementPanel({ role: expectedRole }: { role: Role }) {
   const [newVendorPassword, setNewVendorPassword] = useState('');
   const [modalError, setModalError] = useState('');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [passwordResetTarget, setPasswordResetTarget] = useState<{ id: string; name: string; email: string; accountType: 'admin' | 'vendor' } | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [formPassword, setFormPassword] = useState('');
+  const [resetModalPassword, setResetModalPassword] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
   const refreshInFlight = useRef(false);
+
+  function generateFriendlyPassword() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#$';
+    let res = 'C21@';
+    for (let i = 0; i < 8; i++) {
+      res += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return res;
+  }
 
   async function refresh(role = expectedRole) {
     if (refreshInFlight.current) return;
@@ -191,12 +205,22 @@ export function ManagementPanel({ role: expectedRole }: { role: Role }) {
     try {
       const payload = Object.fromEntries(values.entries());
       const accountType = (payload.accountType as 'admin' | 'vendor') || newAccountType;
-      const result = await api<{ account: Account; initialPassword: string }>('/api/superadmin/users', { method: 'POST', body: JSON.stringify({ ...payload, accountType }) });
+      const customPw = formPassword.trim();
+      const result = await api<{ account: Account; initialPassword: string }>('/api/superadmin/users', { 
+        method: 'POST', 
+        body: JSON.stringify({ 
+          ...payload, 
+          accountType, 
+          password: customPw || undefined 
+        }) 
+      });
       if (result.account.accountType === 'vendor') setVendors(current => [result.account as Vendor, ...current]);
       setAccounts(current => [result.account, ...current.filter(item => item.id !== result.account.id)]);
       setNewVendorPassword(result.initialPassword);
       setVendorEditor(false);
-      setNotice(`${accountType === 'admin' ? 'Administrator' : 'Vendor'} account created. Save the one-time password now.`);
+      setFormPassword('');
+      setShowPassword(false);
+      setNotice(`${accountType === 'admin' ? 'Administrator' : 'Vendor'} account created. Save the password now.`);
       if (accountType === 'admin') {
         setSection('accounts');
         setAccountFilter('admin');
@@ -216,11 +240,17 @@ export function ManagementPanel({ role: expectedRole }: { role: Role }) {
     const values = Object.fromEntries(new FormData(event.currentTarget).entries());
     setDataLoading(true); setModalError(''); setError('');
     try {
-      const result = await api<{ ok: boolean; profileUrl?: string }>(`/api/superadmin/users/${encodeURIComponent(editingAccount.id)}`, { method: 'PATCH', body: JSON.stringify({ ...values, accountType: editingAccount.accountType }) });
+      const customPw = formPassword.trim();
+      const patchPayload: Record<string, any> = { ...values, accountType: editingAccount.accountType };
+      if (customPw) {
+        patchPayload.password = customPw;
+      }
+      const result = await api<{ ok: boolean; profileUrl?: string }>(`/api/superadmin/users/${encodeURIComponent(editingAccount.id)}`, { method: 'PATCH', body: JSON.stringify(patchPayload) });
       const updated = { ...editingAccount, name: String(values.name), email: String(values.email).toLowerCase(), ...(editingAccount.accountType === 'vendor' ? { businessName: String(values.businessName), phone: String(values.phone), city: String(values.city), profileUrl: result.profileUrl || editingAccount.profileUrl } : {}) };
       setAccounts(current => current.map(account => account.id === updated.id ? updated : account));
       if (updated.accountType === 'vendor') setVendors(current => current.map(vendor => vendor.id === updated.id ? { ...vendor, name: updated.name, businessName: updated.businessName || '', email: updated.email, phone: updated.phone || '', city: updated.city || '', profileUrl: updated.profileUrl } : vendor));
-      setVendorEditor(false); setEditingAccount(null); setNotice('Account details updated.');
+      setVendorEditor(false); setEditingAccount(null); setFormPassword(''); setShowPassword(false);
+      setNotice(customPw ? 'Account details and password updated.' : 'Account details updated.');
       await refresh();
     } catch (reason) {
       const msg = reason instanceof Error ? reason.message : 'Account details could not be updated.';
@@ -262,10 +292,16 @@ export function ManagementPanel({ role: expectedRole }: { role: Role }) {
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Vendor could not be updated.'); }
   }
 
+  function openPasswordReset(account: { id: string; name: string; email: string; accountType: 'admin' | 'vendor' }) {
+    setPasswordResetTarget(account);
+    const gen = generateFriendlyPassword();
+    setResetModalPassword(gen);
+    setShowResetPassword(true);
+    setError('');
+  }
+
   async function resetVendorPassword(vendor: Vendor) {
-    if (!window.confirm(`Issue a new sign-in password for ${vendor.businessName}? Their current password will stop working.`)) return;
-    try { const result = await api<{ initialPassword: string }>(`/api/admin/vendors/${encodeURIComponent(vendor.id)}`, { method: 'POST' }); setNewVendorPassword(result.initialPassword); setNotice(`New one-time password created for ${vendor.businessName}.`); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : 'Password could not be reset.'); }
+    openPasswordReset({ id: vendor.id, name: vendor.businessName || vendor.name, email: vendor.email, accountType: 'vendor' });
   }
 
   async function updateAccount(account: Account) {
@@ -278,11 +314,7 @@ export function ManagementPanel({ role: expectedRole }: { role: Role }) {
   }
 
   async function resetAccountPassword(account: Account) {
-    if (!window.confirm(`Issue a new sign-in password for ${account.name}? Their current password will stop working.`)) return;
-    try {
-      const result = await api<{ initialPassword: string }>(`/api/superadmin/users/${encodeURIComponent(account.id)}`, { method: 'POST', body: JSON.stringify({ accountType: account.accountType }) });
-      setNewVendorPassword(result.initialPassword); setNotice(`New one-time password created for ${account.name}.`);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Password could not be reset.'); }
+    openPasswordReset({ id: account.id, name: account.name, email: account.email, accountType: account.accountType });
   }
 
   async function updateInquiry(inquiry: Inquiry, status: string) {
@@ -400,14 +432,14 @@ export function ManagementPanel({ role: expectedRole }: { role: Role }) {
           </div>
           <div className="management-section-heading"><div><span className="eyebrow">NEEDS ATTENTION</span><h2>Recent buyer enquiries</h2></div><button onClick={() => setSection('inquiries')}>View all enquiries <ArrowLeft size={15}/></button></div>
           <InquiryList inquiries={inquiries.slice(0, 4)} onStatus={updateInquiry} onDelete={expectedRole === 'superadmin' ? deleteInquiry : undefined} />
-          <div className="management-shortcuts"><button onClick={() => { setSection('listings'); setCarEditor('new'); }}><Plus size={18}/><span><b>Add a vehicle</b><small>Create a listing or review vendor submissions</small></span><ArrowLeft size={16}/></button>{expectedRole === 'superadmin' && <button onClick={() => { setSection('accounts'); setEditingAccount(null); setNewAccountType('admin'); setModalError(''); setVendorEditor(true); }}><Users size={18}/><span><b>Create an account</b><small>Add an administrator or vendor</small></span><ArrowLeft size={16}/></button>}</div>
+          <div className="management-shortcuts"><button onClick={() => { setSection('listings'); setCarEditor('new'); }}><Plus size={18}/><span><b>Add a vehicle</b><small>Create a listing or review vendor submissions</small></span><ArrowLeft size={16}/></button>{expectedRole === 'superadmin' && <button onClick={() => { setSection('accounts'); setEditingAccount(null); setNewAccountType('admin'); setModalError(''); setFormPassword(''); setShowPassword(false); setVendorEditor(true); }}><Users size={18}/><span><b>Create an account</b><small>Add an administrator or vendor</small></span><ArrowLeft size={16}/></button>}</div>
         </>}
         {section === 'listings' && <><div className="management-section-heading management-list-heading"><div><span className="eyebrow">{expectedRole === 'vendor' ? 'YOUR INVENTORY' : 'MARKETPLACE INVENTORY'}</span><h2>{expectedRole === 'vendor' ? 'Manage your listings' : 'Vehicle listings'}</h2><p>{expectedRole === 'vendor' ? 'Listings stay visible for enquiries while their inspection packets are reviewed.' : 'Create, edit, publish or remove vehicles across Cars21.'}</p></div><button className="management-primary compact" disabled={expectedRole==='vendor'&&(!vendorProfile?.subscription||cars.filter(car=>car.status==='active'||car.status==='pending').length>=(vendorProfile.subscription.plan?.maxListings||0))} onClick={() => setCarEditor('new')}><Plus size={17}/> Add vehicle</button></div><div className="management-toolbar management-listing-filters"><label className="management-search"><Search size={17}/><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search make, model, city…" aria-label="Search vehicle listings"/></label>{expectedRole !== 'vendor' && <label className="management-filter">Dealer<select value={listingVendor} onChange={event => setListingVendor(event.target.value)}><option value="all">All dealers</option>{vendors.map(vendor => <option key={vendor.id} value={vendor.id}>{vendor.businessName}</option>)}</select></label>}<label className="management-filter">Status<select value={listingStatus} onChange={event => setListingStatus(event.target.value)}><option value="all">All statuses</option><option value="active">Live</option><option value="pending">Needs review</option><option value="paused">Paused</option><option value="sold">Sold</option></select></label><span>{filteredCars.length} {filteredCars.length === 1 ? 'listing' : 'listings'}</span></div><div className="management-listings">{filteredCars.map(car => <article className="management-car-row" key={car.id}><div className="management-car-image">{car.image ? <img src={car.image} alt={`${car.year} ${car.make} ${car.model}`}/> : <CarFront size={22}/>}</div><div className="management-car-name"><b>{car.year} {car.make} {car.model}</b><span>{car.variant || 'Standard'} · {car.city}</span><small>{car.vendorName || (car.vendorId ? 'Dealer listing' : car.sellerUserId ? `Private seller · ${car.sellerName || 'Verified seller'}` : 'Cars21 direct')} · {car.id}</small></div><strong className="management-price">{formatINR(car.price)}</strong><div><StatusPill value={car.status || 'active'}/>{car.vendorId&&car.inspectionReviewStatus&&<small className="inspection-listing-status">Inspection · {car.inspectionReviewStatus.replace('_',' ')}</small>}</div><div className="management-row-actions">{car.vendorSlug && <a href={`/dealers/${car.vendorSlug}`} target="_blank" rel="noreferrer" aria-label={`View ${car.vendorName || 'dealer'} profile`}><Eye size={16}/></a>}<button aria-label={`Edit ${car.make} ${car.model}`} onClick={() => setCarEditor(car)}><Pencil size={16}/></button><button className="danger" aria-label={`Remove ${car.make} ${car.model}`} onClick={() => void removeCar(car)}><Trash2 size={16}/></button></div></article>)}{filteredCars.length === 0 && <div className="management-empty"><CarFront size={25}/><b>{dataLoading ? 'Loading inventory…' : 'No listings found'}</b><span>{search || listingStatus !== 'all' || listingVendor !== 'all' ? 'Try changing your search or filters.' : 'Add your first vehicle to get started.'}</span></div>}</div></>}
         {section === 'cities' && expectedRole !== 'vendor' && <CityManager/>}
         {section === 'makes' && expectedRole !== 'vendor' && <VehicleCompanyManager/>}
-        {section === 'vendors' && expectedRole !== 'vendor' && <><div className="management-section-heading management-list-heading"><div><span className="eyebrow">PARTNER ACCOUNTS</span><h2>Vendors</h2><p>{expectedRole === 'superadmin' ? 'Review dealership accounts and their marketplace access.' : 'Review dealership access and marketplace activity.'}</p></div>{expectedRole === 'superadmin' && <button className="management-primary compact" onClick={() => { setEditingAccount(null); setNewAccountType('vendor'); setModalError(''); setVendorEditor(true); }}><Plus size={17}/> Create vendor</button>}</div>{expectedRole === 'superadmin' && <div className="management-vendor-tip"><span><ShieldCheck size={16}/> Looking for platform administrators?</span><button type="button" onClick={() => { setSection('accounts'); setAccountFilter('admin'); }}>View administrators ({accounts.filter(a => a.accountType === 'admin').length}) <ArrowUpRight size={14}/></button></div>}<div className="management-vendor-grid">{vendors.map(vendor => <article className="management-vendor-card" key={vendor.id}><div className="management-vendor-top"><span className="management-vendor-icon"><Building2 size={20}/></span><StatusPill value={vendor.status}/></div><h3>{vendor.businessName}</h3><p className="management-vendor-person">{vendor.name}</p><a href={`mailto:${vendor.email}`}><Mail size={14}/>{vendor.email}</a><span><MapPin size={14}/>{vendor.city} · {vendor.phone}</span>{vendor.profileUrl && <a href={vendor.profileUrl} target="_blank" rel="noreferrer"><Eye size={14}/>Open public dealer page</a>}<div className="management-vendor-bottom"><small>Added {vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString('en-IN') : 'recently'}</small><div>{expectedRole === 'superadmin' && <button className="reset" onClick={() => { const account = accounts.find(item => item.accountType === 'vendor' && item.id === vendor.id) || { id: vendor.id, accountType: 'vendor' as const, name: vendor.name, email: vendor.email, businessName: vendor.businessName, phone: vendor.phone, city: vendor.city, status: vendor.status, profileUrl: vendor.profileUrl }; setEditingAccount(account); setModalError(''); setVendorEditor(true); }}>Edit profile</button>}{expectedRole === 'superadmin' && <button className="reset" onClick={() => void resetAccountPassword({ id: vendor.id, accountType: 'vendor', name: vendor.name, email: vendor.email, status: vendor.status })}>Reset password</button>}{expectedRole === 'admin' && <button className="reset" onClick={() => void resetVendorPassword(vendor)}>Reset password</button>}<button className={vendor.status === 'active' ? 'suspend' : 'activate'} onClick={() => void setVendorStatus(vendor)}>{vendor.status === 'active' ? 'Suspend' : 'Reactivate'}</button>{expectedRole === 'superadmin' && <button className="suspend" onClick={() => void deleteVendor(vendor)}>Delete</button>}</div></div></article>)}{vendors.length === 0 && <div className="management-empty"><Store size={25}/><b>No vendors yet</b><span>{expectedRole === 'superadmin' ? 'Create a vendor account from here or the Access & accounts page.' : 'Vendor accounts will appear here when created.'}</span></div>}</div></>}
+        {section === 'vendors' && expectedRole !== 'vendor' && <><div className="management-section-heading management-list-heading"><div><span className="eyebrow">PARTNER ACCOUNTS</span><h2>Vendors</h2><p>{expectedRole === 'superadmin' ? 'Review dealership accounts and their marketplace access.' : 'Review dealership access and marketplace activity.'}</p></div>{expectedRole === 'superadmin' && <button className="management-primary compact" onClick={() => { setEditingAccount(null); setNewAccountType('vendor'); setModalError(''); setFormPassword(''); setShowPassword(false); setVendorEditor(true); }}><Plus size={17}/> Create vendor</button>}</div>{expectedRole === 'superadmin' && <div className="management-vendor-tip"><span><ShieldCheck size={16}/> Looking for platform administrators?</span><button type="button" onClick={() => { setSection('accounts'); setAccountFilter('admin'); }}>View administrators ({accounts.filter(a => a.accountType === 'admin').length}) <ArrowUpRight size={14}/></button></div>}<div className="management-vendor-grid">{vendors.map(vendor => <article className="management-vendor-card" key={vendor.id}><div className="management-vendor-top"><span className="management-vendor-icon"><Building2 size={20}/></span><StatusPill value={vendor.status}/></div><h3>{vendor.businessName}</h3><p className="management-vendor-person">{vendor.name}</p><a href={`mailto:${vendor.email}`}><Mail size={14}/>{vendor.email}</a><span><MapPin size={14}/>{vendor.city} · {vendor.phone}</span>{vendor.profileUrl && <a href={vendor.profileUrl} target="_blank" rel="noreferrer"><Eye size={14}/>Open public dealer page</a>}<div className="management-vendor-bottom"><small>Added {vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString('en-IN') : 'recently'}</small><div>{expectedRole === 'superadmin' && <button className="reset" onClick={() => { const account = accounts.find(item => item.accountType === 'vendor' && item.id === vendor.id) || { id: vendor.id, accountType: 'vendor' as const, name: vendor.name, email: vendor.email, businessName: vendor.businessName, phone: vendor.phone, city: vendor.city, status: vendor.status, profileUrl: vendor.profileUrl }; setEditingAccount(account); setModalError(''); setFormPassword(''); setShowPassword(false); setVendorEditor(true); }}>Edit profile</button>}{expectedRole === 'superadmin' && <button className="reset" onClick={() => openPasswordReset({ id: vendor.id, name: vendor.businessName || vendor.name, email: vendor.email, accountType: 'vendor' })}>Reset password</button>}{expectedRole === 'admin' && <button className="reset" onClick={() => openPasswordReset({ id: vendor.id, name: vendor.businessName || vendor.name, email: vendor.email, accountType: 'vendor' })}>Reset password</button>}<button className={vendor.status === 'active' ? 'suspend' : 'activate'} onClick={() => void setVendorStatus(vendor)}>{vendor.status === 'active' ? 'Suspend' : 'Reactivate'}</button>{expectedRole === 'superadmin' && <button className="suspend" onClick={() => void deleteVendor(vendor)}>Delete</button>}</div></div></article>)}{vendors.length === 0 && <div className="management-empty"><Store size={25}/><b>No vendors yet</b><span>{expectedRole === 'superadmin' ? 'Create a vendor account from here or the Access & accounts page.' : 'Vendor accounts will appear here when created.'}</span></div>}</div></>}
         {section === 'photos' && expectedRole === 'superadmin' && <><div className="management-section-heading management-list-heading"><div><span className="eyebrow">GRIDFS MEDIA</span><h2>Photos and showroom images</h2><p>Review listing and vendor profile photos. Removing an attached photo also clears its profile or listing reference.</p></div><div className="management-inquiry-total"><b>{photos.length}</b><span>Recent photos</span></div></div><div className="management-vendor-grid">{photos.map(photo => <article className="management-vendor-card management-photo-card" key={photo.id}><a className="management-photo-preview" href={`/api/photos/${encodeURIComponent(photo.id)}`} target="_blank" rel="noreferrer"><img src={`/api/photos/${encodeURIComponent(photo.id)}`} alt={photo.filename}/></a><h3 title={photo.filename}>{photo.filename}</h3><p className="management-vendor-person">{photo.contentType} · {Math.max(1, Math.round(photo.length / 1024))} KB</p>{photo.usedBy ? <a href={photo.usedBy.href} target="_blank" rel="noreferrer">{photo.usedBy.kind === 'vendor' ? <Store size={14}/> : <CarFront size={14}/>} {photo.usedBy.label}</a> : <span><ImagePlus size={14}/>Not attached to a listing or profile</span>}<div className="management-vendor-bottom"><small>{new Date(photo.uploadDate).toLocaleDateString('en-IN')}</small><div><button className="suspend" onClick={() => void deletePhoto(photo)}>Delete photo</button></div></div></article>)}{photos.length === 0 && <div className="management-empty"><ImagePlus size={25}/><b>No stored photos</b><span>Uploaded listing and showroom images will appear here.</span></div>}</div></>}
-        {section === 'accounts' && expectedRole === 'superadmin' && <><div className="management-section-heading management-list-heading"><div><span className="eyebrow">PLATFORM ACCESS</span><h2>Admins and vendors</h2><p>Create, edit, suspend, reset or remove platform accounts.</p></div><div className="management-heading-actions"><button className="management-primary compact" onClick={() => { setEditingAccount(null); setNewAccountType('admin'); setModalError(''); setVendorEditor(true); }}><Plus size={17}/> Create admin</button><button className="management-secondary compact" onClick={() => { setEditingAccount(null); setNewAccountType('vendor'); setModalError(''); setVendorEditor(true); }}><Plus size={17}/> Create vendor</button></div></div><div className="management-account-tabs-wrap"><div className="management-account-tabs"><button className={accountFilter === 'all' ? 'active' : ''} onClick={() => setAccountFilter('all')}>All accounts <b>{accounts.length}</b></button><button className={accountFilter === 'admin' ? 'active' : ''} onClick={() => setAccountFilter('admin')}><ShieldCheck size={14}/> Administrators <b>{accounts.filter(a => a.accountType === 'admin').length}</b></button><button className={accountFilter === 'vendor' ? 'active' : ''} onClick={() => setAccountFilter('vendor')}><Building2 size={14}/> Vendors <b>{accounts.filter(a => a.accountType === 'vendor').length}</b></button></div></div><div className="management-toolbar"><label className="management-search"><Search size={17}/><input value={accountSearch} onChange={event => setAccountSearch(event.target.value)} placeholder="Search name or email…" aria-label="Search accounts"/></label><span>{filteredAccounts.length} {filteredAccounts.length === 1 ? 'account' : 'accounts'}</span></div><div className="management-vendor-grid">{filteredAccounts.map(account => <article className={`management-vendor-card${account.accountType === 'admin' ? ' management-admin-card' : ''}`} key={`${account.accountType}-${account.id}`}><div className="management-vendor-top"><span className={`management-vendor-icon${account.accountType === 'admin' ? ' is-admin' : ''}`}>{account.accountType === 'admin' ? <ShieldCheck size={20}/> : <Building2 size={20}/>}</span><span className={`account-role-pill ${account.accountType}`}>{account.accountType === 'admin' ? 'Administrator' : 'Vendor'}</span><StatusPill value={account.status}/></div><h3>{account.accountType === 'admin' ? account.name : account.businessName}</h3><p className="management-vendor-person">{account.accountType === 'admin' ? 'Platform administrator' : account.name}</p><a href={`mailto:${account.email}`}><Mail size={14}/>{account.email}</a>{account.accountType === 'vendor' && <><span><MapPin size={14}/>{account.city} · {account.phone}</span>{account.profileUrl && <a href={account.profileUrl} target="_blank" rel="noreferrer"><Eye size={14}/>Open public dealer page</a>}</>}<div className="management-vendor-bottom"><small>{account.accountType === 'admin' ? 'Admin operations access' : 'Vendor workspace'}</small><div><button className="reset" onClick={() => { setEditingAccount(account); setModalError(''); setVendorEditor(true); }}>Edit details</button><button className="reset" onClick={() => void resetAccountPassword(account)}>Reset password</button><button className={account.status === 'active' ? 'suspend' : 'activate'} onClick={() => void updateAccount(account)}>{account.status === 'active' ? 'Suspend' : 'Reactivate'}</button><button className="suspend" onClick={() => void deleteAccount(account)}>Delete</button></div></div></article>)}{filteredAccounts.length === 0 && <div className="management-empty"><Users size={25}/><b>No accounts found</b><span>{accountSearch ? 'No accounts match your search filter.' : 'Create your first administrator or vendor account.'}</span></div>}</div></>}
+        {section === 'accounts' && expectedRole === 'superadmin' && <><div className="management-section-heading management-list-heading"><div><span className="eyebrow">PLATFORM ACCESS</span><h2>Admins and vendors</h2><p>Create, edit, suspend, reset or remove platform accounts.</p></div><div className="management-heading-actions"><button className="management-primary compact" onClick={() => { setEditingAccount(null); setNewAccountType('admin'); setModalError(''); setFormPassword(''); setShowPassword(false); setVendorEditor(true); }}><Plus size={17}/> Create admin</button><button className="management-secondary compact" onClick={() => { setEditingAccount(null); setNewAccountType('vendor'); setModalError(''); setFormPassword(''); setShowPassword(false); setVendorEditor(true); }}><Plus size={17}/> Create vendor</button></div></div><div className="management-account-tabs-wrap"><div className="management-account-tabs"><button className={accountFilter === 'all' ? 'active' : ''} onClick={() => setAccountFilter('all')}>All accounts <b>{accounts.length}</b></button><button className={accountFilter === 'admin' ? 'active' : ''} onClick={() => setAccountFilter('admin')}><ShieldCheck size={14}/> Administrators <b>{accounts.filter(a => a.accountType === 'admin').length}</b></button><button className={accountFilter === 'vendor' ? 'active' : ''} onClick={() => setAccountFilter('vendor')}><Building2 size={14}/> Vendors <b>{accounts.filter(a => a.accountType === 'vendor').length}</b></button></div></div><div className="management-toolbar"><label className="management-search"><Search size={17}/><input value={accountSearch} onChange={event => setAccountSearch(event.target.value)} placeholder="Search name or email…" aria-label="Search accounts"/></label><span>{filteredAccounts.length} {filteredAccounts.length === 1 ? 'account' : 'accounts'}</span></div><div className="management-vendor-grid">{filteredAccounts.map(account => <article className={`management-vendor-card${account.accountType === 'admin' ? ' management-admin-card' : ''}`} key={`${account.accountType}-${account.id}`}><div className="management-vendor-top"><span className={`management-vendor-icon${account.accountType === 'admin' ? ' is-admin' : ''}`}>{account.accountType === 'admin' ? <ShieldCheck size={20}/> : <Building2 size={20}/>}</span><span className={`account-role-pill ${account.accountType}`}>{account.accountType === 'admin' ? 'Administrator' : 'Vendor'}</span><StatusPill value={account.status}/></div><h3>{account.accountType === 'admin' ? account.name : account.businessName}</h3><p className="management-vendor-person">{account.accountType === 'admin' ? 'Platform administrator' : account.name}</p><a href={`mailto:${account.email}`}><Mail size={14}/>{account.email}</a>{account.accountType === 'vendor' && <><span><MapPin size={14}/>{account.city} · {account.phone}</span>{account.profileUrl && <a href={account.profileUrl} target="_blank" rel="noreferrer"><Eye size={14}/>Open public dealer page</a>}</>}<div className="management-vendor-bottom"><small>{account.accountType === 'admin' ? 'Admin operations access' : 'Vendor workspace'}</small><div><button className="reset" onClick={() => { setEditingAccount(account); setModalError(''); setFormPassword(''); setShowPassword(false); setVendorEditor(true); }}>Edit details</button><button className="reset" onClick={() => openPasswordReset({ id: account.id, name: account.name, email: account.email, accountType: account.accountType })}>Reset password</button><button className={account.status === 'active' ? 'suspend' : 'activate'} onClick={() => void updateAccount(account)}>{account.status === 'active' ? 'Suspend' : 'Reactivate'}</button><button className="suspend" onClick={() => void deleteAccount(account)}>Delete</button></div></div></article>)}{filteredAccounts.length === 0 && <div className="management-empty"><Users size={25}/><b>No accounts found</b><span>{accountSearch ? 'No accounts match your search filter.' : 'Create your first administrator or vendor account.'}</span></div>}</div></>}
         {section === 'submissions' && expectedRole !== 'vendor' && <><div className="management-section-heading management-list-heading"><div><span className="eyebrow">PUBLIC WEBSITE FORMS</span><h2>Website submissions</h2><p>Seller inspection requests and dealer partnership applications appear here after submission.</p></div><div className="management-inquiry-total"><b>{submissions.length}</b><span>Total submissions</span></div></div>{submissions.length ? <div className="management-vendor-grid">{submissions.map(item => <article className="management-vendor-card" key={`${item.type}-${item.id}`}><div className="management-vendor-top"><span className="management-vendor-icon">{item.type === 'seller' ? <CarFront size={20}/> : <Building2 size={20}/>}</span><StatusPill value={item.status}/></div><h3>{item.type === 'seller' ? `${item.year} ${item.make} ${item.model}` : item.businessName}</h3><p className="management-vendor-person">{item.type === 'seller' ? `Seller request · ${item.registration}` : `Dealer application · ${item.name}`}</p><a href={`mailto:${item.email}`}><Mail size={14}/>{item.email || 'Email not provided'}</a><a href={`tel:${item.phone}`}><UserRound size={14}/>{item.phone}</a><span><MapPin size={14}/>{item.city}</span>{item.type === 'seller' && <p className="management-vendor-person">{item.km?.toLocaleString('en-IN')} km · {item.fuel} · {item.condition} · Estimate {formatINR(item.estimatedLow || 0)}–{formatINR(item.estimatedHigh || 0)}{item.preferredDate ? ` · ${item.preferredDate} ${item.preferredTime || ''}` : ''}</p>}<div className="management-vendor-bottom"><small>{new Date(item.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</small><div><label className="management-submission-status">Status<select value={item.status} onChange={event => void updateSubmission(item, event.target.value as WebsiteSubmission['status'])}><option value="new">New</option><option value="contacted">Contacted</option><option value="in_progress">In progress</option><option value="closed">Closed</option></select></label>{item.type === 'seller' && <label className="management-submission-status">Seller access<select aria-label="Private seller verification" value={item.verificationStatus || 'pending'} onChange={event => void verifyPrivateSeller(item, event.target.value as 'pending' | 'approved' | 'rejected')}><option value="pending">Needs review</option><option value="approved">Approve seller</option><option value="rejected">Reject request</option></select></label>}{expectedRole === 'superadmin' && <button className="suspend" onClick={() => void deleteSubmission(item)}>Delete</button>}</div></div></article>)}</div> : <div className="management-empty"><FilePlus2 size={25}/><b>No website submissions yet</b><span>Completed seller requests and dealer applications will appear here.</span></div>}</>}
         {section === 'inspections' && expectedRole === 'superadmin' && <InspectionReviewPanel/>}
         {section === 'plans' && expectedRole === 'superadmin' && <SubscriptionManager view="plans"/>}
@@ -419,10 +451,238 @@ export function ManagementPanel({ role: expectedRole }: { role: Role }) {
       </section>
     </div>
     {carEditor && <CarEditor car={carEditor === 'new' ? null : carEditor} role={expectedRole === 'vendor' ? 'vendor' : 'admin'} vendors={vendors.filter(vendor => vendor.status === 'active')} imageLimit={vendorProfile?.subscription?.plan?.maxImagesPerListing || 20} saving={dataLoading} onClose={() => setCarEditor(null)} onSubmit={saveCar}/>}
-    {vendorEditor && expectedRole === 'superadmin' && <Modal title={editingAccount ? `Edit ${editingAccount.accountType} account` : `Create ${newAccountType} account`} onClose={() => { setVendorEditor(false); setEditingAccount(null); setModalError(''); }}>
+    {vendorEditor && expectedRole === 'superadmin' && <Modal title={editingAccount ? `Edit ${editingAccount.accountType} account` : `Create ${newAccountType} account`} onClose={() => { setVendorEditor(false); setEditingAccount(null); setModalError(''); setFormPassword(''); setShowPassword(false); }}>
       {editingAccount?.accountType === 'vendor' ? <VendorProfileEditor key={editingAccount.id} initial={{ id: editingAccount.id, name: editingAccount.name, businessName: editingAccount.businessName || '', email: editingAccount.email, inquiryEmail: editingAccount.inquiryEmail || editingAccount.email, inquiryWhatsApp: editingAccount.inquiryWhatsApp || editingAccount.phone || '', phone: editingAccount.phone || '', city: editingAccount.city || '', area: editingAccount.area || '', address: editingAccount.address || '', description: editingAccount.description || '', website: editingAccount.website || '', workingHours: editingAccount.workingHours || '', establishedYear: editingAccount.establishedYear || null, specialties: editingAccount.specialties || [], logoPhotoId: editingAccount.logoPhotoId || '', coverPhotoId: editingAccount.coverPhotoId || '', shopPhotoIds: editingAccount.shopPhotoIds || [], profileUrl: editingAccount.profileUrl }} endpoint={`/api/superadmin/users/${encodeURIComponent(editingAccount.id)}`} superadmin editableEmail onSaved={(updated, profileUrl) => { const next = { ...editingAccount, ...updated, profileUrl: profileUrl || updated.profileUrl }; setAccounts(current => current.map(account => account.id === next.id ? next : account)); setVendors(current => current.map(vendor => vendor.id === next.id ? { ...vendor, ...next } : vendor)); setVendorEditor(false); setEditingAccount(null); setNotice('Vendor profile updated. The public dealer page now uses these details.'); }}/>
-      : <form key={editingAccount?.id || 'new-account'} className="management-form" onSubmit={editingAccount ? saveAccountDetails : addVendor}><p>{editingAccount ? 'Update this account’s profile details.' : newAccountType === 'admin' ? 'Administrators can manage marketplace listings, vendors and buyer enquiries. Only the environment-configured superadmin can create accounts.' : 'Vendors receive access to their own listings and buyer enquiries only.'}</p>{modalError && <p className="management-error" style={{ margin: '0 0 12px' }} role="alert">{modalError}</p>}<label className="management-field">Account type<select name="accountType" value={editingAccount?.accountType || newAccountType} disabled={Boolean(editingAccount)} onChange={event => { setNewAccountType(event.target.value as 'admin' | 'vendor'); setModalError(''); }}><option value="admin">Administrator</option><option value="vendor">Vendor</option></select></label><label className="management-field">{(editingAccount?.accountType || newAccountType) === 'admin' ? 'Full name' : 'Contact name'}<input required name="name" autoComplete="name" maxLength={100} defaultValue={editingAccount?.name || ''} placeholder="Alex Sharma"/></label>{(editingAccount?.accountType || newAccountType) === 'vendor' && <label className="management-field">Dealership name<input required name="businessName" maxLength={120} defaultValue={editingAccount?.businessName || ''} placeholder="Northstar Motors"/></label>}<div className="management-form-pair"><label className="management-field">Work email<input required name="email" type="email" autoComplete="email" maxLength={160} defaultValue={editingAccount?.email || ''} placeholder={(editingAccount?.accountType || newAccountType) === 'admin' ? 'alex@cars21.in' : 'alex@northstar.in'}/></label>{(editingAccount?.accountType || newAccountType) === 'vendor' && <label className="management-field">Phone<input required name="phone" type="tel" maxLength={24} defaultValue={editingAccount?.phone || ''} placeholder="+91 98765 43210"/></label>}</div>{(editingAccount?.accountType || newAccountType) === 'vendor' && <label className="management-field">City<input required name="city" maxLength={80} defaultValue={editingAccount?.city || ''} placeholder="Bengaluru"/></label>}<div className="management-form-actions"><button type="button" className="management-secondary" onClick={() => { setVendorEditor(false); setEditingAccount(null); setModalError(''); }}>Cancel</button><button className="management-primary" disabled={dataLoading}>{dataLoading ? 'Saving…' : editingAccount ? 'Save details' : 'Create account'} <Check size={16}/></button></div></form>}
+      : <form key={editingAccount?.id || 'new-account'} className="management-form" onSubmit={editingAccount ? saveAccountDetails : addVendor}>
+          <p>{editingAccount ? 'Update this account’s profile details.' : newAccountType === 'admin' ? 'Administrators can manage marketplace listings, vendors and buyer enquiries. Only the environment-configured superadmin can create accounts.' : 'Vendors receive access to their own listings and buyer enquiries only.'}</p>
+          {modalError && <p className="management-error" style={{ margin: '0 0 12px' }} role="alert">{modalError}</p>}
+          <label className="management-field">Account type
+            <select name="accountType" value={editingAccount?.accountType || newAccountType} disabled={Boolean(editingAccount)} onChange={event => { setNewAccountType(event.target.value as 'admin' | 'vendor'); setModalError(''); setFormPassword(''); setShowPassword(false); }}>
+              <option value="admin">Administrator</option>
+              <option value="vendor">Vendor</option>
+            </select>
+          </label>
+          <label className="management-field">{(editingAccount?.accountType || newAccountType) === 'admin' ? 'Full name' : 'Contact name'}
+            <input required name="name" autoComplete="name" maxLength={100} defaultValue={editingAccount?.name || ''} placeholder="Alex Sharma"/>
+          </label>
+          {(editingAccount?.accountType || newAccountType) === 'vendor' && <label className="management-field">Dealership name
+            <input required name="businessName" maxLength={120} defaultValue={editingAccount?.businessName || ''} placeholder="Northstar Motors"/>
+          </label>}
+          <div className="management-form-pair">
+            <label className="management-field">Work email
+              <input required name="email" type="email" autoComplete="email" maxLength={160} defaultValue={editingAccount?.email || ''} placeholder={(editingAccount?.accountType || newAccountType) === 'admin' ? 'alex@cars21.in' : 'alex@northstar.in'}/>
+            </label>
+            {(editingAccount?.accountType || newAccountType) === 'vendor' && <label className="management-field">Phone
+              <input required name="phone" type="tel" maxLength={24} defaultValue={editingAccount?.phone || ''} placeholder="+91 98765 43210"/>
+            </label>}
+          </div>
+          {(editingAccount?.accountType || newAccountType) === 'vendor' && <label className="management-field">City
+            <input required name="city" maxLength={80} defaultValue={editingAccount?.city || ''} placeholder="Bengaluru"/>
+          </label>}
+
+          {/* Password configuration field */}
+          <label className="management-field">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+              <span>{editingAccount ? 'Change password (optional)' : 'Account password'}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const gen = generateFriendlyPassword();
+                  setFormPassword(gen);
+                  setShowPassword(true);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#2563eb',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: 0
+                }}
+              >
+                <RefreshCw size={12} /> Auto-generate strong
+              </button>
+            </div>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                value={formPassword}
+                onChange={event => setFormPassword(event.target.value)}
+                minLength={6}
+                maxLength={100}
+                placeholder={editingAccount ? 'Leave blank to keep existing password' : 'Enter custom password (min 6 chars) or leave blank'}
+                style={{ paddingRight: '42px' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(v => !v)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  background: 'none',
+                  border: 'none',
+                  color: '#64748b',
+                  cursor: 'pointer',
+                  padding: '5px',
+                  display: 'grid',
+                  placeItems: 'center'
+                }}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <small>
+              {editingAccount
+                ? 'Only fill this if you want to set a new password. Must be at least 6 characters.'
+                : 'Enter a custom password for this account, or leave blank to auto-generate a secure random one.'}
+            </small>
+          </label>
+
+          <div className="management-form-actions">
+            <button type="button" className="management-secondary" onClick={() => { setVendorEditor(false); setEditingAccount(null); setModalError(''); setFormPassword(''); }}>Cancel</button>
+            <button className="management-primary" disabled={dataLoading}>{dataLoading ? 'Saving…' : editingAccount ? 'Save details' : 'Create account'} <Check size={16}/></button>
+          </div>
+        </form>}
     </Modal>}
+
+    {/* Dedicated password reset & update modal */}
+    {passwordResetTarget && (
+      <Modal 
+        title={`Set Password · ${passwordResetTarget.name}`} 
+        onClose={() => { setPasswordResetTarget(null); setResetModalPassword(''); }}
+      >
+        <form 
+          className="management-form"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setDataLoading(true);
+            setError('');
+            try {
+              const customPassword = resetModalPassword.trim();
+              if (customPassword.length < 6) {
+                throw new Error('Password must be at least 6 characters.');
+              }
+              let result: { initialPassword: string };
+              if (expectedRole === 'superadmin') {
+                result = await api<{ initialPassword: string }>(`/api/superadmin/users/${encodeURIComponent(passwordResetTarget.id)}`, {
+                  method: 'POST',
+                  body: JSON.stringify({ accountType: passwordResetTarget.accountType, password: customPassword })
+                });
+              } else {
+                result = await api<{ initialPassword: string }>(`/api/admin/vendors/${encodeURIComponent(passwordResetTarget.id)}`, {
+                  method: 'POST',
+                  body: JSON.stringify({ password: customPassword })
+                });
+              }
+              setNewVendorPassword(result.initialPassword);
+              setPasswordResetTarget(null);
+              setResetModalPassword('');
+              setNotice(`Password successfully set for ${passwordResetTarget.name}.`);
+            } catch (err) {
+              setError(err instanceof Error ? err.message : 'Password could not be reset.');
+            } finally {
+              setDataLoading(false);
+            }
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '8px' }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: passwordResetTarget.accountType === 'admin' ? '#eff6ff' : '#fdf4ff', color: passwordResetTarget.accountType === 'admin' ? '#2563eb' : '#9333ea', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+              {passwordResetTarget.accountType === 'admin' ? <ShieldCheck size={18}/> : <Building2 size={18}/>}
+            </div>
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 750, color: '#0f172a' }}>{passwordResetTarget.name}</div>
+              <div style={{ fontSize: '11px', color: '#64748b' }}>{passwordResetTarget.email} · <span style={{ textTransform: 'capitalize' }}>{passwordResetTarget.accountType}</span></div>
+            </div>
+          </div>
+
+          <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#64748b', lineHeight: 1.5 }}>
+            Type any new custom password for this account, or use the generated password below. The previous password will immediately stop working.
+          </p>
+
+          <label className="management-field">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+              <span>New password</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const gen = generateFriendlyPassword();
+                  setResetModalPassword(gen);
+                  setShowResetPassword(true);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#2563eb',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: 0
+                }}
+              >
+                <RefreshCw size={12} /> Auto-generate strong
+              </button>
+            </div>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input
+                required
+                type={showResetPassword ? 'text' : 'password'}
+                value={resetModalPassword}
+                onChange={e => setResetModalPassword(e.target.value)}
+                minLength={6}
+                maxLength={100}
+                placeholder="Enter new password (min 6 chars)"
+                style={{ paddingRight: '42px' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowResetPassword(v => !v)}
+                aria-label={showResetPassword ? 'Hide password' : 'Show password'}
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  background: 'none',
+                  border: 'none',
+                  color: '#64748b',
+                  cursor: 'pointer',
+                  padding: '5px',
+                  display: 'grid',
+                  placeItems: 'center'
+                }}
+              >
+                {showResetPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <small>At least 6 characters.</small>
+          </label>
+
+          <div className="management-form-actions">
+            <button
+              type="button"
+              className="management-secondary"
+              onClick={() => { setPasswordResetTarget(null); setResetModalPassword(''); }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="management-primary"
+              disabled={dataLoading || resetModalPassword.trim().length < 6}
+            >
+              {dataLoading ? 'Saving…' : 'Save new password'} <Check size={16}/>
+            </button>
+          </div>
+        </form>
+      </Modal>
+    )}
   </main>;
 }
 

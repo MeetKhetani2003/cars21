@@ -34,11 +34,13 @@ export async function PATCH(request: NextRequest, context: Context) {
 export async function POST(request: NextRequest, context: Context) {
   if (!isAdminRequest(request)) return NextResponse.json({ error: 'Admin access required.' }, { status: 401 });
   const { id } = await context.params;
+  const rawBody = await request.json().catch(() => null);
   try {
     const filter = buildIdFilter(id);
     const collection = (await getDb()).collection('vendors');
     if (!await collection.findOne(filter)) return NextResponse.json({ error: 'Vendor account not found.' }, { status: 404 });
-    const password = randomBytes(12).toString('base64url');
+    const customPassword = rawBody?.password && typeof rawBody.password === 'string' && rawBody.password.trim().length >= 6 ? rawBody.password.trim() : null;
+    const password = customPassword || randomBytes(12).toString('base64url');
     const { salt, hash } = await hashPassword(password);
     await collection.updateOne(filter, { $set: { passwordSalt: salt, passwordHash: hash, updatedAt: new Date() } });
     return NextResponse.json({ initialPassword: password });

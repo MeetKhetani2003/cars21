@@ -16,6 +16,10 @@ const accountSchema = z.object({
   businessName: z.string().trim().optional(),
   phone: z.string().trim().optional(),
   city: z.string().trim().optional(),
+  password: z.union([
+    z.string().trim().min(6, 'Password must have at least 6 characters').max(100),
+    z.literal('')
+  ]).optional(),
 }).superRefine((data, ctx) => {
   if (data.accountType === 'vendor') {
     if (!data.businessName || data.businessName.trim().length < 2) {
@@ -64,7 +68,8 @@ export async function POST(request: NextRequest) {
     const vendors = db.collection<Record<string, unknown>>('vendors');
     await Promise.all([admins.createIndex({ email: 1 }, { unique: true }), vendors.createIndex({ email: 1 }, { unique: true })]);
     if (await admins.findOne({ email }) || await vendors.findOne({ email })) return NextResponse.json({ error: 'An account already uses that email.' }, { status: 409 });
-    const password = randomBytes(15).toString('base64url');
+    const customPassword = parsed.data.password && parsed.data.password.trim().length >= 6 ? parsed.data.password.trim() : null;
+    const password = customPassword || randomBytes(12).toString('base64url');
     const { salt, hash } = await hashPassword(password);
     const id = randomBytes(12).toString('hex');
     const values = {
