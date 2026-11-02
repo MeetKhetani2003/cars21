@@ -7,7 +7,7 @@ const scrypt = promisify(scryptCallback);
 const cookieName = 'cars21_session';
 const sessionSeconds = 60 * 60 * 12;
 
-export type SessionUser = { sub: string; role: 'superadmin' | 'admin' | 'vendor' | 'buyer'; name: string; email?: string; vendorId?: string; credentialVersion?: string; exp: number };
+export type SessionUser = { sub: string; role: 'superadmin' | 'admin' | 'vendor' | 'buyer'; name: string; email?: string; phone?: string; vendorId?: string; credentialVersion?: string; exp: number };
 
 function signingKey() {
   return process.env.CARS21_SESSION_SECRET || process.env.CARS21_SUPERADMIN_PASSWORD || process.env.CARS21_ADMIN_TOKEN || '';

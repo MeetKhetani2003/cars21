@@ -174,14 +174,14 @@ export async function POST(request: NextRequest) {
     if (vendor && existing && existing.vendorId !== vendor.vendorId) return NextResponse.json({ error: 'You can only edit your own listings.' }, { status: 403 });
     if (parsed.data.vendorId && !admin) return NextResponse.json({ error: 'Vendor assignment is managed by Cars21.' }, { status: 403 });
     if (parsed.data.vendorId && !await db.collection('vendors').findOne({ id: parsed.data.vendorId })) return NextResponse.json({ error: 'Choose an existing vendor account.' }, { status: 400 });
-    if (parsed.data.imageId) {
+    if (parsed.data.imageId && ObjectId.isValid(String(parsed.data.imageId))) {
       const imageId = parsed.data.imageId;
       const photo = await getPhotoBucket().then(bucket => bucket.find({ _id: new ObjectId(String(imageId)) }).limit(1).toArray());
       if (!photo.length) return NextResponse.json({ error: 'The selected photo could not be found.' }, { status: 400 });
       if (vendor && photo[0].metadata?.vendorId !== vendor.vendorId) return NextResponse.json({ error: 'You can only use photos uploaded in your workspace.' }, { status: 403 });
     }
     if (vendor) {
-      const photoIds = [...new Set([...parsed.data.photoIds, ...(parsed.data.imageId ? [parsed.data.imageId] : []), ...(parsed.data.inspection?.evidencePhotoIds ?? [])])];
+      const photoIds = [...new Set([...parsed.data.photoIds, ...(parsed.data.imageId ? [parsed.data.imageId] : []), ...(parsed.data.inspection?.evidencePhotoIds ?? [])])].filter(id => ObjectId.isValid(String(id)));
       if (photoIds.length) {
         const photos = await getPhotoBucket().then(bucket => bucket.find({ _id: { $in: photoIds.map(id => new ObjectId(String(id))) } }).toArray());
         if (photos.length !== photoIds.length || photos.some(photo => photo.metadata?.vendorId !== vendor.vendorId)) return NextResponse.json({ error: 'One or more listing photos do not belong to your workspace.' }, { status: 403 });

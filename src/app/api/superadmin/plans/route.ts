@@ -8,11 +8,27 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const planSchema = z.object({
-  name: z.string().trim().min(2).max(80), description: z.string().trim().max(400).default(''),
-  price: z.number().min(0).max(100_000_000), durationDays: z.number().int().min(1).max(3650),
-  maxListings: z.number().int().min(1).max(10_000), maxImagesPerListing: z.number().int().min(1).max(20),
-  features: z.object({ listingAnalytics: z.boolean(), buyerInquiries: z.boolean(), inspectionUploads: z.boolean(), publicBusinessProfile: z.boolean(), priorityPlacement: z.boolean() }),
-  active: z.boolean().default(true), public: z.boolean().default(true),
+  name: z.string().trim().min(2).max(80),
+  description: z.string().trim().max(400).default(''),
+  price: z.number().min(0).max(100_000_000),
+  durationDays: z.number().int().min(1).max(3650),
+  maxListings: z.number().int().min(1).max(10_000),
+  maxImagesPerListing: z.number().int().min(1).max(20),
+  features: z.object({
+    listingAnalytics: z.boolean().default(true),
+    buyerInquiries: z.boolean().default(true),
+    inspectionUploads: z.boolean().default(true),
+    publicBusinessProfile: z.boolean().default(true),
+    priorityPlacement: z.boolean().default(false)
+  }).passthrough().default({
+    listingAnalytics: true,
+    buyerInquiries: true,
+    inspectionUploads: true,
+    publicBusinessProfile: true,
+    priorityPlacement: false
+  }),
+  active: z.boolean().default(true),
+  public: z.boolean().default(true),
 });
 
 export async function GET(request: NextRequest) {

@@ -16,7 +16,14 @@ import { FeaturedCarsSection } from '../components/FeaturedCarsSection';
 
 
 
-type HomeFilters = { cities: string[]; makes: string[]; minPrice: number; maxPrice: number };
+type HomeFilters = {
+  cities: string[];
+  makes: string[];
+  popularCities?: string[];
+  popularMakes?: { make: string; code: string; country?: string }[];
+  minPrice: number;
+  maxPrice: number;
+};
 
 export function HomePage() {
   const [hubTab, setHubTab] = useState<'buy' | 'sell' | 'val' | 'dealer'>('buy');
@@ -56,6 +63,8 @@ export function HomePage() {
       setFilters({
         cities: filterData.cities || [],
         makes: filterData.makes || [],
+        popularCities: filterData.popularCities || [],
+        popularMakes: filterData.popularMakes || [],
         minPrice: filterData.minPrice || 0,
         maxPrice: filterData.maxPrice || 0
       });
@@ -375,20 +384,25 @@ export function HomePage() {
         <Link href="/buy-cars">View all makes <ArrowRight size={13} /></Link>
       </div>
       <div className="brands-showcase-grid">
-        {[
-          { make: 'Maruti Suzuki', code: 'MS', count: '320+ cars' },
-          { make: 'Hyundai', code: 'HY', count: '240+ cars' },
-          { make: 'Tata', code: 'TA', count: '190+ cars' },
-          { make: 'Mahindra', code: 'MH', count: '130+ cars' },
-          { make: 'Honda', code: 'HO', count: '115+ cars' },
-          { make: 'Toyota', code: 'TY', count: '95+ cars' },
-          { make: 'Kia', code: 'KA', count: '85+ cars' },
-          { make: 'Volkswagen', code: 'VW', count: '60+ cars' },
-        ].map(b => (
+        {((filters.popularMakes && filters.popularMakes.length > 0)
+          ? filters.popularMakes
+          : (filters.makes && filters.makes.length > 0)
+            ? filters.makes.slice(0, 8).map(m => ({ make: m, code: m.slice(0, 2).toUpperCase() }))
+            : [
+                { make: 'Maruti Suzuki', code: 'MS' },
+                { make: 'Hyundai', code: 'HY' },
+                { make: 'Tata', code: 'TA' },
+                { make: 'Mahindra', code: 'MH' },
+                { make: 'Honda', code: 'HO' },
+                { make: 'Toyota', code: 'TY' },
+                { make: 'Kia', code: 'KA' },
+                { make: 'Volkswagen', code: 'VW' },
+              ]
+        ).map(b => (
           <Link key={b.make} href={`/buy-cars?make=${encodeURIComponent(b.make)}`} className="brand-pill-card">
-            <span className="brand-initial-icon">{b.code}</span>
+            <span className="brand-initial-icon">{b.code || b.make.slice(0, 2).toUpperCase()}</span>
             <b>{b.make}</b>
-            <small>{b.count}</small>
+            <small>Explore listings</small>
           </Link>
         ))}
       </div>

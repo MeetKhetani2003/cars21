@@ -8,7 +8,13 @@ import { vendorSlug } from '../../../../lib/vendor-slug';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const vendorSchema = z.object({ name: z.string().trim().min(2).max(100), businessName: z.string().trim().min(2).max(120), email: z.string().trim().email().max(160), phone: z.string().trim().min(8).max(24), city: z.string().trim().min(2).max(80) });
+const vendorSchema = z.object({
+  name: z.string().trim().min(2, 'Name must have at least 2 characters').max(100),
+  businessName: z.string().trim().min(2, 'Dealership name must have at least 2 characters').max(120),
+  email: z.string().trim().email('Please enter a valid email address').max(160),
+  phone: z.string().trim().min(5, 'Phone number must have at least 5 characters').max(24),
+  city: z.string().trim().min(2, 'City is required').max(80)
+});
 
 export async function GET(request: NextRequest) {
   if (!isAdminRequest(request)) return NextResponse.json({ error: 'Admin access required.' }, { status: 401 });
@@ -20,8 +26,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required to create vendor accounts.' }, { status: 403 });
-  const parsed = vendorSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: 'Check the vendor details and try again.' }, { status: 400 });
+  const rawBody = await request.json().catch(() => null);
+  const parsed = vendorSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    const message = parsed.error.issues[0]?.message || 'Check the vendor details and try again.';
+    return NextResponse.json({ error: message, issues: parsed.error.issues }, { status: 400 });
+  }
   try {
     const collection = (await getDb()).collection<Record<string, unknown>>('vendors');
     await collection.createIndex({ email: 1 }, { unique: true });

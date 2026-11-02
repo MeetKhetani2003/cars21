@@ -7,10 +7,108 @@ import { useBuyerExperience } from '../components/BuyerExperienceProvider';
 import { CarCard } from '../components/CarCard';
 import { SellerListingsPanel } from '../components/SellerListingsPanel';
 export function LoginPage(){
-  const navigate=useNavigate();const [returnTo,setReturnTo]=useState('/');const [error,setError]=useState('');const [loading,setLoading]=useState(false);
-  useEffect(()=>{const params=new URLSearchParams(window.location.search);const requested=params.get('returnTo')||'/';setReturnTo(requested.startsWith('/')&&!requested.startsWith('//')?requested:'/');const errorCode=params.get('error');if(errorCode)setError(errorCode==='not_configured'?'Google sign-in is not configured yet.':errorCode==='account_conflict'?'That email is already linked to a different sign-in. Contact Cars21 support.':errorCode==='unverified_email'?'Google could not verify this email address. Try a verified Google account.':'Google sign-in could not be completed. Please try again.');},[]);
-  async function signIn(event:FormEvent<HTMLFormElement>){event.preventDefault();setLoading(true);setError('');try{const response=await fetch('/api/auth/google',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({consent:true,returnTo})});const result=await response.json();if(!response.ok)throw new Error(result.error||'Google sign-in is unavailable.');window.location.assign(result.url);}catch(reason){setError(reason instanceof Error?reason.message:'Google sign-in is unavailable.');setLoading(false);}}
-  return <section className="login-page"><div className="login-card"><span className="login-mark"><CarFront/></span><span className="eyebrow">YOUR CARS21 ACCOUNT</span><h1>Continue with Google.</h1><p>Sign in to contact a seller, view dealer pages, and keep your car activity in one place.</p><form onSubmit={signIn}><label className="login-tracking-consent"><input type="checkbox" required/><span>I understand Cars21 records my car searches and views, dealer pages I visit, enquiries, and revealed contact numbers. Recent activity is kept for 7 days, then appears in administrator history.</span></label>{error&&<p className="management-error" role="alert">{error}</p>}<button className="button button-primary button-full google-signin-button" disabled={loading}><span className="google-g-mark" aria-hidden="true">G</span>{loading?'Connecting to Google…':'Continue with Google'}{!loading&&<ArrowRight size={16}/>}</button></form><p className="login-privacy-note"><ShieldCheck size={15}/> We use your verified Google name and email to identify your account. Only Cars21 administrators can access activity history.</p><Link to="/" className="login-back-link">Back to Cars21</Link></div><div className="login-art"><img src="/images/kars21-hero.png" alt="Car in a contemporary setting"/><div><span>MOVE WITH MORE CLARITY</span><b>Your journey starts here.</b></div></div></section>
+  const navigate=useNavigate();
+  const [returnTo,setReturnTo]=useState('/');
+  const [phone,setPhone]=useState('');
+  const [consent,setConsent]=useState(false);
+  const [error,setError]=useState('');
+  const [loading,setLoading]=useState(false);
+
+  const cleanDigits = phone.replace(/\D/g, '').slice(0, 10);
+  const isPhoneValid = /^[6-9]\d{9}$/.test(cleanDigits);
+
+  useEffect(()=>{
+    const params=new URLSearchParams(window.location.search);
+    const requested=params.get('returnTo')||'/';
+    setReturnTo(requested.startsWith('/')&&!requested.startsWith('//')?requested:'/');
+    const errorCode=params.get('error');
+    if(errorCode)setError(errorCode==='not_configured'?'Google sign-in is not configured yet.':errorCode==='account_conflict'?'That email is already linked to a different sign-in. Contact Cars21 support.':errorCode==='unverified_email'?'Google could not verify this email address. Try a verified Google account.':'Google sign-in could not be completed. Please try again.');
+  },[]);
+
+  async function signIn(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();
+    if (!isPhoneValid) {
+      setError('Please enter a valid 10-digit mobile number before signing in.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try{
+      const response=await fetch('/api/auth/google',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({consent:true,returnTo,phone:cleanDigits})});
+      const result=await response.json();
+      if(!response.ok)throw new Error(result.error||'Google sign-in is unavailable.');
+      window.location.assign(result.url);
+    }catch(reason){
+      setError(reason instanceof Error?reason.message:'Google sign-in is unavailable.');
+      setLoading(false);
+    }
+  }
+
+  return <section className="login-page">
+    <div className="login-card">
+      <span className="login-mark"><CarFront/></span>
+      <span className="eyebrow">YOUR CARS21 ACCOUNT</span>
+      <h1>Continue with Google.</h1>
+      <p>Enter your mandatory mobile number below to unlock Google sign-in and access your personal car hub.</p>
+      
+      <form onSubmit={signIn}>
+        <div className="login-phone-box">
+          <label className="login-phone-label" htmlFor="page-login-phone">
+            <span>Mobile Number <strong className="login-required-star">*</strong></span>
+            <span className="login-phone-badge">{isPhoneValid ? 'Verified' : 'Required'}</span>
+          </label>
+          <div className={`login-phone-input-wrap ${isPhoneValid ? 'valid' : phone.length > 0 ? 'invalid' : ''}`}>
+            <span className="login-phone-flag">🇮🇳</span>
+            <span className="login-phone-code">+91</span>
+            <input
+              id="page-login-phone"
+              type="tel"
+              inputMode="numeric"
+              autoComplete="tel"
+              maxLength={10}
+              required
+              value={phone}
+              onChange={event => setPhone(event.target.value.replace(/\D/g, '').slice(0, 10))}
+              placeholder="Enter 10-digit number"
+              className="login-phone-input"
+            />
+            {isPhoneValid && <span className="login-phone-success-icon"><Check size={16}/></span>}
+          </div>
+          {!phone ? (
+            <p className="login-phone-subtext">Google Sign-in button is disabled until your 10-digit mobile number is filled.</p>
+          ) : !isPhoneValid ? (
+            <p className="login-phone-subtext text-danger">Enter a valid 10-digit Indian mobile number (starts with 6, 7, 8, or 9).</p>
+          ) : (
+            <p className="login-phone-subtext text-success">✓ Mobile number ready. Google sign-in is now enabled!</p>
+          )}
+        </div>
+
+        <label className="login-tracking-consent">
+          <input type="checkbox" required checked={consent} onChange={event => setConsent(event.target.checked)}/>
+          <span>I understand Cars21 records my searches, car and dealer views, enquiries, and revealed contact numbers.</span>
+        </label>
+
+        {error&&<p className="management-error" role="alert">{error}</p>}
+
+        <button
+          type="submit"
+          className="button button-primary button-full google-signin-button"
+          disabled={loading || !consent || !isPhoneValid}
+          title={!isPhoneValid ? 'Enter a 10-digit mobile number to enable Google sign-in' : !consent ? 'Please accept the consent terms' : 'Continue with Google'}
+        >
+          <span className="google-g-mark" aria-hidden="true">G</span>
+          {loading?'Connecting to Google…':'Continue with Google'}
+          {!loading&&<ArrowRight size={16}/>}
+        </button>
+      </form>
+      <p className="login-privacy-note"><ShieldCheck size={15}/> We use your verified Google name and email to identify your account. Only Cars21 administrators can access activity history.</p>
+      <Link to="/" className="login-back-link">Back to Cars21</Link>
+    </div>
+    <div className="login-art">
+      <img src="/images/kars21-hero.png" alt="Car in a contemporary setting"/>
+      <div><span>MOVE WITH MORE CLARITY</span><b>Your journey starts here.</b></div>
+    </div>
+  </section>;
 }
 export function AccountPage(){return <><PageHero eyebrow="MY CARS21 · SAMPLE DASHBOARD" title="Your car journey, in one place." copy="A role-aware view of saved cars and illustrative booking progress."/><section className="container account-dashboard"><div className="account-welcome"><div><span className="eyebrow">BUYER ACCOUNT · DEMO</span><h2>Welcome back, Alex.</h2><p>Your sample dashboard is ready to explore.</p></div><Link to="/buy-cars" className="button button-dark">Find a car <ArrowRight size={15}/></Link></div><div className="account-stats"><div><span>Saved cars</span><b>02</b><small>Sample items</small></div><div><span>Active bookings</span><b>01</b><small>Demo status only</small></div><div><span>Next step</span><b>Visit</b><small>Tomorrow · 11:30 AM</small></div></div><div className="account-columns"><div className="account-panel"><h3>Recent activity</h3>{[['Inspection visit','Hyundai Creta · Bengaluru','Tomorrow, 11:30 AM','Scheduled · Sample'],['Saved car','Honda City ZX CVT','Viewed today','Saved locally']].map(x=><div className="account-activity" key={x[0]}><span className="activity-icon"><CalendarDays/></span><div><b>{x[0]}</b><p>{x[1]}</p><small>{x[2]}</small></div><span className="status-badge">{x[3]}</span></div>)}</div><div className="account-panel"><h3>Continue a journey</h3><Link className="journey-link" to="/sell-car/inspection-status"><span><b>Seller inspection</b><small>Review sample inspection progress</small></span><ArrowRight/></Link><Link className="journey-link" to="/loans24/emi-calculator"><span><b>Car finance</b><small>Adjust your monthly estimate</small></span><ArrowRight/></Link></div></div><p className="detail-disclosure">Sample dashboard content. Real accounts, bookings, and personal information are not connected.</p></section></>}
 export function BuyerProfilePage(){

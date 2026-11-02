@@ -9,10 +9,26 @@ import { ensureDevelopmentDemoVendorProfile } from '../../../../server/demo-vend
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const accountSchema = z.discriminatedUnion('accountType', [
-  z.object({ accountType: z.literal('admin'), name: z.string().trim().min(2).max(100), email: z.string().trim().email().max(160) }),
-  z.object({ accountType: z.literal('vendor'), name: z.string().trim().min(2).max(100), businessName: z.string().trim().min(2).max(120), email: z.string().trim().email().max(160), phone: z.string().trim().min(8).max(24), city: z.string().trim().min(2).max(80) }),
-]);
+const accountSchema = z.object({
+  accountType: z.enum(['admin', 'vendor']),
+  name: z.string().trim().min(2, 'Name must have at least 2 characters').max(100),
+  email: z.string().trim().email('Please enter a valid email address (e.g. name@domain.com)').max(160),
+  businessName: z.string().trim().optional(),
+  phone: z.string().trim().optional(),
+  city: z.string().trim().optional(),
+}).superRefine((data, ctx) => {
+  if (data.accountType === 'vendor') {
+    if (!data.businessName || data.businessName.trim().length < 2) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Dealership name must have at least 2 characters', path: ['businessName'] });
+    }
+    if (!data.phone || data.phone.trim().length < 5) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Phone number is required (at least 5 characters)', path: ['phone'] });
+    }
+    if (!data.city || data.city.trim().length < 2) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'City is required', path: ['city'] });
+    }
+  }
+});
 
 export async function GET(request: NextRequest) {
   if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required.' }, { status: 403 });
@@ -32,8 +48,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required to create accounts.' }, { status: 403 });
-  const parsed = accountSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: 'Check the account details and try again.' }, { status: 400 });
+  const rawBody = await request.json().catch(() => null);
+  const parsed = accountSchema.safeParse(rawBody);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const message = issue ? issue.message : 'Check the account details and try again.';
+    console.warn('Superadmin user creation validation failure:', message, rawBody);
+    return NextResponse.json({ error: message, issues: parsed.error.issues }, { status: 400 });
+  }
   const accountType = parsed.data.accountType;
   const email = parsed.data.email.toLowerCase();
   try {
@@ -45,11 +67,33 @@ export async function POST(request: NextRequest) {
     const password = randomBytes(15).toString('base64url');
     const { salt, hash } = await hashPassword(password);
     const id = randomBytes(12).toString('hex');
-    const values = { ...parsed.data, email };
-    const account = { id, ...values, ...(accountType === 'vendor' ? { slug: vendorSlug('businessName' in values ? values.businessName : values.name, id) } : {}), role: accountType, status: 'active', passwordSalt: salt, passwordHash: hash, createdAt: new Date(), updatedAt: new Date() };
+    const values = {
+      accountType,
+      name: parsed.data.name,
+      email,
+      ...(accountType === 'vendor' ? {
+        businessName: parsed.data.businessName || parsed.data.name,
+        phone: parsed.data.phone || '',
+        city: parsed.data.city || '',
+      } : {})
+    };
+    const account = {
+      id,
+      ...values,
+      ...(accountType === 'vendor' ? { slug: vendorSlug(values.businessName || values.name, id) } : {}),
+      role: accountType,
+      status: 'active',
+      passwordSalt: salt,
+      passwordHash: hash,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
     await (accountType === 'admin' ? admins : vendors).insertOne(account);
     const { passwordSalt: _salt, passwordHash: _hash, ...safeAccount } = account;
-    return NextResponse.json({ account: { ...safeAccount, ...(accountType === 'vendor' ? { profileUrl: `/dealers/${account.slug}` } : {}), createdAt: new Date().toISOString() }, initialPassword: password }, { status: 201 });
+    return NextResponse.json({
+      account: { ...safeAccount, ...(accountType === 'vendor' ? { profileUrl: `/dealers/${account.slug}` } : {}), createdAt: new Date().toISOString() },
+      initialPassword: password
+    }, { status: 201 });
   } catch (reason) {
     if (reason && typeof reason === 'object' && 'code' in reason && reason.code === 11000) return NextResponse.json({ error: 'An account already uses that email.' }, { status: 409 });
     return NextResponse.json({ error: 'Account could not be created.' }, { status: 503 });

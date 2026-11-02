@@ -16,7 +16,7 @@ function validStateCookie(value: string, expectedState: string, secret: string) 
   const actual = Buffer.from(signature, 'base64url');
   if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
   try {
-    const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString()) as { state?: string; returnTo?: string; issuedAt?: number; consent?: boolean };
+    const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString()) as { state?: string; returnTo?: string; phone?: string; issuedAt?: number; consent?: boolean };
     if (parsed.state !== expectedState || parsed.consent !== true || !parsed.issuedAt || Date.now() - parsed.issuedAt > 10 * 60 * 1000) return null;
     if (!parsed.returnTo?.startsWith('/') || parsed.returnTo.startsWith('//') || parsed.returnTo.includes('\\')) parsed.returnTo = '/';
     return parsed;
@@ -62,12 +62,22 @@ export async function GET(request: NextRequest) {
     if (existingByEmail && existingByEmail.googleSub !== profile.sub) return fail(request, 'account_conflict');
     const userId = String(existingByEmail?.id || randomBytes(18).toString('base64url'));
     const now = new Date();
+    const phone = parsedState.phone || String(existingByEmail?.phone || '');
     await users.updateOne({ googleSub: profile.sub }, {
-      $set: { id: userId, googleSub: profile.sub, email: profile.email.toLowerCase(), name: profile.name || profile.email.split('@')[0], picture: profile.picture || '', trackingConsentAt: now, updatedAt: now },
+      $set: {
+        id: userId,
+        googleSub: profile.sub,
+        email: profile.email.toLowerCase(),
+        name: profile.name || profile.email.split('@')[0],
+        picture: profile.picture || '',
+        ...(phone ? { phone } : {}),
+        trackingConsentAt: now,
+        updatedAt: now
+      },
       $setOnInsert: { createdAt: now },
     }, { upsert: true });
     const name = profile.name || profile.email.split('@')[0];
-    const session = createSession({ sub: userId, role: 'buyer', name, email: profile.email.toLowerCase() });
+    const session = createSession({ sub: userId, role: 'buyer', name, email: profile.email.toLowerCase(), phone: phone || undefined });
     const appBase = process.env.CARS21_APP_URL || request.nextUrl.origin;
     const response = NextResponse.redirect(new URL(parsedState.returnTo || '/', appBase));
     response.cookies.set(sessionCookieName, session, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: sessionCookieMaxAge });
