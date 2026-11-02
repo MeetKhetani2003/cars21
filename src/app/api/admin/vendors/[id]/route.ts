@@ -7,7 +7,11 @@ import { getDb } from '../../../../../server/mongodb';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-const schema = z.object({ status: z.enum(['active', 'suspended']) });
+const schema = z.object({
+  status: z.enum(['active', 'suspended']).optional(),
+  assignedAdminId: z.string().optional(),
+  assignedAdminName: z.string().optional()
+});
 type Context = { params: Promise<{ id: string }> };
 
 function buildIdFilter(id: string): Filter<Document> {
@@ -22,12 +26,29 @@ export async function PATCH(request: NextRequest, context: Context) {
   if (!isAdminRequest(request)) return NextResponse.json({ error: 'Admin access required.' }, { status: 401 });
   const { id } = await context.params;
   const parsed = schema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: 'Choose an account status.' }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: 'Invalid update payload.' }, { status: 400 });
   try {
     const filter = buildIdFilter(id);
-    const result = await (await getDb()).collection('vendors').updateOne(filter, { $set: { status: parsed.data.status, updatedAt: new Date() } });
+    const db = await getDb();
+    const updates: Record<string, unknown> = { updatedAt: new Date() };
+
+    if (parsed.data.status) {
+      updates.status = parsed.data.status;
+    }
+
+    if (parsed.data.assignedAdminId !== undefined) {
+      let adminName = parsed.data.assignedAdminName || '';
+      if (parsed.data.assignedAdminId) {
+        const adminDoc = await db.collection('admins').findOne({ id: parsed.data.assignedAdminId }, { projection: { name: 1 } });
+        if (adminDoc?.name) adminName = String(adminDoc.name);
+      }
+      updates.assignedAdminId = parsed.data.assignedAdminId || null;
+      updates.assignedAdminName = adminName || null;
+    }
+
+    const result = await db.collection('vendors').updateOne(filter, { $set: updates });
     if (!result.matchedCount) return NextResponse.json({ error: 'Vendor account not found.' }, { status: 404 });
-    return NextResponse.json({ ok: true, status: parsed.data.status });
+    return NextResponse.json({ ok: true, status: parsed.data.status, assignedAdminId: updates.assignedAdminId, assignedAdminName: updates.assignedAdminName });
   } catch { return NextResponse.json({ error: 'Vendor account could not be updated.' }, { status: 503 }); }
 }
 

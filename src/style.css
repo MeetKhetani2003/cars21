@@ -369,7 +369,7 @@ button:disabled{cursor:not-allowed;opacity:.55}
 .management-section-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin:12px 0 18px}.management-section-heading .eyebrow{font-size:9px}.management-section-heading h2{margin:7px 0 4px;font:750 21px/1.2 'Inter', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;letter-spacing:-.04em}.management-section-heading>button{display:flex;align-items:center;gap:7px;min-height:40px;padding:0 12px;border:1px solid #e1e7ed;border-radius:10px;background:#fff;color:#49627f;font-size:10px;font-weight:700;white-space:nowrap}.management-section-heading>button svg,.management-shortcuts>button>svg:last-child{transform:rotate(180deg)}
 .management-shortcuts{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:20px}.management-shortcuts>button{display:flex;align-items:center;gap:13px;min-height:76px;padding:15px;border:1px solid #e3e9ef;border-radius:14px;background:#fff;text-align:left;color:#4166b9}.management-shortcuts>button span{flex:1}.management-shortcuts>button b,.management-shortcuts>button small{display:block}.management-shortcuts>button b{color:#28394d;font-size:11px}.management-shortcuts>button small{margin-top:4px;color:#7a899a;font-size:10px}
 .management-section-heading.management-list-heading{align-items:center;margin:0 0 20px}.management-list-heading h2{font-size:25px}.management-primary,.management-secondary{min-height:46px;display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:0 17px;border:0;border-radius:10px;background:#315fc7;color:#fff;font-size:11px;font-weight:750;box-shadow:0 6px 16px rgba(49,95,199,.18);transition:background .18s,transform .18s}.management-primary:hover{background:#244ca9;transform:translateY(-1px)}.management-primary:disabled{opacity:.65;cursor:wait}.management-primary.compact{min-height:42px}.management-secondary{border:1px solid #e0e6ed;background:#fff;color:#52647a;box-shadow:none}.management-secondary:hover{background:#f6f8fb}
-.management-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:13px;color:#7b8997;font-size:10px}.management-search{height:42px;width:min(390px,100%);display:flex;align-items:center;gap:9px;padding:0 12px;border:1px solid #e0e6ed;border-radius:10px;background:#fff;color:#8c9aab}.management-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#293a4f;font-size:11px}.management-listings{display:grid;gap:9px}.management-car-row{min-width:0;display:grid;grid-template-columns:60px minmax(140px,1fr) minmax(100px,.55fr) 115px 86px;align-items:center;gap:14px;padding:12px;border:1px solid #e5eaf0;border-radius:13px;background:#fff}.management-car-image{width:60px;height:52px;display:grid;place-items:center;overflow:hidden;border-radius:9px;background:#eff2f6;color:#8292a6}.management-car-image img{width:100%;height:100%;object-fit:cover}.management-car-name{min-width:0}.management-car-name b,.management-car-name span,.management-car-name small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.management-car-name b{color:#27384c;font-size:11px}.management-car-name span{margin-top:4px;color:#758497;font-size:10px}.management-car-name small{margin-top:3px;color:#a0aab5;font-size:8px}.management-price{font:700 12px 'Inter', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;white-space:nowrap}.management-row-actions{display:flex;justify-content:flex-end;gap:5px}.management-row-actions button,.management-banner button{width:35px;height:35px;display:grid;place-items:center;border:1px solid #e4e9ef;border-radius:9px;background:#fff;color:#63748a}.management-row-actions button:hover{background:#edf3ff;color:#315fc7}.management-row-actions button.danger:hover{background:#fff0ef;color:#bd493e}
+.management-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:13px;color:#7b8997;font-size:10px}.management-search{height:42px;width:min(390px,100%);display:flex;align-items:center;gap:9px;padding:0 12px;border:1px solid #e0e6ed;border-radius:10px;background:#fff;color:#8c9aab}.management-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#293a4f;font-size:11px}.management-listings{display:grid;gap:9px}.management-car-row{min-width:0;display:grid;grid-template-columns:60px minmax(150px,1.2fr) 105px minmax(140px,auto) auto;align-items:center;gap:14px;padding:12px;border:1px solid #e5eaf0;border-radius:13px;background:#fff}.management-car-image{width:60px;height:52px;display:grid;place-items:center;overflow:hidden;border-radius:9px;background:#eff2f6;color:#8292a6}.management-car-image img{width:100%;height:100%;object-fit:cover}.management-car-name{min-width:0}.management-car-name b,.management-car-name span,.management-car-name small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.management-car-name b{color:#27384c;font-size:11px}.management-car-name span{margin-top:4px;color:#758497;font-size:10px}.management-car-name small{margin-top:3px;color:#a0aab5;font-size:8px}.management-price{font:700 12px 'Inter', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;white-space:nowrap}.management-row-actions{display:flex;justify-content:flex-end;align-items:center;gap:6px;flex-wrap:wrap}.management-row-actions button,.management-banner button{width:35px;height:35px;display:grid;place-items:center;border:1px solid #e4e9ef;border-radius:9px;background:#fff;color:#63748a}.management-row-actions button:hover{background:#edf3ff;color:#315fc7}.management-row-actions button.danger:hover{background:#fff0ef;color:#bd493e}
 .management-status{width:max-content;display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:999px;background:#edf1f6;color:#68778a;font-size:9px;font-weight:750;white-space:nowrap}.management-status.active,.management-status.contacted{background:#e9f5ed;color:#34754e}.management-status.pending,.management-status.new{background:#fff3e2;color:#a66c1b}.management-status.paused{background:#edf0f4;color:#6a7786}.management-status.sold,.management-status.closed{background:#f1edfa;color:#755daa}.management-status.visit_booked{background:#eaf1ff;color:#3d61af}
 .management-heading-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .management-account-tabs-wrap{margin:0 0 16px}
@@ -8517,5 +8517,750 @@ body {
   }
   .city-footer-cancel-btn {
     width: 100%;
+  }
+}
+
+/* Car Document & Verification Badges & Actions */
+.management-car-verify-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.car-verify-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+
+.car-verify-badge.verified {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.car-verify-badge.under_verification {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.car-verify-badge.unverified {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.car-verify-badge.rejected {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.management-doc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #2563eb;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.management-doc-link:hover {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.quick-verify-btn {
+  font-size: 11px;
+  font-weight: 750;
+  padding: 4px 9px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.quick-verify-btn.approve {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.quick-verify-btn.approve:hover {
+  background: #059669;
+  color: #ffffff;
+}
+
+.quick-verify-btn.reject {
+  background: #fff1f2;
+  color: #be123c;
+  border-color: #fecdd3;
+}
+
+.quick-verify-btn.reject:hover {
+  background: #e11d48;
+  color: #ffffff;
+}
+
+.management-added-by-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-top: 5px;
+}
+
+.management-assigned-admin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
+.management-vendor-assign {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+.management-vendor-assign label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #334155;
+  width: 100%;
+}
+.management-vendor-assign select {
+  flex: 1;
+  height: 28px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 0 6px;
+  outline: none;
+  cursor: pointer;
+}
+.management-vendor-assign select:focus {
+  border-color: #2563eb;
+}
+
+/* View Car Button & Public Car Link */
+.management-view-car-btn {
+  width: auto !important;
+  height: 32px !important;
+  padding: 0 11px !important;
+  display: inline-flex !important;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px !important;
+  font-weight: 750 !important;
+  color: #1d4ed8 !important;
+  background: #eff6ff !important;
+  border: 1px solid #bfdbfe !important;
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.management-view-car-btn:hover {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #1d4ed8 !important;
+}
+
+.management-public-link {
+  width: 32px !important;
+  height: 32px !important;
+  display: grid !important;
+  place-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  color: #64748b;
+  background: #ffffff;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.management-public-link:hover {
+  color: #2563eb;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.management-car-image.clickable,
+.management-car-name.clickable {
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.management-car-image.clickable:hover {
+  opacity: 0.85;
+}
+
+.management-car-name.clickable:hover b {
+  color: #2563eb !important;
+}
+
+/* Wide Car Review & Verification Modal */
+.management-modal.wide-car-review-modal {
+  width: min(900px, 96vw) !important;
+  max-height: min(93dvh, 960px);
+}
+
+.car-review-kicker {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  color: #2563eb;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.car-review-top-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 6px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.car-review-top-link:hover {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.car-review-modal-content {
+  padding: 18px 22px 24px;
+  display: grid;
+  gap: 18px;
+}
+
+.car-review-quick-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.car-review-chip {
+  font-size: 11px;
+  color: #475569;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.car-review-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #334155;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  padding: 6px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.car-review-edit-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+/* Car Verification Decision Card */
+.car-verify-decision-card {
+  border-radius: 14px;
+  padding: 16px 18px;
+  border: 1.5px solid #e2e8f0;
+  background: #ffffff;
+  display: grid;
+  gap: 14px;
+  transition: border-color 0.2s ease;
+}
+
+.car-verify-decision-card.verified {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.car-verify-decision-card.under_verification {
+  background: #fffbeb;
+  border-color: #fde047;
+}
+
+.car-verify-decision-card.rejected {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.car-verify-decision-card.unverified {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.decision-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.decision-shield-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.04);
+}
+
+.text-emerald { color: #059669; }
+.text-rose { color: #e11d48; }
+.text-blue { color: #2563eb; }
+.text-amber { color: #d97706; }
+
+.decision-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.decision-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.decision-meta-item.full {
+  grid-column: 1 / -1;
+}
+
+.decision-meta-item small {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.decision-meta-item b {
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.rc-number-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.05em;
+  color: #1e3a8a !important;
+}
+
+.decision-doc-preview-wrap {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.decision-doc-viewer {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 16px;
+  padding: 12px;
+  align-items: center;
+}
+
+.decision-doc-img-box {
+  height: 105px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f1f5f9;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e2e8f0;
+}
+
+.decision-doc-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.decision-doc-img:hover {
+  transform: scale(1.04);
+}
+
+.rc-doc-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.decision-doc-info b {
+  display: block;
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.decision-doc-info p {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.decision-doc-missing-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #fffbeb;
+  border: 1px dashed #f59e0b;
+  border-radius: 10px;
+  font-size: 12px;
+  color: #92400e;
+}
+
+.decision-doc-missing-alert b {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.decision-doc-missing-alert p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.decision-actions-panel {
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.decision-action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.decision-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.decision-btn.approve {
+  background: #059669;
+  color: #ffffff;
+}
+.decision-btn.approve:hover {
+  background: #047857;
+}
+
+.decision-btn.reject {
+  background: #e11d48;
+  color: #ffffff;
+}
+.decision-btn.reject:hover {
+  background: #be123c;
+}
+
+.decision-btn.review {
+  background: #f59e0b;
+  color: #ffffff;
+}
+.decision-btn.review:hover {
+  background: #d97706;
+}
+
+.decision-btn.reset {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+.decision-btn.reset:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* Specs Bento & Section Titles */
+.car-review-section-title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 750;
+  color: #1e293b;
+}
+
+.car-review-specs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 9px;
+}
+
+.spec-tile {
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.spec-tile.primary {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+.spec-tile.primary b {
+  color: #1d4ed8;
+  font-size: 14px;
+}
+
+.spec-tile small {
+  font-size: 9px;
+  color: #64748b;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.spec-tile b {
+  font-size: 12px;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+/* Seller Card */
+.car-review-seller-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  padding: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.seller-meta-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.seller-meta-card.full {
+  grid-column: 1 / -1;
+  padding-top: 6px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.seller-meta-card small {
+  font-size: 9px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.seller-meta-card b {
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.car-review-mini-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 600;
+  margin-top: 3px;
+}
+
+.car-review-mini-link:hover {
+  text-decoration: underline;
+}
+
+.car-contact-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.car-contact-link.whatsapp {
+  color: #059669;
+}
+
+/* Photos Grid */
+.car-review-photos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 9px;
+}
+
+.car-review-photo-link {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  height: 85px;
+  display: block;
+  border: 1px solid #e2e8f0;
+  background: #f1f5f9;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.car-review-photo-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+}
+
+.car-review-photo-link img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-tag {
+  position: absolute;
+  bottom: 0;
+  inset-inline: 0;
+  background: rgba(15, 23, 42, 0.72);
+  color: #ffffff;
+  font-size: 9px;
+  padding: 2px 4px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Inspection Checkpoints */
+.car-review-checkpoints-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 9px;
+}
+
+.checkpoint-card {
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+}
+
+.checkpoint-card b {
+  display: block;
+  font-size: 11px;
+  color: #1e293b;
+  margin-bottom: 3px;
+}
+
+.checkpoint-card p {
+  margin: 0;
+  font-size: 11px;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.inspection-notes-card {
+  padding: 10px 12px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 9px;
+  font-size: 11px;
+  color: #92400e;
+  margin-top: 8px;
+}
+
+.inspection-notes-card b {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.inspection-notes-card p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+@media (max-width: 760px) {
+  .decision-doc-viewer {
+    grid-template-columns: 1fr;
+  }
+  .car-review-specs-grid {
+    grid-template-columns: 1fr 1fr;
   }
 }

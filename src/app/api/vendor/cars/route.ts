@@ -22,6 +22,49 @@ export async function GET(request: NextRequest) {
     ]);
     const vendorId = session.vendorId;
     const businessName = String(vendor.businessName ?? vendor.name ?? 'Dealer');
-    return NextResponse.json({ vendor: { id: vendorId, name: String(vendor.name ?? ''), businessName, email: String(vendor.email ?? ''), inquiryEmail: String(vendor.inquiryEmail ?? vendor.email ?? ''), inquiryWhatsApp: String(vendor.inquiryWhatsApp ?? vendor.phone ?? ''), phone: String(vendor.phone ?? ''), city: String(vendor.city ?? ''), area: String(vendor.area ?? ''), address: String(vendor.address ?? ''), description: String(vendor.description ?? ''), website: String(vendor.website ?? ''), workingHours: String(vendor.workingHours ?? ''), establishedYear: Number(vendor.establishedYear ?? 0) || null, specialties: Array.isArray(vendor.specialties) ? vendor.specialties : [], logoPhotoId: String(vendor.logoPhotoId ?? ''), coverPhotoId: String(vendor.coverPhotoId ?? ''), shopPhotoIds: Array.isArray(vendor.shopPhotoIds) ? vendor.shopPhotoIds : [], profileUrl: `/dealers/${vendorSlug(businessName, vendorId)}`, subscription }, cars: cars.map(car => ({ ...car, id: String(car.id ?? car._id), vendorName: businessName, vendorSlug: vendorSlug(businessName, vendorId), _id: undefined, imageId: undefined, image: car.imageId ? `/api/photos/${encodeURIComponent(String(car.imageId))}` : car.image, photoIds: Array.isArray(car.photoIds) ? car.photoIds : [], inspection: car.inspection || null })) });
+    return NextResponse.json({
+      vendor: {
+        id: vendorId,
+        name: String(vendor.name ?? ''),
+        businessName,
+        email: String(vendor.email ?? ''),
+        inquiryEmail: String(vendor.inquiryEmail ?? vendor.email ?? ''),
+        inquiryWhatsApp: String(vendor.inquiryWhatsApp ?? vendor.phone ?? ''),
+        phone: String(vendor.phone ?? ''),
+        city: String(vendor.city ?? ''),
+        area: String(vendor.area ?? ''),
+        address: String(vendor.address ?? ''),
+        description: String(vendor.description ?? ''),
+        website: String(vendor.website ?? ''),
+        workingHours: String(vendor.workingHours ?? ''),
+        establishedYear: Number(vendor.establishedYear ?? 0) || null,
+        specialties: Array.isArray(vendor.specialties) ? vendor.specialties : [],
+        logoPhotoId: String(vendor.logoPhotoId ?? ''),
+        coverPhotoId: String(vendor.coverPhotoId ?? ''),
+        shopPhotoIds: Array.isArray(vendor.shopPhotoIds) ? vendor.shopPhotoIds : [],
+        profileUrl: `/dealers/${vendorSlug(businessName, vendorId)}`,
+        subscription
+      },
+      cars: cars.map(car => {
+        const documentPhotoId = car.documentPhotoId ? String(car.documentPhotoId) : undefined;
+        const verificationStatus = (car.verificationStatus as string) || (documentPhotoId ? 'under_verification' : 'unverified');
+        return {
+          ...car,
+          id: String(car.id ?? car._id),
+          vendorName: businessName,
+          vendorSlug: vendorSlug(businessName, vendorId),
+          _id: undefined,
+          imageId: undefined,
+          image: car.imageId ? `/api/photos/${encodeURIComponent(String(car.imageId))}` : car.image,
+          photoIds: Array.isArray(car.photoIds) ? car.photoIds : [],
+          inspection: car.inspection || null,
+          documentPhotoId,
+          documentNumber: car.documentNumber ? String(car.documentNumber) : undefined,
+          documentType: car.documentType ? String(car.documentType) : 'RC / Registration Certificate',
+          verificationStatus,
+          verifiedBy: car.verifiedBy || null,
+        };
+      })
+    });
   } catch { return NextResponse.json({ error: 'Your inventory is temporarily unavailable.' }, { status: 503 }); }
 }

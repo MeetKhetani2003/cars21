@@ -7,13 +7,14 @@ export type City = {
   id: string;
   name: string;
   state: string;
+  pincode?: string;
   popular: boolean;
   status: 'active' | 'inactive';
   createdAt?: string;
   updatedAt?: string;
 };
 
-const blankCity: { name: string; state: string; popular: boolean; status: 'active' | 'inactive' } = { name: '', state: '', popular: false, status: 'active' };
+const blankCity: { name: string; state: string; pincode?: string; popular: boolean; status: 'active' | 'inactive' } = { name: '', state: '', pincode: '', popular: false, status: 'active' };
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -61,6 +62,7 @@ export function CityManager() {
     setDraft({
       name: city.name,
       state: city.state,
+      pincode: city.pincode || '',
       popular: Boolean(city.popular),
       status: city.status
     });
@@ -139,7 +141,8 @@ export function CityManager() {
 
   const filtered = cities.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.state.toLowerCase().includes(search.toLowerCase())
+    c.state.toLowerCase().includes(search.toLowerCase()) ||
+    (c.pincode && c.pincode.toLowerCase().includes(search.toLowerCase()))
   );
 
   return (
@@ -169,7 +172,7 @@ export function CityManager() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search city name or state…"
+            placeholder="Search by city name, state, or pincode (e.g. 362001, Junagadh)…"
             aria-label="Search cities"
           />
         </label>
@@ -197,9 +200,16 @@ export function CityManager() {
               </div>
             </div>
 
-            <h3 style={{ margin: '4px 0 0', fontSize: '18px' }}>{city.name}</h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+              <h3 style={{ margin: '4px 0 0', fontSize: '18px' }}>{city.name}</h3>
+              {city.pincode && (
+                <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: '#f1f5f9', color: '#475569' }}>
+                  {city.pincode}
+                </span>
+              )}
+            </div>
             <p className="management-vendor-person" style={{ margin: 0, color: '#64748b' }}>
-              State: <strong>{city.state}</strong>
+              State: <strong>{city.state}</strong>{city.pincode ? ` · Pincode: ${city.pincode}` : ''}
             </p>
 
             <div className="management-vendor-bottom" style={{ marginTop: '10px' }}>
@@ -261,6 +271,16 @@ export function CityManager() {
                   value={draft.state}
                   onChange={e => setDraft({ ...draft, state: e.target.value })}
                   placeholder="e.g. Karnataka"
+                />
+              </label>
+
+              <label className="management-field">
+                Postal Pincode
+                <input
+                  maxLength={10}
+                  value={draft.pincode || ''}
+                  onChange={e => setDraft({ ...draft, pincode: e.target.value })}
+                  placeholder="e.g. 362001"
                 />
               </label>
 

@@ -7,26 +7,25 @@ export interface CityItem {
   id: string;
   name: string;
   state: string;
+  pincode?: string;
   popular?: boolean;
   code?: string;
   landmark?: string;
 }
 
 const DEFAULT_METROS: CityItem[] = [
-  { id: 'bengaluru', name: 'Bengaluru', state: 'Karnataka', popular: true, code: 'BLR', landmark: 'Vidhana Soudha' },
-  { id: 'mumbai', name: 'Mumbai', state: 'Maharashtra', popular: true, code: 'MUM', landmark: 'Gateway of India' },
-  { id: 'delhi-ncr', name: 'Delhi NCR', state: 'Delhi', popular: true, code: 'DEL', landmark: 'India Gate' },
-  { id: 'hyderabad', name: 'Hyderabad', state: 'Telangana', popular: true, code: 'HYD', landmark: 'Charminar' },
-  { id: 'pune', name: 'Pune', state: 'Maharashtra', popular: true, code: 'PUN', landmark: 'Shaniwar Wada' },
-  { id: 'chennai', name: 'Chennai', state: 'Tamil Nadu', popular: true, code: 'CHN', landmark: 'Central Station' },
-  { id: 'ahmedabad', name: 'Ahmedabad', state: 'Gujarat', popular: true, code: 'AMD', landmark: 'Sabarmati' },
-  { id: 'kolkata', name: 'Kolkata', state: 'West Bengal', popular: true, code: 'KOL', landmark: 'Howrah Bridge' },
-  { id: 'jaipur', name: 'Jaipur', state: 'Rajasthan', popular: true, code: 'JAI', landmark: 'Hawa Mahal' },
-  { id: 'chandigarh', name: 'Chandigarh', state: 'Punjab', popular: false, code: 'IXC', landmark: 'Open Hand' },
-  { id: 'kochi', name: 'Kochi', state: 'Kerala', popular: false, code: 'COK', landmark: 'Marine Drive' },
-  { id: 'lucknow', name: 'Lucknow', state: 'Uttar Pradesh', popular: false, code: 'LKO', landmark: 'Rumi Darwaza' },
-  { id: 'surat', name: 'Surat', state: 'Gujarat', popular: false, code: 'STV', landmark: 'Diamond City' },
-  { id: 'indore', name: 'Indore', state: 'Madhya Pradesh', popular: false, code: 'IDR', landmark: 'Rajwada Palace' }
+  { id: 'bengaluru', name: 'Bengaluru', state: 'Karnataka', pincode: '560001', popular: true, code: 'BLR', landmark: 'Vidhana Soudha' },
+  { id: 'mumbai', name: 'Mumbai', state: 'Maharashtra', pincode: '400001', popular: true, code: 'MUM', landmark: 'Gateway of India' },
+  { id: 'delhi-ncr', name: 'Delhi NCR', state: 'Delhi', pincode: '110001', popular: true, code: 'DEL', landmark: 'India Gate' },
+  { id: 'hyderabad', name: 'Hyderabad', state: 'Telangana', pincode: '500001', popular: true, code: 'HYD', landmark: 'Charminar' },
+  { id: 'pune', name: 'Pune', state: 'Maharashtra', pincode: '411001', popular: true, code: 'PUN', landmark: 'Shaniwar Wada' },
+  { id: 'chennai', name: 'Chennai', state: 'Tamil Nadu', pincode: '600001', popular: true, code: 'CHN', landmark: 'Central Station' },
+  { id: 'ahmedabad', name: 'Ahmedabad', state: 'Gujarat', pincode: '380001', popular: true, code: 'AMD', landmark: 'Sabarmati' },
+  { id: 'junagadh-ho', name: 'Junagadh (HO)', state: 'Gujarat', pincode: '362001', popular: true, code: 'JND', landmark: 'Uparkot Fort' },
+  { id: 'junagadh-city', name: 'Junagadh City (Sardarbag)', state: 'Gujarat', pincode: '362002', popular: true, code: 'JND', landmark: 'Bhavnath' },
+  { id: 'surat', name: 'Surat', state: 'Gujarat', pincode: '395001', popular: true, code: 'STV', landmark: 'Diamond City' },
+  { id: 'kolkata', name: 'Kolkata', state: 'West Bengal', pincode: '700001', popular: true, code: 'KOL', landmark: 'Howrah Bridge' },
+  { id: 'jaipur', name: 'Jaipur', state: 'Rajasthan', pincode: '302001', popular: true, code: 'JAI', landmark: 'Hawa Mahal' },
 ];
 
 // Stylized visual icons for metro cities
@@ -165,6 +164,7 @@ export function CitySelectModal({ isOpen, onClose, currentCity, onSelectCity }: 
                   id: c.id || normKey.replace(/[^a-z0-9]+/g, '-'),
                   name: c.name,
                   state: c.state || '',
+                  pincode: c.pincode || '',
                   popular: Boolean(c.popular),
                   code: info?.code || c.name.slice(0, 3).toUpperCase(),
                   landmark: info?.landmark || c.state || 'Metro'
@@ -188,6 +188,7 @@ export function CitySelectModal({ isOpen, onClose, currentCity, onSelectCity }: 
                 id: normKey.replace(/[^a-z0-9]+/g, '-'),
                 name,
                 state: 'India',
+                pincode: '',
                 popular: popularSet.has(name) || ['Bengaluru', 'Mumbai', 'Delhi NCR', 'Hyderabad', 'Pune', 'Chennai'].includes(name),
                 code: info?.code || name.slice(0, 3).toUpperCase(),
                 landmark: info?.landmark || 'India'
@@ -228,11 +229,16 @@ export function CitySelectModal({ isOpen, onClose, currentCity, onSelectCity }: 
     return () => window.removeEventListener('keydown', handleKey);
   }, [isOpen, onClose]);
 
-  // Filtered lists
+  // Filtered lists by both name, state, and pincode
   const { popularList, otherList } = useMemo(() => {
     const q = query.trim().toLowerCase();
     const filtered = q
-      ? cities.filter(c => c.name.toLowerCase().includes(q) || c.state.toLowerCase().includes(q) || (c.code && c.code.toLowerCase().includes(q)))
+      ? cities.filter(c => 
+          c.name.toLowerCase().includes(q) || 
+          c.state.toLowerCase().includes(q) || 
+          (c.code && c.code.toLowerCase().includes(q)) ||
+          (c.pincode && c.pincode.toLowerCase().includes(q))
+        )
       : cities;
 
     const popular = filtered.filter(c => c.popular);
@@ -262,14 +268,14 @@ export function CitySelectModal({ isOpen, onClose, currentCity, onSelectCity }: 
               <Compass size={13} /> SELECT YOUR LOCATION
             </span>
             <h2 id="city-modal-title">Where are you looking for cars?</h2>
-            <p>Find verified vehicles, doorstep inspections, and dealer inventory near you</p>
+            <p>Search by city name or pincode (e.g. Junagadh, 362001, 362220, Ahmedabad, Mumbai)</p>
           </div>
           <button type="button" className="city-modal-close-btn" aria-label="Close dialog" onClick={onClose}>
             <X size={20} />
           </button>
         </div>
 
-        {/* Live Search Input */}
+        {/* Live Search Input by Name and Pincode */}
         <div className="city-modal-search-wrap">
           <Search size={18} className="city-modal-search-icon" />
           <input
@@ -277,8 +283,8 @@ export function CitySelectModal({ isOpen, onClose, currentCity, onSelectCity }: 
             type="search"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search city (e.g. Hyderabad, Mumbai, Ahmedabad, Pune)..."
-            aria-label="Search city"
+            placeholder="Search city by name or pincode (e.g. Junagadh, 362001, 362220, Ahmedabad, Mumbai)..."
+            aria-label="Search city by name or pincode"
             className="city-modal-search-input"
           />
           {query && (
@@ -329,7 +335,10 @@ export function CitySelectModal({ isOpen, onClose, currentCity, onSelectCity }: 
                     >
                       <CityLandmarkIcon code={city.code} />
                       <div className="city-metro-info">
-                        <span className="city-metro-name">{city.name}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <span className="city-metro-name">{city.name}</span>
+                          {city.pincode && <span className="city-pincode-pill">{city.pincode}</span>}
+                        </div>
                         {city.state && <span className="city-metro-state">{city.state}</span>}
                       </div>
                       {active && (
@@ -365,6 +374,7 @@ export function CitySelectModal({ isOpen, onClose, currentCity, onSelectCity }: 
                     >
                       <span className="city-item-dot" />
                       <span className="city-item-name">{city.name}</span>
+                      {city.pincode && <span className="city-pincode-pill">{city.pincode}</span>}
                       {city.state && <span className="city-item-state">({city.state})</span>}
                       {active && <Check size={14} className="city-item-check" />}
                     </button>

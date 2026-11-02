@@ -38,6 +38,8 @@ const accountTypeSchema = z.object({
   logoPhotoId: z.string().max(80).optional(),
   coverPhotoId: z.string().max(80).optional(),
   shopPhotoIds: z.array(z.string().max(80)).max(8).optional(),
+  assignedAdminId: z.string().optional(),
+  assignedAdminName: z.string().optional(),
   password: z.union([
     z.string().trim().min(6, 'Password must have at least 6 characters').max(100),
     z.literal('')
@@ -68,6 +70,15 @@ export async function PATCH(request: NextRequest, context: Context) {
       updates.passwordHash = hash;
     }
     if (parsed.data.accountType === 'vendor' && changes.businessName) updates.slug = vendorSlug(changes.businessName, id);
+    if (parsed.data.accountType === 'vendor' && changes.assignedAdminId !== undefined) {
+      let adminName = changes.assignedAdminName || '';
+      if (changes.assignedAdminId) {
+        const adminDoc = await db.collection('admins').findOne({ id: changes.assignedAdminId }, { projection: { name: 1 } });
+        if (adminDoc?.name) adminName = String(adminDoc.name);
+      }
+      updates.assignedAdminId = changes.assignedAdminId || null;
+      updates.assignedAdminName = adminName || null;
+    }
     const result = await collection.updateOne(filter, { $set: updates });
     if (!result.matchedCount) return NextResponse.json({ error: 'Account not found.' }, { status: 404 });
     const currentVendor = parsed.data.accountType === 'vendor' ? await collection.findOne(filter, { projection: { businessName: 1, name: 1 } }) : null;

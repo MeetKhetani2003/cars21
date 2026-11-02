@@ -5,6 +5,11 @@ export type Car = {
   sellerName?: string; sellerPhone?: string; sellerWhatsApp?: string;
   vendorId?: string; vendorName?: string; vendorSlug?: string;
   inspectionReviewStatus?: string; inspection?: Record<string, unknown>; photoIds?: string[]; photos?: string[];
+  documentPhotoId?: string; documentNumber?: string; documentType?: string;
+  verificationStatus?: 'unverified' | 'under_verification' | 'verified' | 'rejected';
+  verificationNote?: string;
+  verifiedBy?: { id: string; name: string; role: string; at: string };
+  addedBy?: { id: string; name: string; email?: string; role: string };
 };
 export const cars: Car[] = [
   { id:'civic-2022', make:'Honda', model:'City', variant:'ZX CVT', year:2022, km:18400, fuel:'Petrol', transmission:'Automatic', owners:1, price:1249000, city:'Bengaluru', body:'Sedan', score:92, badge:'Cars21 verified', image:'/images/kars21-hero.png', accent:'photo-one', color:'Silver' },

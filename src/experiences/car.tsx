@@ -232,6 +232,11 @@ export function CarPage() {
               />
               {/* Floating Quality Badges */}
               <div className="stage-floating-badges">
+                {car.verificationStatus === 'verified' && (
+                  <span className="stage-badge-rc-verified" style={{ background: '#059669', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 700 }}>
+                    <CheckCircle2 size={13} /> RC Verified {car.documentNumber ? `(${car.documentNumber})` : ''}
+                  </span>
+                )}
                 <span className="stage-badge-assured">
                   <ShieldCheck size={14} /> Cars21 Assured
                 </span>
@@ -334,6 +339,13 @@ export function CarPage() {
               <div className="tile-info">
                 <small>Location & RTO</small>
                 <b>{car.city}</b>
+              </div>
+            </div>
+            <div className="spec-tile-item">
+              <div className="tile-icon"><FileText size={18} /></div>
+              <div className="tile-info">
+                <small>Registration & RC</small>
+                <b>{car.verificationStatus === 'verified' ? '✓ Verified RC' : car.verificationStatus === 'under_verification' ? 'Under Verification' : car.verificationStatus === 'rejected' ? 'RC Needs Update' : 'Standard RTO'}</b>
               </div>
             </div>
           </div>

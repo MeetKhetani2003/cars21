@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { hashPassword, isSuperAdminRequest } from '../../../../server/auth';
+import { getSession, hashPassword, isAdminRequest, isSuperAdminRequest } from '../../../../server/auth';
 import { getDb } from '../../../../server/mongodb';
 import { vendorSlug } from '../../../../lib/vendor-slug';
 import { ensureDevelopmentDemoVendorProfile } from '../../../../server/demo-vendor';
@@ -16,6 +16,8 @@ const accountSchema = z.object({
   businessName: z.string().trim().optional(),
   phone: z.string().trim().optional(),
   city: z.string().trim().optional(),
+  assignedAdminId: z.string().trim().optional(),
+  assignedAdminName: z.string().trim().optional(),
   password: z.union([
     z.string().trim().min(6, 'Password must have at least 6 characters').max(100),
     z.literal('')
@@ -45,24 +47,60 @@ export async function GET(request: NextRequest) {
     ]);
     return NextResponse.json({ accounts: [
       ...admins.map(item => ({ id: String(item.id ?? item._id), accountType: 'admin', name: item.name, email: item.email, status: item.status, createdAt: item.createdAt })),
-      ...vendors.map(item => { const id = String(item.id ?? item._id); const businessName = String(item.businessName ?? item.name ?? 'Dealer'); return { id, accountType: 'vendor', name: item.name, businessName, email: item.email, inquiryEmail: item.inquiryEmail ?? item.email, inquiryWhatsApp: item.inquiryWhatsApp ?? item.phone, phone: item.phone, city: item.city, area: item.area ?? item.locality, address: item.address, description: item.description, website: item.website, workingHours: item.workingHours, establishedYear: item.establishedYear, specialties: item.specialties, logoPhotoId: item.logoPhotoId, coverPhotoId: item.coverPhotoId, shopPhotoIds: item.shopPhotoIds, status: item.status, createdAt: item.createdAt, profileUrl: `/dealers/${vendorSlug(businessName, id)}` }; }),
+      ...vendors.map(item => {
+        const id = String(item.id ?? item._id);
+        const businessName = String(item.businessName ?? item.name ?? 'Dealer');
+        return {
+          id,
+          accountType: 'vendor',
+          name: item.name,
+          businessName,
+          email: item.email,
+          inquiryEmail: item.inquiryEmail ?? item.email,
+          inquiryWhatsApp: item.inquiryWhatsApp ?? item.phone,
+          phone: item.phone,
+          city: item.city,
+          area: item.area ?? item.locality,
+          address: item.address,
+          description: item.description,
+          website: item.website,
+          workingHours: item.workingHours,
+          establishedYear: item.establishedYear,
+          specialties: item.specialties,
+          logoPhotoId: item.logoPhotoId,
+          coverPhotoId: item.coverPhotoId,
+          shopPhotoIds: item.shopPhotoIds,
+          status: item.status,
+          createdAt: item.createdAt,
+          profileUrl: `/dealers/${vendorSlug(businessName, id)}`,
+          addedBy: item.addedBy || null,
+          assignedAdminId: item.assignedAdminId || null,
+          assignedAdminName: item.assignedAdminName || null,
+        };
+      }),
     ] });
   } catch { return NextResponse.json({ error: 'Accounts are temporarily unavailable.' }, { status: 503 }); }
 }
 
 export async function POST(request: NextRequest) {
-  if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required to create accounts.' }, { status: 403 });
+  if (!isAdminRequest(request)) return NextResponse.json({ error: 'Admin access required to create accounts.' }, { status: 403 });
   const rawBody = await request.json().catch(() => null);
   const parsed = accountSchema.safeParse(rawBody);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     const message = issue ? issue.message : 'Check the account details and try again.';
-    console.warn('Superadmin user creation validation failure:', message, rawBody);
+    console.warn('User creation validation failure:', message, rawBody);
     return NextResponse.json({ error: message, issues: parsed.error.issues }, { status: 400 });
   }
+
   const accountType = parsed.data.accountType;
+  if (accountType === 'admin' && !isSuperAdminRequest(request)) {
+    return NextResponse.json({ error: 'Superadmin access required to create administrator accounts.' }, { status: 403 });
+  }
+
   const email = parsed.data.email.toLowerCase();
   try {
+    const session = getSession(request);
     const db = await getDb();
     const admins = db.collection<Record<string, unknown>>('admins');
     const vendors = db.collection<Record<string, unknown>>('vendors');
@@ -72,6 +110,16 @@ export async function POST(request: NextRequest) {
     const password = customPassword || randomBytes(12).toString('base64url');
     const { salt, hash } = await hashPassword(password);
     const id = randomBytes(12).toString('hex');
+
+    const addedBy = {
+      id: session?.sub || 'system',
+      name: session?.name || (session?.role === 'superadmin' ? 'Super Admin' : 'Admin'),
+      email: session?.email || '',
+      role: session?.role || 'admin',
+    };
+    const assignedAdminId = session?.role === 'admin' ? session.sub : (parsed.data.assignedAdminId || '');
+    const assignedAdminName = session?.role === 'admin' ? session.name : (parsed.data.assignedAdminName || '');
+
     const values = {
       accountType,
       name: parsed.data.name,
@@ -80,12 +128,18 @@ export async function POST(request: NextRequest) {
         businessName: parsed.data.businessName || parsed.data.name,
         phone: parsed.data.phone || '',
         city: parsed.data.city || '',
-      } : {})
+        addedBy,
+        assignedAdminId,
+        assignedAdminName,
+      } : {
+        addedBy,
+      })
     };
+    const vendorBusinessName = parsed.data.businessName || parsed.data.name;
     const account = {
       id,
       ...values,
-      ...(accountType === 'vendor' ? { slug: vendorSlug(values.businessName || values.name, id) } : {}),
+      ...(accountType === 'vendor' ? { slug: vendorSlug(vendorBusinessName, id) } : {}),
       role: accountType,
       status: 'active',
       passwordSalt: salt,

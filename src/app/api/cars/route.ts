@@ -4,7 +4,7 @@ import { type Filter, type Sort } from 'mongodb';
 import { z } from 'zod';
 import { cars as demoCars, type Car } from '../../../data';
 import { vendorSlug as makeVendorSlug } from '../../../lib/vendor-slug';
-import { isAdminRequest, isVendorSession } from '../../../server/auth';
+import { getSession, isAdminRequest, isVendorSession } from '../../../server/auth';
 import { getDb, getPhotoBucket } from '../../../server/mongodb';
 import { getVendorEntitlements } from '../../../server/vendor-subscription';
 
@@ -38,6 +38,11 @@ const carSchema = z.object({
   color: z.string().max(40).default(''),
   vendorId: z.string().max(100).optional(),
   status: z.enum(['active', 'pending', 'paused', 'sold']).default('active'),
+  documentPhotoId: z.string().max(100).optional(),
+  documentNumber: z.string().max(60).optional(),
+  documentType: z.string().max(60).default('RC / Registration Certificate'),
+  verificationStatus: z.enum(['unverified', 'under_verification', 'verified', 'rejected']).optional(),
+  verificationNote: z.string().max(500).optional(),
 });
 
 function escapeRegex(value: string) { return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
@@ -45,6 +50,8 @@ function escapeRegex(value: string) { return value.replace(/[.*+?^${}()|[\]\\]/g
 function mapCar(document: Record<string, unknown>): Car {
   const id = String(document.id ?? document._id ?? '');
   const imageId = document.imageId ? String(document.imageId) : '';
+  const documentPhotoId = document.documentPhotoId ? String(document.documentPhotoId) : undefined;
+  const verificationStatus = (document.verificationStatus as 'unverified' | 'under_verification' | 'verified' | 'rejected') || (documentPhotoId ? 'under_verification' : 'unverified');
   return {
     id,
     make: String(document.make ?? ''),
@@ -71,6 +78,12 @@ function mapCar(document: Record<string, unknown>): Car {
     sellerPhone: '',
     sellerWhatsApp: '',
     vendorId: String(document.vendorId ?? ''),
+    documentPhotoId,
+    documentNumber: document.documentNumber ? String(document.documentNumber) : undefined,
+    documentType: document.documentType ? String(document.documentType) : 'RC / Registration Certificate',
+    verificationStatus,
+    verificationNote: document.verificationNote ? String(document.verificationNote) : undefined,
+    verifiedBy: document.verifiedBy as { id: string; name: string; role: string; at: string } | undefined,
   };
 }
 
@@ -187,7 +200,52 @@ export async function POST(request: NextRequest) {
         if (photos.length !== photoIds.length || photos.some(photo => photo.metadata?.vendorId !== vendor.vendorId)) return NextResponse.json({ error: 'One or more listing photos do not belong to your workspace.' }, { status: 403 });
       }
     }
-    const data = vendor ? { ...parsed.data, vendorId: vendor.vendorId, status: 'active' as const, priorityPlacement: (await getVendorEntitlements(vendor.vendorId!)).features.priorityPlacement, inspectionReviewStatus: 'pending', inspectionReviewNote: '', photoIds: [...new Set([...parsed.data.photoIds, ...(parsed.data.imageId ? [parsed.data.imageId] : [])])], inspection: parsed.data.inspection ?? null, submittedForInspectionAt: new Date() } : parsed.data;
+    const session = getSession(request);
+    const docId = parsed.data.documentPhotoId?.trim();
+    let verificationStatus = parsed.data.verificationStatus;
+    if (vendor) {
+      if (docId) {
+        if (existing?.verificationStatus === 'verified' && existing?.documentPhotoId === docId) {
+          verificationStatus = 'verified';
+        } else {
+          verificationStatus = 'under_verification';
+        }
+      } else {
+        verificationStatus = 'unverified';
+      }
+    } else {
+      if (!verificationStatus) {
+        verificationStatus = docId ? 'under_verification' : 'unverified';
+      }
+    }
+
+    const addedBy = {
+      id: session?.sub || (vendor ? vendor.vendorId : 'system'),
+      name: session?.name || (vendor ? 'Vendor' : 'Admin'),
+      role: session?.role || (vendor ? 'vendor' : 'admin'),
+    };
+
+    const baseData = {
+      ...parsed.data,
+      documentPhotoId: docId || undefined,
+      documentNumber: parsed.data.documentNumber?.trim() || undefined,
+      documentType: parsed.data.documentType || 'RC / Registration Certificate',
+      verificationStatus,
+      ...(existing?.addedBy ? {} : { addedBy }),
+    };
+
+    const data = vendor ? {
+      ...baseData,
+      vendorId: vendor.vendorId,
+      status: 'active' as const,
+      priorityPlacement: (await getVendorEntitlements(vendor.vendorId!)).features.priorityPlacement,
+      inspectionReviewStatus: 'pending',
+      inspectionReviewNote: '',
+      photoIds: [...new Set([...parsed.data.photoIds, ...(parsed.data.imageId ? [parsed.data.imageId] : [])])],
+      inspection: parsed.data.inspection ?? null,
+      submittedForInspectionAt: new Date()
+    } : baseData;
+
     const result = await collection.updateOne({ id: parsed.data.id }, { $set: { ...data, updatedAt: new Date() } }, { upsert: true });
     return NextResponse.json({ id: parsed.data.id, created: result.upsertedCount > 0 }, { status: result.upsertedCount ? 201 : 200 });
   } catch {

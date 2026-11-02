@@ -18,6 +18,7 @@ function buildIdFilter(id: string): Filter<Document> {
 const updateSchema = z.object({
   name: z.string().trim().min(2).max(80).optional(),
   state: z.string().trim().min(2).max(80).optional(),
+  pincode: z.string().trim().max(10).optional(),
   popular: z.boolean().optional(),
   status: z.enum(['active', 'inactive']).optional(),
 });
