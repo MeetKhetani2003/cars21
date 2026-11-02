@@ -1,16 +1,19 @@
 'use client';
 
-import { Heart, Gauge, Fuel, Settings2, ArrowUpRight, MapPin, ShieldCheck, ChevronRight } from 'lucide-react';
+import { Heart, Gauge, Fuel, Settings2, ArrowUpRight, MapPin, ShieldCheck, ChevronRight, Landmark } from 'lucide-react';
 import { Link } from '../lib/navigation';
 import { useState } from 'react';
 import type { Car } from '../data';
 import { calcEmi, formatINR } from '../data';
 import { useBuyerExperience } from './BuyerExperienceProvider';
+import { LoanApplicationModal } from './LoanApplicationModal';
+
 export function CarCard({car,compact=false}:{car:Car;compact?:boolean}){
   const {wishlistIds,toggleWishlist,loadingBuyer}=useBuyerExperience();
   const saved=wishlistIds.includes(car.id);
   const [saving,setSaving]=useState(false);
   const [feedback,setFeedback]=useState('');
+  const [loanModalOpen, setLoanModalOpen] = useState(false);
 
   async function toggle(){
     if(saving||loadingBuyer)return;
@@ -78,6 +81,18 @@ export function CarCard({car,compact=false}:{car:Car;compact?:boolean}){
             <strong className="car-price-tag">{formatINR(car.price)}</strong>
             <div className="car-emi-pill">
               <span>EMI from {formatINR(emiVal)}/mo</span>
+              <button 
+                type="button" 
+                className="card-quick-loan-trigger"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setLoanModalOpen(true);
+                }}
+                title="Get car loan"
+              >
+                Get Loan
+              </button>
             </div>
           </div>
           <Link className="icon-arrow" to={`/car/${car.id}`} aria-label={`View details for ${car.make} ${car.model}`}>
@@ -99,6 +114,13 @@ export function CarCard({car,compact=false}:{car:Car;compact?:boolean}){
           </Link>
         )}
       </div>
+
+      {loanModalOpen && (
+        <LoanApplicationModal
+          car={car}
+          onClose={() => setLoanModalOpen(false)}
+        />
+      )}
     </article>
   );
 }

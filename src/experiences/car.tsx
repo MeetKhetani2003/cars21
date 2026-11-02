@@ -6,13 +6,14 @@ import {
   ArrowRight, Check, ChevronRight, Fuel, Gauge, Heart, MapPin, 
   ShieldCheck, UserRound, Calendar, Award, Sparkles, Phone, 
   MessageSquare, FileText, CheckCircle2, RotateCcw, Wrench, 
-  Clock, Shield, CarFront, Settings2, Download
+  Clock, Shield, CarFront, Settings2, Download, Landmark
 } from 'lucide-react';
 import { cars, calcEmi, formatINR, type Car } from '../data';
 import { CarCard } from '../components/CarCard';
 import { RevealPhoneButton } from '../components/RevealPhoneButton';
 import { SectionTitle } from '../components/shared';
 import { useBuyerExperience } from '../components/BuyerExperienceProvider';
+import { LoanApplicationModal } from '../components/LoanApplicationModal';
 
 type EnquiryState = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -137,6 +138,7 @@ export function CarPage() {
   const [enquiryState, setEnquiryState] = useState<EnquiryState>('idle');
   const [formMessage, setFormMessage] = useState('');
   const [buyer, setBuyer] = useState<{ name: string; email?: string } | null>(null);
+  const [loanModalOpen, setLoanModalOpen] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const lastTrackedCar = useRef('');
 
@@ -408,9 +410,14 @@ export function CarPage() {
               </div>
               <div className="hub-emi-strip">
                 <span>EMI starting from <b>{formatINR(emiVal)}/mo</b></span>
-                <Link to="/loans24/emi-calculator" className="emi-calc-link">
-                  EMI Calculator <ArrowRight size={12} />
-                </Link>
+                <button 
+                  type="button" 
+                  className="hub-quick-loan-btn" 
+                  onClick={() => setLoanModalOpen(true)}
+                  title="Apply for car loan"
+                >
+                  <Landmark size={13} /> Get Loan <ArrowRight size={12} />
+                </button>
               </div>
               <div className="zero-down-note">
                 <Sparkles size={13} className="text-orange" />
@@ -423,6 +430,13 @@ export function CarPage() {
               <a href="#booking-form" className="button button-orange button-full cta-book-btn">
                 Book Free Test Drive / Visit <ArrowRight size={16} />
               </a>
+              <button 
+                type="button" 
+                className="button button-loan button-full cta-loan-btn"
+                onClick={() => setLoanModalOpen(true)}
+              >
+                <Landmark size={17} /> Get Car Loan (Instant Approval)
+              </button>
               <button 
                 type="button" 
                 className={`button button-outline button-full cta-save-btn ${saved ? 'is-saved' : ''}`}
@@ -598,6 +612,26 @@ export function CarPage() {
           ))}
         </div>
       </section>
+
+      {/* Car Loan Application Modal */}
+      {loanModalOpen && (
+        <LoanApplicationModal
+          car={{
+            id: car.id,
+            make: car.make,
+            model: car.model,
+            variant: car.variant,
+            year: car.year,
+            price: car.price,
+            city: car.city,
+            image: car.image,
+            vendorId: car.vendorId,
+            vendorName: car.vendorName,
+          }}
+          initialBuyer={buyer}
+          onClose={() => setLoanModalOpen(false)}
+        />
+      )}
     </div>
   );
 }
