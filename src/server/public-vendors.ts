@@ -53,22 +53,63 @@ export async function getPublicVendorProfile(slug: string) {
   return { vendor, cars: cars.map(safeCar) };
 }
 
-export async function getPublicVendorDirectory() {
+export type RankedVendor = ReturnType<typeof publicVendor> & {
+  listingCount: number;
+  rankPriority: number;
+  lastModified?: Date;
+  cities: string[];
+  areas: string[];
+  models: string[];
+};
+
+export async function getPublicVendorDirectory(options?: { includeAllActive?: boolean }) {
   const db = await getDb();
   const [vendorDocs, stock] = await Promise.all([
     db.collection<VendorDoc>('vendors').find({ status: 'active' })
-      .project({ id: 1, name: 1, businessName: 1, city: 1, area: 1, locality: 1, status: 1, createdAt: 1 }).sort({ createdAt: -1 }).limit(1000).toArray(),
+      .project({ id: 1, name: 1, businessName: 1, city: 1, area: 1, locality: 1, status: 1, createdAt: 1, updatedAt: 1 }).sort({ createdAt: -1 }).limit(1000).toArray(),
     db.collection<VendorDoc>('cars').aggregate([
       { $match: { ...visibleCar, vendorId: { $exists: true, $ne: '' } } },
-      { $group: { _id: '$vendorId', count: { $sum: 1 }, cities: { $addToSet: '$city' }, areas: { $addToSet: { $ifNull: ['$area', { $ifNull: ['$locality', '$locationArea'] }] } }, models: { $addToSet: { $concat: [{ $ifNull: ['$make', ''] }, ' ', { $ifNull: ['$model', ''] }] } } } },
+      { $group: { _id: '$vendorId', count: { $sum: 1 }, latestDate: { $max: '$updatedAt' }, cities: { $addToSet: '$city' }, areas: { $addToSet: { $ifNull: ['$area', { $ifNull: ['$locality', '$locationArea'] }] } }, models: { $addToSet: { $concat: [{ $ifNull: ['$make', ''] }, ' ', { $ifNull: ['$model', ''] }] } } } },
     ]).toArray(),
   ]);
-  const counts = new Map(stock.filter(item => item._id).map(item => [String(item._id), { count: Number(item.count ?? 0), cities: (Array.isArray(item.cities) ? item.cities : []).filter((value): value is string => typeof value === 'string' && value.trim().length > 0), areas: (Array.isArray(item.areas) ? item.areas : []).filter((value): value is string => typeof value === 'string' && value.trim().length > 0), models: (Array.isArray(item.models) ? item.models : []).filter((value): value is string => typeof value === 'string' && value.trim().length > 0) }]));
+  const counts = new Map(stock.filter(item => item._id).map(item => [String(item._id), { count: Number(item.count ?? 0), latestDate: item.latestDate ? new Date(item.latestDate) : undefined, cities: (Array.isArray(item.cities) ? item.cities : []).filter((value): value is string => typeof value === 'string' && value.trim().length > 0), areas: (Array.isArray(item.areas) ? item.areas : []).filter((value): value is string => typeof value === 'string' && value.trim().length > 0), models: (Array.isArray(item.models) ? item.models : []).filter((value): value is string => typeof value === 'string' && value.trim().length > 0) }]));
   const assignments = await db.collection<Record<string, unknown>>('vendor_subscriptions').find({ status: 'active', endAt: { $gt: new Date() } }).toArray();
   const planIds = [...new Set(assignments.map(item => String(item.planId ?? '')).filter(Boolean))];
   const plans = planIds.length ? await db.collection<Record<string, unknown>>('subscription_plans').find({ id: { $in: planIds } }).project({ id: 1, features: 1 }).toArray() : [];
   const planMap = new Map(plans.map(plan => [String(plan.id), plan.features as Record<string, unknown> | undefined]));
   const hidden = new Set(assignments.filter(item => planMap.get(String(item.planId))?.publicBusinessProfile === false).map(item => String(item.vendorId)));
-  return vendorDocs.map(doc => { const id = String(doc.id ?? doc._id); const inventory = counts.get(id); return { ...publicVendor(doc), listingCount: inventory?.count ?? 0, cities: inventory?.cities ?? [], areas: [...new Set([String(doc.area ?? doc.locality ?? ''), ...(inventory?.areas ?? [])].filter(Boolean))], models: inventory?.models ?? [] }; })
-    .filter(vendor => vendor.listingCount > 0 && !hidden.has(vendor.id));
+  
+  return vendorDocs.map(doc => { 
+    const id = String(doc.id ?? doc._id); 
+    const inventory = counts.get(id); 
+    return { 
+      ...publicVendor(doc), 
+      listingCount: inventory?.count ?? 0, 
+      cities: inventory?.cities ?? [], 
+      areas: [...new Set([String(doc.area ?? doc.locality ?? ''), ...(inventory?.areas ?? [])].filter(Boolean))], 
+      models: inventory?.models ?? [],
+      lastModified: inventory?.latestDate || (doc.updatedAt ? new Date(String(doc.updatedAt)) : (doc.createdAt ? new Date(String(doc.createdAt)) : undefined))
+    }; 
+  })
+  .filter(vendor => (options?.includeAllActive ? true : vendor.listingCount > 0) && !hidden.has(vendor.id));
+}
+
+export async function getRankedVendorsForSitemap(): Promise<RankedVendor[]> {
+  const vendors = await getPublicVendorDirectory({ includeAllActive: true });
+  return vendors.map(vendor => {
+    let priority = 0.65;
+    if (vendor.listingCount >= 10) priority = 0.90;
+    else if (vendor.listingCount >= 5) priority = 0.85;
+    else if (vendor.listingCount >= 1) priority = 0.75;
+
+    const cityLower = String(vendor.city || '').toLowerCase();
+    if (['junagadh', 'rajkot', 'ahmedabad'].includes(cityLower)) {
+      priority = Math.min(0.95, priority + 0.05);
+    }
+
+    return {
+      ...vendor,
+      rankPriority: Number(priority.toFixed(2)),
+    };
+  }).sort((a, b) => b.rankPriority - a.rankPriority || b.listingCount - a.listingCount);
 }

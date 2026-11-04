@@ -172,14 +172,15 @@ export async function POST(request: NextRequest) {
       const activeVendor = await db.collection('vendors').findOne({ id: vendor.vendorId, status: 'active' }, { projection: { _id: 1 } });
       if (!activeVendor) return NextResponse.json({ error: 'This vendor account is suspended.' }, { status: 403 });
       const entitlements = await getVendorEntitlements(vendor.vendorId!);
-      if (!entitlements.subscription) return NextResponse.json({ error: 'Your dealer subscription is inactive. Ask Cars21 to assign a plan before adding or updating listings.' }, { status: 403 });
       const existingVendorCar = await db.collection('cars').findOne({ id: parsed.data.id, vendorId: vendor.vendorId }, { projection: { _id: 1 } });
       if (!existingVendorCar) {
         const activeCount = await db.collection('cars').countDocuments({ vendorId: vendor.vendorId, status: { $in: ['active', 'pending'] } });
-        if (activeCount >= entitlements.maxListings) return NextResponse.json({ error: `Your plan allows up to ${entitlements.maxListings} active listings. Contact Cars21 to change plans.` }, { status: 403 });
+        const maxListings = entitlements.maxListings || 100;
+        if (activeCount >= maxListings) return NextResponse.json({ error: `Your plan allows up to ${maxListings} active listings. Contact Cars21 to change plans.` }, { status: 403 });
       }
+      const maxImages = entitlements.maxImagesPerListing || 20;
       const allImageIds = new Set([...parsed.data.photoIds, ...(parsed.data.imageId ? [parsed.data.imageId] : []), ...(parsed.data.inspection?.evidencePhotoIds ?? [])]);
-      if (allImageIds.size > entitlements.maxImagesPerListing) return NextResponse.json({ error: `Your plan allows up to ${entitlements.maxImagesPerListing} images per listing, including inspection evidence.` }, { status: 400 });
+      if (allImageIds.size > maxImages) return NextResponse.json({ error: `Your plan allows up to ${maxImages} images per listing, including inspection evidence.` }, { status: 400 });
       if (parsed.data.inspection && !entitlements.features.inspectionUploads) return NextResponse.json({ error: 'Inspection uploads are not included in your subscription plan.' }, { status: 403 });
     }
     const collection = db.collection('cars');

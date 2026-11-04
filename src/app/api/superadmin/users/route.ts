@@ -5,6 +5,8 @@ import { getSession, hashPassword, isAdminRequest, isSuperAdminRequest } from '.
 import { getDb } from '../../../../server/mongodb';
 import { vendorSlug } from '../../../../lib/vendor-slug';
 import { ensureDevelopmentDemoVendorProfile } from '../../../../server/demo-vendor';
+import { requestGoogleIndexing } from '../../../../server/google-indexing';
+import { getSiteOrigin } from '../../../../server/site-origin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -148,6 +150,24 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date()
     };
     await (accountType === 'admin' ? admins : vendors).insertOne(account);
+
+    // Auto-request Google Search Console indexing for newly added dealer
+    if (accountType === 'vendor' && account.slug) {
+      try {
+        const siteUrl = await getSiteOrigin();
+        if (siteUrl) {
+          const dealerUrl = `${siteUrl}/dealers/${account.slug}`;
+          void requestGoogleIndexing([
+            dealerUrl,
+            `${siteUrl}/dealers`,
+            `${siteUrl}/dealers?city=${encodeURIComponent(parsed.data.city || 'Junagadh')}`,
+          ], 'URL_UPDATED', `auto_new_dealer:${account.id}`);
+        }
+      } catch (indexingErr) {
+        console.error('Auto Google indexing failed:', indexingErr);
+      }
+    }
+
     const { passwordSalt: _salt, passwordHash: _hash, ...safeAccount } = account;
     return NextResponse.json({
       account: { ...safeAccount, ...(accountType === 'vendor' ? { profileUrl: `/dealers/${account.slug}` } : {}), createdAt: new Date().toISOString() },

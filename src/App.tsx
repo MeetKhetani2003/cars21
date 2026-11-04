@@ -405,7 +405,7 @@ function CurrentPage(){
   if(pathname==='/') page=<HomePage/>;
   else if(pathname==='/buy-cars'||pathname.startsWith('/buy-cars/')) page=<InventoryPage/>;
   else if(pathname.startsWith('/car/')) page=<CarPage/>;
-  else if(pathname==='/sell-car') page=<SellPage/>;
+  else if(pathname==='/sell-car'||pathname==='/sell-car/inquiry') page=<SellPage initialTab={pathname==='/sell-car/inquiry'?'inquiry':undefined}/>;
   else if(pathname==='/sell-car/vehicle-details') page=<VehicleDetailsPage/>;
   else if(pathname==='/sell-car/valuation') page=<ValuationPage/>;
   else if(pathname==='/sell-car/inspection') page=<InspectionBookingPage/>;

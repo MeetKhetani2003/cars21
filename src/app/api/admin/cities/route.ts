@@ -18,16 +18,33 @@ export type CityRecord = {
 };
 
 const DEFAULT_CITIES = [
-  { name: 'Bengaluru', state: 'Karnataka', pincode: '560001', popular: true, status: 'active' },
-  { name: 'Mumbai', state: 'Maharashtra', pincode: '400001', popular: true, status: 'active' },
-  { name: 'Delhi NCR', state: 'Delhi', pincode: '110001', popular: true, status: 'active' },
-  { name: 'Hyderabad', state: 'Telangana', pincode: '500001', popular: true, status: 'active' },
-  { name: 'Pune', state: 'Maharashtra', pincode: '411001', popular: true, status: 'active' },
-  { name: 'Chennai', state: 'Tamil Nadu', pincode: '600001', popular: true, status: 'active' },
+  // GUJARAT PRIMARY HUBS (Junagadh is default, Rajkot, Ahmedabad)
+  { name: 'Junagadh', state: 'Gujarat', pincode: '362001', popular: true, status: 'active' },
+  { name: 'Rajkot', state: 'Gujarat', pincode: '360001', popular: true, status: 'active' },
   { name: 'Ahmedabad', state: 'Gujarat', pincode: '380001', popular: true, status: 'active' },
   { name: 'Surat', state: 'Gujarat', pincode: '395001', popular: true, status: 'active' },
-  { name: 'Vadodara', state: 'Gujarat', pincode: '390001', popular: false, status: 'active' },
-  { name: 'Rajkot', state: 'Gujarat', pincode: '360001', popular: false, status: 'active' },
+  { name: 'Vadodara', state: 'Gujarat', pincode: '390001', popular: true, status: 'active' },
+
+  // RAJKOT & NEARBY CITIES (360xxx / 363xxx Series)
+  { name: 'Rajkot (Kalawad Road)', state: 'Gujarat', pincode: '360005', popular: true, status: 'active' },
+  { name: 'Gondal (Rajkot)', state: 'Gujarat', pincode: '360311', popular: true, status: 'active' },
+  { name: 'Jetpur (Rajkot)', state: 'Gujarat', pincode: '360370', popular: true, status: 'active' },
+  { name: 'Dhoraji (Rajkot)', state: 'Gujarat', pincode: '360410', popular: false, status: 'active' },
+  { name: 'Upleta (Rajkot)', state: 'Gujarat', pincode: '360490', popular: false, status: 'active' },
+  { name: 'Morbi', state: 'Gujarat', pincode: '363641', popular: false, status: 'active' },
+  { name: 'Jamnagar', state: 'Gujarat', pincode: '361001', popular: true, status: 'active' },
+  { name: 'Porbandar', state: 'Gujarat', pincode: '360575', popular: true, status: 'active' },
+  { name: 'Bhavnagar', state: 'Gujarat', pincode: '364001', popular: true, status: 'active' },
+  { name: 'Amreli', state: 'Gujarat', pincode: '365601', popular: false, status: 'active' },
+
+  // AHMEDABAD & NEARBY CITIES (380xxx / 382xxx Series)
+  { name: 'Ahmedabad (Navrangpura)', state: 'Gujarat', pincode: '380009', popular: true, status: 'active' },
+  { name: 'Ahmedabad (Satellite / SG Highway)', state: 'Gujarat', pincode: '380015', popular: true, status: 'active' },
+  { name: 'Ahmedabad (Bodakdev)', state: 'Gujarat', pincode: '380054', popular: true, status: 'active' },
+  { name: 'Ahmedabad (Bopal)', state: 'Gujarat', pincode: '380058', popular: true, status: 'active' },
+  { name: 'Gandhinagar', state: 'Gujarat', pincode: '382010', popular: true, status: 'active' },
+  { name: 'Sanand (Ahmedabad)', state: 'Gujarat', pincode: '382110', popular: false, status: 'active' },
+
   // GUJARAT PINCODE 362xxx SERIES (Junagadh & Saurashtra Postal Division)
   { name: 'Junagadh (HO)', state: 'Gujarat', pincode: '362001', popular: true, status: 'active' },
   { name: 'Junagadh City (Sardarbag)', state: 'Gujarat', pincode: '362002', popular: true, status: 'active' },
@@ -54,13 +71,14 @@ const DEFAULT_CITIES = [
   { name: 'Una (Gir Somnath)', state: 'Gujarat', pincode: '362560', popular: false, status: 'active' },
   { name: 'Delvada (Una)', state: 'Gujarat', pincode: '362565', popular: false, status: 'active' },
   { name: 'Kodinar (Gir Somnath)', state: 'Gujarat', pincode: '362570', popular: false, status: 'active' },
-  // Other major Indian cities
-  { name: 'Kolkata', state: 'West Bengal', pincode: '700001', popular: false, status: 'active' },
-  { name: 'Jaipur', state: 'Rajasthan', pincode: '302001', popular: false, status: 'active' },
-  { name: 'Chandigarh', state: 'Punjab', pincode: '160017', popular: false, status: 'active' },
-  { name: 'Kochi', state: 'Kerala', pincode: '682001', popular: false, status: 'active' },
-  { name: 'Lucknow', state: 'Uttar Pradesh', pincode: '226001', popular: false, status: 'active' },
-  { name: 'Indore', state: 'Madhya Pradesh', pincode: '452001', popular: false, status: 'active' },
+
+  // OTHER MAJOR METROS
+  { name: 'Bengaluru', state: 'Karnataka', pincode: '560001', popular: false, status: 'active' },
+  { name: 'Mumbai', state: 'Maharashtra', pincode: '400001', popular: false, status: 'active' },
+  { name: 'Delhi NCR', state: 'Delhi', pincode: '110001', popular: false, status: 'active' },
+  { name: 'Hyderabad', state: 'Telangana', pincode: '500001', popular: false, status: 'active' },
+  { name: 'Pune', state: 'Maharashtra', pincode: '411001', popular: false, status: 'active' },
+  { name: 'Chennai', state: 'Tamil Nadu', pincode: '600001', popular: false, status: 'active' },
 ];
 
 const citySchema = z.object({

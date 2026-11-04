@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { isVendorSession } from '../../../../server/auth';
 import { getDb } from '../../../../server/mongodb';
 import { vendorSlug } from '../../../../lib/vendor-slug';
+import { requestGoogleIndexing } from '../../../../server/google-indexing';
+import { getSiteOrigin } from '../../../../server/site-origin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,6 +40,21 @@ export async function PATCH(request: NextRequest) {
       { $set: { ...parsed.data, slug: vendorSlug(parsed.data.businessName, session.vendorId), updatedAt: new Date() } },
     );
     if (!result.matchedCount) return NextResponse.json({ error: 'This vendor account is suspended or no longer exists.' }, { status: 403 });
-    return NextResponse.json({ ok: true, profileUrl: `/dealers/${vendorSlug(parsed.data.businessName, session.vendorId)}`, profile: parsed.data });
+    const slug = vendorSlug(parsed.data.businessName, session.vendorId);
+    
+    // Auto-request Google Indexing for updated dealer profile
+    try {
+      const siteUrl = await getSiteOrigin();
+      if (siteUrl) {
+        void requestGoogleIndexing([
+          `${siteUrl}/dealers/${slug}`,
+          `${siteUrl}/dealers?city=${encodeURIComponent(parsed.data.city || 'Junagadh')}`,
+        ], 'URL_UPDATED', `vendor_profile_updated:${session.vendorId}`);
+      }
+    } catch (e) {
+      console.error('Auto indexing on vendor update error:', e);
+    }
+
+    return NextResponse.json({ ok: true, profileUrl: `/dealers/${slug}`, profile: parsed.data });
   } catch { return NextResponse.json({ error: 'Business profile could not be saved.' }, { status: 503 }); }
 }

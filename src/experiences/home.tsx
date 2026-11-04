@@ -13,6 +13,7 @@ import { CarCard } from '../components/CarCard';
 import { SectionTitle, TrustStrip } from '../components/shared';
 import { HomeEmiCalculator } from '../components/HomeEmiCalculator';
 import { FeaturedCarsSection } from '../components/FeaturedCarsSection';
+import { estimateCarValuation } from '../lib/valuation';
 
 
 
@@ -106,26 +107,19 @@ export function HomePage() {
 
   // Dynamic Valuation Simulator Calculation
   const calculatedValuation = useMemo(() => {
-    const basePrices: Record<string, number> = {
-      SUV: 1250000,
-      Sedan: 1050000,
-      Hatchback: 720000,
-      Electric: 1450000,
-    };
-    const base = basePrices[simBody] || 900000;
-    const ageDiscount = (2024 - simYear) * 0.085;
-    const kmDiscount = Math.max(0, (simKm - 20000) / 100000) * 0.12;
-    const condMult = simCondition === 'Excellent' ? 1.06 : simCondition === 'Fair' ? 0.91 : 1.0;
-
-    const estMid = Math.max(250000, Math.round((base * (1 - ageDiscount - kmDiscount) * condMult) / 10000) * 10000);
-    const estLow = Math.round((estMid * 0.94) / 10000) * 10000;
-    const estHigh = Math.round((estMid * 1.06) / 10000) * 10000;
+    const val = estimateCarValuation({
+      model: simBody,
+      year: simYear,
+      km: simKm,
+      condition: simCondition,
+      fuel: simBody === 'Electric' ? 'Electric' : 'Petrol'
+    });
 
     return {
-      low: (estLow / 100000).toFixed(2),
-      high: (estHigh / 100000).toFixed(2),
-      midFormatted: formatShort(estMid),
-      demandScore: simBody === 'SUV' || simBody === 'Electric' ? 'Very High' : 'High'
+      low: (val.marketRange.low / 100000).toFixed(2),
+      high: (val.marketRange.high / 100000).toFixed(2),
+      midFormatted: formatShort(val.fairMarketValue),
+      demandScore: val.demandIndex
     };
   }, [simBody, simYear, simKm, simCondition]);
 

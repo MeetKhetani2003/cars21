@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { Activity, ArrowDownToLine, ArrowLeft, ArrowUpRight, BadgeCheck, Building2, CarFront, Check, CheckCircle2, ChevronDown, CircleDollarSign, ClipboardCheck, ClipboardList, CreditCard, Download, ExternalLink, Eye, EyeOff, FilePlus2, FileText, Gauge, Heart, History as HistoryIcon, ImagePlus, Key, Landmark, LayoutDashboard, LogOut, Mail, MapPin, Menu, MessageSquareText, Pencil, Phone, Plus, RefreshCw, Search, ShieldAlert, ShieldCheck, Store, Trash2, UserCheck, UserRound, Users, X, XCircle } from 'lucide-react';
+import { Activity, ArrowDownToLine, ArrowLeft, ArrowUpRight, BadgeCheck, Building2, CarFront, Check, CheckCircle2, ChevronDown, CircleDollarSign, ClipboardCheck, ClipboardList, CreditCard, Download, ExternalLink, Eye, EyeOff, FilePlus2, FileText, Gauge, Gavel, Globe2, Heart, History as HistoryIcon, ImagePlus, Key, Landmark, LayoutDashboard, LogOut, Mail, MapPin, Menu, MessageSquareText, Pencil, Phone, Plus, RefreshCw, Search, ShieldAlert, ShieldCheck, Store, Trash2, UserCheck, UserRound, Users, X, XCircle } from 'lucide-react';
 import { formatINR } from '../data';
 import { UserHistoryPanel } from '../components/UserHistoryPanel';
 import { WishlistInsights } from '../components/WishlistInsights';
@@ -13,6 +13,9 @@ import { VendorDashboardOverview } from '../components/VendorDashboardOverview';
 import { CityManager } from '../components/CityManager';
 import { VehicleCompanyManager } from '../components/VehicleCompanyManager';
 import { LoanManager } from '../components/LoanManager';
+import { SellInquiryManager } from '../components/SellInquiryManager';
+import { AuctionManager } from '../components/AuctionManager';
+import { IndexingManager } from '../components/IndexingManager';
 
 type Role = 'superadmin' | 'admin' | 'vendor';
 type User = { role: Role; name: string; email?: string };
@@ -63,6 +66,7 @@ type Vendor = {
   phone: string;
   city: string;
   status: 'active' | 'suspended';
+  slug?: string;
   createdAt?: string;
   profileUrl?: string;
   subscription?: unknown;
@@ -70,13 +74,29 @@ type Vendor = {
   assignedAdminId?: string | null;
   assignedAdminName?: string | null;
 };
-type MakeItem = { id: string; name: string; country?: string; popular?: boolean };
+type CarModelItem = {
+  id: string;
+  name: string;
+  body?: string;
+  years?: number[];
+  popular?: boolean;
+  status?: 'active' | 'inactive';
+};
+type MakeItem = {
+  id: string;
+  name: string;
+  country?: string;
+  code?: string;
+  popular?: boolean;
+  status?: 'active' | 'inactive';
+  models?: CarModelItem[];
+};
 type CityItem = { id: string; name: string; state: string; pincode?: string; popular?: boolean };
 type Account = { id: string; accountType: 'admin' | 'vendor'; name: string; businessName?: string; email: string; inquiryEmail?: string; inquiryWhatsApp?: string; phone?: string; city?: string; area?: string; address?: string; description?: string; website?: string; workingHours?: string; establishedYear?: number | null; specialties?: string[]; logoPhotoId?: string; coverPhotoId?: string; shopPhotoIds?: string[]; status: 'active' | 'suspended'; createdAt?: string; profileUrl?: string; assignedAdminId?: string | null; assignedAdminName?: string | null; addedBy?: { id: string; name: string; email?: string; role: string } | null; };
 type Photo = { id: string; filename: string; contentType: string; length: number; uploadDate: string; usedBy: { id: string; label: string; kind: 'car' | 'vendor'; href: string } | null };
 type Inquiry = { id: string; carId: string; createdAt: string; detailUrl: string; status: string; notifications?: { email?: { status: string; to?: string } }; vehicle: { make: string; model: string; variant: string; year: number; price: number; city: string; sellerName?: string; sellerPhone?: string; vendorId?: string }; client: { name: string; phone: string; email?: string; city: string; message?: string; preferredDate?: string; preferredTime?: string } };
 type WebsiteSubmission = { id: string; type: 'seller' | 'dealer'; status: 'new' | 'contacted' | 'in_progress' | 'closed'; verificationStatus?: 'pending' | 'approved' | 'rejected'; userId?: string; createdAt: string; name: string; email: string; phone: string; city: string; businessName?: string; registration?: string; make?: string; model?: string; year?: number; km?: number; fuel?: string; transmission?: string; owners?: number; condition?: string; estimatedLow?: number; estimatedHigh?: number; inspectionMode?: string; preferredDate?: string; preferredTime?: string; address?: string };
-type Section = 'overview' | 'listings' | 'cities' | 'makes' | 'loans' | 'vendors' | 'inquiries' | 'accounts' | 'photos' | 'submissions' | 'history' | 'wishlists' | 'profile' | 'inspections' | 'plans' | 'subscriptions';
+type Section = 'overview' | 'listings' | 'auctions' | 'cities' | 'makes' | 'loans' | 'sell-inquiries' | 'vendors' | 'seo' | 'inquiries' | 'accounts' | 'photos' | 'submissions' | 'history' | 'wishlists' | 'profile' | 'inspections' | 'plans' | 'subscriptions';
 type DashboardData = { activity: { date: string; label: string; count: number }[]; recentVendors: Vendor[]; updatedAt: string };
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -87,13 +107,89 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 const DEFAULT_FALLBACK_MAKES: MakeItem[] = [
-  { id: 'maruti-suzuki', name: 'Maruti Suzuki', popular: true },
-  { id: 'hyundai', name: 'Hyundai', popular: true },
-  { id: 'tata', name: 'Tata', popular: true },
-  { id: 'mahindra', name: 'Mahindra', popular: true },
+  {
+    id: 'maruti-suzuki',
+    name: 'Maruti Suzuki',
+    popular: true,
+    models: [
+      { id: 'swift', name: 'Swift', body: 'Hatchback', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'brezza', name: 'Brezza', body: 'SUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'baleno', name: 'Baleno', body: 'Hatchback', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'grand-vitara', name: 'Grand Vitara', body: 'SUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'fronx', name: 'Fronx', body: 'SUV', years: [2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'dzire', name: 'Dzire', body: 'Sedan', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'ertiga', name: 'Ertiga', body: 'MUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'jimny', name: 'Jimny', body: 'SUV', years: [2023, 2024, 2025, 2026], popular: true, status: 'active' },
+    ]
+  },
+  {
+    id: 'hyundai',
+    name: 'Hyundai',
+    popular: true,
+    models: [
+      { id: 'creta', name: 'Creta', body: 'SUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'venue', name: 'Venue', body: 'SUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'exter', name: 'Exter', body: 'SUV', years: [2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'verna', name: 'Verna', body: 'Sedan', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'i20', name: 'i20', body: 'Hatchback', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'alcazar', name: 'Alcazar', body: 'SUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'tucson', name: 'Tucson', body: 'SUV', years: [2022, 2023, 2024, 2025, 2026], popular: false, status: 'active' },
+      { id: 'ioniq-5', name: 'Ioniq 5', body: 'SUV', years: [2023, 2024, 2025, 2026], popular: true, status: 'active' },
+    ]
+  },
+  {
+    id: 'tata',
+    name: 'Tata',
+    popular: true,
+    models: [
+      { id: 'nexon', name: 'Nexon', body: 'SUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'punch', name: 'Punch', body: 'SUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'harrier', name: 'Harrier', body: 'SUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'safari', name: 'Safari', body: 'SUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'curvv', name: 'Curvv', body: 'SUV Coupe', years: [2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'altroz', name: 'Altroz', body: 'Hatchback', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'tiago', name: 'Tiago', body: 'Hatchback', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+    ]
+  },
+  {
+    id: 'mahindra',
+    name: 'Mahindra',
+    popular: true,
+    models: [
+      { id: 'thar', name: 'Thar', body: 'SUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'thar-roxx', name: 'Thar Roxx', body: 'SUV', years: [2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'scorpio-n', name: 'Scorpio-N', body: 'SUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'scorpio-classic', name: 'Scorpio Classic', body: 'SUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'xuv700', name: 'XUV700', body: 'SUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'xuv-3xo', name: 'XUV 3XO', body: 'SUV', years: [2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'bolero', name: 'Bolero', body: 'SUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+    ]
+  },
+  {
+    id: 'toyota',
+    name: 'Toyota',
+    popular: true,
+    models: [
+      { id: 'fortuner', name: 'Fortuner', body: 'SUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'innova-crysta', name: 'Innova Crysta', body: 'MUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'innova-hycross', name: 'Innova Hycross', body: 'MUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'hyryder', name: 'Urban Cruiser Hyryder', body: 'SUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'glanza', name: 'Glanza', body: 'Hatchback', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'taisor', name: 'Urban Cruiser Taisor', body: 'SUV', years: [2024, 2025, 2026], popular: true, status: 'active' },
+    ]
+  },
+  {
+    id: 'kia',
+    name: 'Kia',
+    popular: true,
+    models: [
+      { id: 'seltos', name: 'Seltos', body: 'SUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'sonet', name: 'Sonet', body: 'SUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'carens', name: 'Carens', body: 'MUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+      { id: 'ev6', name: 'EV6', body: 'SUV', years: [2022, 2023, 2024, 2025, 2026], popular: true, status: 'active' },
+    ]
+  },
   { id: 'honda', name: 'Honda', popular: true },
-  { id: 'toyota', name: 'Toyota', popular: true },
-  { id: 'kia', name: 'Kia', popular: true },
   { id: 'volkswagen', name: 'Volkswagen', popular: true },
   { id: 'skoda', name: 'Skoda', popular: false },
   { id: 'mg', name: 'MG', popular: false },
@@ -283,9 +379,8 @@ export function ManagementPanel({ role: expectedRole }: { role: Role }) {
       const evidencePhotoIds = JSON.parse(String(values.get('evidencePhotoIds') || '[]')) as string[];
       const listingFiles = values.getAll('photos').filter((file): file is File => file instanceof File && file.size > 0);
       const evidenceFiles = values.getAll('evidencePhotos').filter((file): file is File => file instanceof File && file.size > 0);
-      const planImageLimit = vendorProfile?.subscription?.plan?.maxImagesPerListing || 0;
-      if (expectedRole === 'vendor' && !planImageLimit) throw new Error('Your dealer subscription is inactive. Ask Cars21 to assign a plan before creating listings.');
-      if (expectedRole === 'vendor' && currentPhotoIds.length + evidencePhotoIds.length + listingFiles.length + evidenceFiles.length > planImageLimit) throw new Error(`Your plan allows up to ${planImageLimit} photos per listing, including inspection evidence.`);
+      const planImageLimit = vendorProfile?.subscription?.plan?.maxImagesPerListing || 20;
+      if (expectedRole === 'vendor' && vendorProfile?.subscription?.plan && currentPhotoIds.length + evidencePhotoIds.length + listingFiles.length + evidenceFiles.length > planImageLimit) throw new Error(`Your plan allows up to ${planImageLimit} photos per listing, including inspection evidence.`);
       const uploadPhoto = async (file: File) => { const upload = new FormData(); upload.append('file', file); return (await api<{ id: string }>('/api/photos', { method: 'POST', body: upload })).id; };
       const [uploadedListingPhotos, uploadedEvidencePhotos] = await Promise.all([Promise.all(listingFiles.map(uploadPhoto)), Promise.all(evidenceFiles.map(uploadPhoto))]);
       const nextPhotoIds = [...new Set([...currentPhotoIds, ...uploadedListingPhotos])];
@@ -465,6 +560,26 @@ export function ManagementPanel({ role: expectedRole }: { role: Role }) {
     }
   }
 
+  async function requestDealerIndexing(vendor: Vendor) {
+    try {
+      setNotice(`Requesting Google Search Console indexing for ${vendor.businessName}...`);
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const dealerPath = vendor.profileUrl || `/dealers/${vendor.slug || vendor.id}`;
+      const fullUrl = dealerPath.startsWith('http') ? dealerPath : `${origin}${dealerPath}`;
+      const res = await api<{ success: boolean; pendingCredentials?: boolean }>('/api/admin/indexing', {
+        method: 'POST',
+        body: JSON.stringify({ url: fullUrl }),
+      });
+      if (res.pendingCredentials) {
+        setNotice(`Indexing queued for ${vendor.businessName}. Configure Google Cloud Service Account in .env.local to transmit live.`);
+      } else {
+        setNotice(`Google Search Console notified for ${vendor.businessName}!`);
+      }
+    } catch {
+      setError('Failed to request Google indexing.');
+    }
+  }
+
   async function saveAccountDetails(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editingAccount) return;
@@ -634,9 +749,12 @@ export function ManagementPanel({ role: expectedRole }: { role: Role }) {
           { id: 'accounts' as Section, label: 'Admins & accounts', Icon: Users }
         ] : []),
         { id: 'listings', label: 'Car listings', Icon: CarFront },
+        { id: 'auctions' as Section, label: 'Auctions', Icon: Gavel },
         { id: 'cities' as Section, label: 'City listings', Icon: MapPin },
         { id: 'makes' as Section, label: 'Vehicle companies', Icon: Building2 },
         { id: 'loans' as Section, label: 'Car loans', Icon: Landmark },
+        { id: 'sell-inquiries' as Section, label: 'Sell enquiries', Icon: CircleDollarSign },
+        { id: 'seo' as Section, label: 'SEO & Search Console', Icon: Globe2 },
         { id: 'vendors', label: 'Vendors', Icon: Store },
         { id: 'inquiries', label: 'Buyer enquiries', Icon: MessageSquareText },
         { id: 'history', label: 'User history', Icon: HistoryIcon },
@@ -667,7 +785,7 @@ export function ManagementPanel({ role: expectedRole }: { role: Role }) {
         {error && <div className="management-banner error" role="alert"><X size={17}/>{error}<button aria-label="Dismiss error" onClick={() => setError('')}><X size={15}/></button></div>}
         {notice && <div className="management-banner success" role="status"><Check size={17}/>{notice}<button aria-label="Dismiss message" onClick={() => setNotice('')}><X size={15}/></button></div>}
         {newVendorPassword && <div className="vendor-password-banner"><div><b>One-time account password</b><span>Share it securely now. It won’t be shown again.</span><code>{newVendorPassword}</code></div><button onClick={() => { void navigator.clipboard?.writeText(newVendorPassword); setNotice('Password copied.'); }}>Copy password</button><button aria-label="Dismiss password" onClick={() => setNewVendorPassword('')}><X size={16}/></button></div>}
-        {section === 'overview' && expectedRole === 'vendor' && <VendorDashboardOverview profile={vendorProfile} cars={cars} inquiries={inquiries} onNavigate={setSection}/>}
+        {section === 'overview' && expectedRole === 'vendor' && <VendorDashboardOverview profile={vendorProfile} cars={cars} inquiries={inquiries} onNavigate={setSection} onAddCar={() => { setSection('listings'); setCarEditor('new'); }}/>}
         {section === 'overview' && expectedRole !== 'vendor' && <>
           <div className="management-welcome"><div><span className="eyebrow">{expectedRole === 'superadmin' ? 'CARS21 PLATFORM ADMINISTRATION' : 'CARS21 OPERATIONS'}</span><h2>Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {user.name.split(' ')[0]}.</h2><p>{expectedRole === 'superadmin' ? 'Manage platform users alongside marketplace operations.' : 'Your marketplace at a glance. Review pending listings and new buyer enquiries first.'}</p></div><div className="management-live"><i/> Workspace connected</div></div>
           <div className="management-metric-grid">{counts.map(({ label, value, Icon, tone, note }) => <article className="management-metric" key={label}><span className={`management-metric-icon ${tone}`}><Icon size={18}/></span><span>{label}</span><b>{dataLoading ? '—' : value.toLocaleString('en-IN')}</b><small>{note}</small></article>)}</div>
@@ -679,11 +797,14 @@ export function ManagementPanel({ role: expectedRole }: { role: Role }) {
           <InquiryList inquiries={inquiries.slice(0, 4)} onStatus={updateInquiry} onDelete={expectedRole === 'superadmin' ? deleteInquiry : undefined} />
           <div className="management-shortcuts"><button onClick={() => { setSection('listings'); setCarEditor('new'); }}><Plus size={18}/><span><b>Add a vehicle</b><small>Create a listing or review vendor submissions</small></span><ArrowLeft size={16}/></button>{expectedRole === 'superadmin' && <button onClick={() => { setSection('accounts'); setEditingAccount(null); setNewAccountType('admin'); setModalError(''); setFormPassword(''); setShowPassword(false); setVendorEditor(true); }}><Users size={18}/><span><b>Create an account</b><small>Add an administrator or vendor</small></span><ArrowLeft size={16}/></button>}</div>
         </>}
-        {section === 'listings' && <><div className="management-section-heading management-list-heading"><div><span className="eyebrow">{expectedRole === 'vendor' ? 'YOUR INVENTORY' : 'MARKETPLACE INVENTORY'}</span><h2>{expectedRole === 'vendor' ? 'Manage your listings' : 'Vehicle listings'}</h2><p>{expectedRole === 'vendor' ? 'Listings stay visible for enquiries while their inspection packets are reviewed.' : 'Create, edit, publish or remove vehicles across Cars21.'}</p></div><button className="management-primary compact" disabled={expectedRole==='vendor'&&(!vendorProfile?.subscription||cars.filter(car=>car.status==='active'||car.status==='pending').length>=(vendorProfile.subscription.plan?.maxListings||0))} onClick={() => setCarEditor('new')}><Plus size={17}/> Add vehicle</button></div><div className="management-toolbar management-listing-filters"><label className="management-search"><Search size={17}/><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search make, model, city…" aria-label="Search vehicle listings"/></label>{expectedRole !== 'vendor' && <label className="management-filter">Dealer<select value={listingVendor} onChange={event => setListingVendor(event.target.value)}><option value="all">All dealers</option>{vendors.map(vendor => <option key={vendor.id} value={vendor.id}>{vendor.businessName}</option>)}</select></label>}<label className="management-filter">Status<select value={listingStatus} onChange={event => setListingStatus(event.target.value)}><option value="all">All statuses</option><option value="active">Live</option><option value="pending">Needs review</option><option value="paused">Paused</option><option value="sold">Sold</option></select></label><span>{filteredCars.length} {filteredCars.length === 1 ? 'listing' : 'listings'}</span></div><div className="management-listings">{filteredCars.map(car => <article className="management-car-row" key={car.id}><div className="management-car-image clickable" onClick={() => setReviewingCar(car)} title="Click to view vehicle details and documents">{car.image ? <img src={car.image} alt={`${car.year} ${car.make} ${car.model}`}/> : <CarFront size={22}/>}</div><div className="management-car-name clickable" onClick={() => setReviewingCar(car)} title="Click to view vehicle details and documents"><b>{car.year} {car.make} {car.model}</b><span>{car.variant || 'Standard'} · {car.city}</span><small>{car.vendorName || (car.vendorId ? 'Dealer listing' : car.sellerUserId ? `Private seller · ${car.sellerName || 'Verified seller'}` : 'Cars21 direct')} · {car.id}</small></div><strong className="management-price">{formatINR(car.price)}</strong><div><StatusPill value={car.status || 'active'}/>{car.vendorId&&car.inspectionReviewStatus&&<small className="inspection-listing-status">Inspection · {car.inspectionReviewStatus.replace('_',' ')}</small>}<div className="management-car-verify-wrap"><span className={`car-verify-badge ${car.verificationStatus || (car.documentPhotoId ? 'under_verification' : 'unverified')}`}>{car.verificationStatus === 'verified' ? '✓ Verified RC' : car.verificationStatus === 'under_verification' ? '⏳ Under verification' : car.verificationStatus === 'rejected' ? '✕ RC Rejected' : '○ Unverified'}</span>{car.documentPhotoId && <a href={`/api/photos/${encodeURIComponent(car.documentPhotoId)}`} target="_blank" rel="noreferrer" className="management-doc-link" title="Open RC Document"><FileText size={12}/> View RC</a>}</div></div><div className="management-row-actions"><button type="button" className="management-view-car-btn" onClick={() => setReviewingCar(car)} title="View vehicle details, RC documents and inspection proof"><Eye size={14}/> View car</button><a href={`/car/${encodeURIComponent(car.id)}`} target="_blank" rel="noreferrer" className="management-public-link" title="Open live public marketplace page in new tab" aria-label="Open public listing"><ExternalLink size={14}/></a>{expectedRole !== 'vendor' && (<>{car.verificationStatus !== 'verified' && <button type="button" className="quick-verify-btn approve" title="Approve vehicle registration document" onClick={() => void verifyCarDoc(car, 'verified')}>Approve RC</button>}{car.verificationStatus === 'verified' && <button type="button" className="quick-verify-btn reject" title="Reject vehicle registration document" onClick={() => void verifyCarDoc(car, 'rejected')}>Revoke RC</button>}</>)}{car.vendorSlug && <a href={`/dealers/${car.vendorSlug}`} target="_blank" rel="noreferrer" aria-label={`View ${car.vendorName || 'dealer'} profile`}><Store size={15}/></a>}<button aria-label={`Edit ${car.make} ${car.model}`} onClick={() => setCarEditor(car)} title="Edit listing"><Pencil size={15}/></button><button className="danger" aria-label={`Remove ${car.make} ${car.model}`} onClick={() => void removeCar(car)} title="Remove listing"><Trash2 size={15}/></button></div></article>)}{filteredCars.length === 0 && <div className="management-empty"><CarFront size={25}/><b>{dataLoading ? 'Loading inventory…' : 'No listings found'}</b><span>{search || listingStatus !== 'all' || listingVendor !== 'all' ? 'Try changing your search or filters.' : 'Add your first vehicle to get started.'}</span></div>}</div></>}
+        {section === 'listings' && <><div className="management-section-heading management-list-heading"><div><span className="eyebrow">{expectedRole === 'vendor' ? 'YOUR INVENTORY' : 'MARKETPLACE INVENTORY'}</span><h2>{expectedRole === 'vendor' ? 'Manage your listings' : 'Vehicle listings'}</h2><p>{expectedRole === 'vendor' ? 'Listings stay visible for enquiries while their inspection packets are reviewed.' : 'Create, edit, publish or remove vehicles across Cars21.'}</p></div><button type="button" className="management-primary compact" onClick={() => setCarEditor('new')}><Plus size={17}/> Add vehicle</button></div><div className="management-toolbar management-listing-filters"><label className="management-search"><Search size={17}/><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search make, model, city…" aria-label="Search vehicle listings"/></label>{expectedRole !== 'vendor' && <label className="management-filter">Dealer<select value={listingVendor} onChange={event => setListingVendor(event.target.value)}><option value="all">All dealers</option>{vendors.map(vendor => <option key={vendor.id} value={vendor.id}>{vendor.businessName}</option>)}</select></label>}<label className="management-filter">Status<select value={listingStatus} onChange={event => setListingStatus(event.target.value)}><option value="all">All statuses</option><option value="active">Live</option><option value="pending">Needs review</option><option value="paused">Paused</option><option value="sold">Sold</option></select></label><span>{filteredCars.length} {filteredCars.length === 1 ? 'listing' : 'listings'}</span></div><div className="management-listings">{filteredCars.map(car => <article className="management-car-row" key={car.id}><div className="management-car-image clickable" onClick={() => setReviewingCar(car)} title="Click to view vehicle details and documents">{car.image ? <img src={car.image} alt={`${car.year} ${car.make} ${car.model}`}/> : <CarFront size={22}/>}</div><div className="management-car-name clickable" onClick={() => setReviewingCar(car)} title="Click to view vehicle details and documents"><b>{car.year} {car.make} {car.model}</b><span>{car.variant || 'Standard'} · {car.city}</span><small>{car.vendorName || (car.vendorId ? 'Dealer listing' : car.sellerUserId ? `Private seller · ${car.sellerName || 'Verified seller'}` : 'Cars21 direct')} · {car.id}</small></div><strong className="management-price">{formatINR(car.price)}</strong><div><StatusPill value={car.status || 'active'}/>{car.vendorId&&car.inspectionReviewStatus&&<small className="inspection-listing-status">Inspection · {car.inspectionReviewStatus.replace('_',' ')}</small>}<div className="management-car-verify-wrap"><span className={`car-verify-badge ${car.verificationStatus || (car.documentPhotoId ? 'under_verification' : 'unverified')}`}>{car.verificationStatus === 'verified' ? '✓ Verified RC' : car.verificationStatus === 'under_verification' ? '⏳ Under verification' : car.verificationStatus === 'rejected' ? '✕ RC Rejected' : '○ Unverified'}</span>{car.documentPhotoId && <a href={`/api/photos/${encodeURIComponent(car.documentPhotoId)}`} target="_blank" rel="noreferrer" className="management-doc-link" title="Open RC Document"><FileText size={12}/> View RC</a>}</div></div><div className="management-row-actions"><button type="button" className="management-view-car-btn" onClick={() => setReviewingCar(car)} title="View vehicle details, RC documents and inspection proof"><Eye size={14}/> View car</button><a href={`/car/${encodeURIComponent(car.id)}`} target="_blank" rel="noreferrer" className="management-public-link" title="Open live public marketplace page in new tab" aria-label="Open public listing"><ExternalLink size={14}/></a>{expectedRole !== 'vendor' && (<>{car.verificationStatus !== 'verified' && <button type="button" className="quick-verify-btn approve" title="Approve vehicle registration document" onClick={() => void verifyCarDoc(car, 'verified')}>Approve RC</button>}{car.verificationStatus === 'verified' && <button type="button" className="quick-verify-btn reject" title="Reject vehicle registration document" onClick={() => void verifyCarDoc(car, 'rejected')}>Revoke RC</button>}</>)}{car.vendorSlug && <a href={`/dealers/${car.vendorSlug}`} target="_blank" rel="noreferrer" aria-label={`View ${car.vendorName || 'dealer'} profile`}><Store size={15}/></a>}<button aria-label={`Edit ${car.make} ${car.model}`} onClick={() => setCarEditor(car)} title="Edit listing"><Pencil size={15}/></button><button className="danger" aria-label={`Remove ${car.make} ${car.model}`} onClick={() => void removeCar(car)} title="Remove listing"><Trash2 size={15}/></button></div></article>)}{filteredCars.length === 0 && <div className="management-empty"><CarFront size={25}/><b>{dataLoading ? 'Loading inventory…' : 'No listings found'}</b><span>{search || listingStatus !== 'all' || listingVendor !== 'all' ? 'Try changing your search or filters.' : 'Add your first vehicle to get started.'}</span><button type="button" className="management-primary compact" style={{ marginTop: '12px' }} onClick={() => setCarEditor('new')}><Plus size={16}/> Add vehicle</button></div>}</div></>}
+        {section === 'auctions' && expectedRole !== 'vendor' && <AuctionManager role={expectedRole}/>}
         {section === 'cities' && expectedRole !== 'vendor' && <CityManager/>}
         {section === 'makes' && expectedRole !== 'vendor' && <VehicleCompanyManager/>}
         {section === 'loans' && expectedRole !== 'vendor' && <LoanManager role={expectedRole}/>}
-        {section === 'vendors' && expectedRole !== 'vendor' && <><div className="management-section-heading management-list-heading"><div><span className="eyebrow">PARTNER ACCOUNTS</span><h2>Vendors</h2><p>{expectedRole === 'superadmin' ? 'Review dealership accounts and their marketplace access.' : 'Review dealership access and marketplace activity.'}</p></div>{(expectedRole === 'superadmin' || expectedRole === 'admin') && <button className="management-primary compact" onClick={() => { setEditingAccount(null); setNewAccountType('vendor'); setModalError(''); setFormPassword(''); setShowPassword(false); setVendorEditor(true); }}><Plus size={17}/> Create vendor</button>}</div>{expectedRole === 'superadmin' && <div className="management-vendor-tip"><span><ShieldCheck size={16}/> Looking for platform administrators?</span><button type="button" onClick={() => { setSection('accounts'); setAccountFilter('admin'); }}>View administrators ({accounts.filter(a => a.accountType === 'admin').length}) <ArrowUpRight size={14}/></button></div>}<div className="management-vendor-grid">{vendors.map(vendor => <article className="management-vendor-card" key={vendor.id}><div className="management-vendor-top"><span className="management-vendor-icon"><Building2 size={20}/></span><StatusPill value={vendor.status}/></div><h3>{vendor.businessName}</h3><p className="management-vendor-person">{vendor.name}</p><a href={`mailto:${vendor.email}`}><Mail size={14}/>{vendor.email}</a><span><MapPin size={14}/>{vendor.city} · {vendor.phone}</span>{vendor.addedBy && <div className="management-added-by-badge"><UserCheck size={13}/> Added by: <b>{vendor.addedBy.name}</b> ({vendor.addedBy.role})</div>}{expectedRole === 'superadmin' ? <div className="management-vendor-assign"><label><UserCheck size={12}/><span>Admin:</span><select value={vendor.assignedAdminId || ''} onChange={event => void assignVendorToAdmin(vendor, event.target.value)} disabled={dataLoading} title="Assign this vendor to an administrator"><option value="">(Unassigned / Superadmin only)</option>{accounts.filter(a => a.accountType === 'admin' && a.status === 'active').map(admin => <option key={admin.id} value={admin.id}>{admin.name} ({admin.email})</option>)}</select></label></div> : vendor.assignedAdminName ? <div className="management-assigned-admin-badge">Assigned to: {vendor.assignedAdminName}</div> : null}{vendor.profileUrl && <a href={vendor.profileUrl} target="_blank" rel="noreferrer"><Eye size={14}/>Open public dealer page</a>}<div className="management-vendor-bottom"><small>Added {vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString('en-IN') : 'recently'}</small><div>{expectedRole === 'superadmin' && <button className="reset" onClick={() => { const account = accounts.find(item => item.accountType === 'vendor' && item.id === vendor.id) || { id: vendor.id, accountType: 'vendor' as const, name: vendor.name, email: vendor.email, businessName: vendor.businessName, phone: vendor.phone, city: vendor.city, status: vendor.status, profileUrl: vendor.profileUrl }; setEditingAccount(account); setModalError(''); setFormPassword(''); setShowPassword(false); setVendorEditor(true); }}>Edit profile</button>}{expectedRole === 'superadmin' && <button className="reset" onClick={() => openPasswordReset({ id: vendor.id, name: vendor.businessName || vendor.name, email: vendor.email, accountType: 'vendor' })}>Reset password</button>}{expectedRole === 'admin' && <button className="reset" onClick={() => openPasswordReset({ id: vendor.id, name: vendor.businessName || vendor.name, email: vendor.email, accountType: 'vendor' })}>Reset password</button>}<button className={vendor.status === 'active' ? 'suspend' : 'activate'} onClick={() => void setVendorStatus(vendor)}>{vendor.status === 'active' ? 'Suspend' : 'Reactivate'}</button>{expectedRole === 'superadmin' && <button className="suspend" onClick={() => void deleteVendor(vendor)}>Delete</button>}</div></div></article>)}{vendors.length === 0 && <div className="management-empty"><Store size={25}/><b>No vendors yet</b><span>{expectedRole === 'superadmin' ? 'Create a vendor account from here or the Access & accounts page.' : 'Vendor accounts will appear here when created.'}</span></div>}</div></>}
+        {section === 'sell-inquiries' && expectedRole !== 'vendor' && <SellInquiryManager role={expectedRole}/>}
+        {section === 'seo' && expectedRole !== 'vendor' && <IndexingManager role={expectedRole}/>}
+        {section === 'vendors' && expectedRole !== 'vendor' && <><div className="management-section-heading management-list-heading"><div><span className="eyebrow">PARTNER ACCOUNTS</span><h2>Vendors</h2><p>{expectedRole === 'superadmin' ? 'Review dealership accounts and their marketplace access.' : 'Review dealership access and marketplace activity.'}</p></div>{(expectedRole === 'superadmin' || expectedRole === 'admin') && <button className="management-primary compact" onClick={() => { setEditingAccount(null); setNewAccountType('vendor'); setModalError(''); setFormPassword(''); setShowPassword(false); setVendorEditor(true); }}><Plus size={17}/> Create vendor</button>}</div>{expectedRole === 'superadmin' && <div className="management-vendor-tip"><span><ShieldCheck size={16}/> Looking for platform administrators?</span><button type="button" onClick={() => { setSection('accounts'); setAccountFilter('admin'); }}>View administrators ({accounts.filter(a => a.accountType === 'admin').length}) <ArrowUpRight size={14}/></button></div>}<div className="management-vendor-grid">{vendors.map(vendor => <article className="management-vendor-card" key={vendor.id}><div className="management-vendor-top"><span className="management-vendor-icon"><Building2 size={20}/></span><StatusPill value={vendor.status}/></div><h3>{vendor.businessName}</h3><p className="management-vendor-person">{vendor.name}</p><a href={`mailto:${vendor.email}`}><Mail size={14}/>{vendor.email}</a><span><MapPin size={14}/>{vendor.city} · {vendor.phone}</span>{vendor.addedBy && <div className="management-added-by-badge"><UserCheck size={13}/> Added by: <b>{vendor.addedBy.name}</b> ({vendor.addedBy.role})</div>}{expectedRole === 'superadmin' ? <div className="management-vendor-assign"><label><UserCheck size={12}/><span>Admin:</span><select value={vendor.assignedAdminId || ''} onChange={event => void assignVendorToAdmin(vendor, event.target.value)} disabled={dataLoading} title="Assign this vendor to an administrator"><option value="">(Unassigned / Superadmin only)</option>{accounts.filter(a => a.accountType === 'admin' && a.status === 'active').map(admin => <option key={admin.id} value={admin.id}>{admin.name} ({admin.email})</option>)}</select></label></div> : vendor.assignedAdminName ? <div className="management-assigned-admin-badge">Assigned to: {vendor.assignedAdminName}</div> : null}{vendor.profileUrl && <a href={vendor.profileUrl} target="_blank" rel="noreferrer"><Eye size={14}/>Open public dealer page</a>}<button type="button" className="reset" title="Request Google Search Console indexing for this dealer page" onClick={() => void requestDealerIndexing(vendor)} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#2563eb' }}><Globe2 size={13}/> Google Index</button><div className="management-vendor-bottom"><small>Added {vendor.createdAt ? new Date(vendor.createdAt).toLocaleDateString('en-IN') : 'recently'}</small><div>{expectedRole === 'superadmin' && <button className="reset" onClick={() => { const account = accounts.find(item => item.accountType === 'vendor' && item.id === vendor.id) || { id: vendor.id, accountType: 'vendor' as const, name: vendor.name, email: vendor.email, businessName: vendor.businessName, phone: vendor.phone, city: vendor.city, status: vendor.status, profileUrl: vendor.profileUrl }; setEditingAccount(account); setModalError(''); setFormPassword(''); setShowPassword(false); setVendorEditor(true); }}>Edit profile</button>}{expectedRole === 'superadmin' && <button className="reset" onClick={() => openPasswordReset({ id: vendor.id, name: vendor.businessName || vendor.name, email: vendor.email, accountType: 'vendor' })}>Reset password</button>}{expectedRole === 'admin' && <button className="reset" onClick={() => openPasswordReset({ id: vendor.id, name: vendor.businessName || vendor.name, email: vendor.email, accountType: 'vendor' })}>Reset password</button>}<button className={vendor.status === 'active' ? 'suspend' : 'activate'} onClick={() => void setVendorStatus(vendor)}>{vendor.status === 'active' ? 'Suspend' : 'Reactivate'}</button>{expectedRole === 'superadmin' && <button className="suspend" onClick={() => void deleteVendor(vendor)}>Delete</button>}</div></div></article>)}{vendors.length === 0 && <div className="management-empty"><Store size={25}/><b>No vendors yet</b><span>{expectedRole === 'superadmin' ? 'Create a vendor account from here or the Access & accounts page.' : 'Vendor accounts will appear here when created.'}</span></div>}</div></>}
         {section === 'photos' && expectedRole === 'superadmin' && <><div className="management-section-heading management-list-heading"><div><span className="eyebrow">GRIDFS MEDIA</span><h2>Photos and showroom images</h2><p>Review listing and vendor profile photos. Removing an attached photo also clears its profile or listing reference.</p></div><div className="management-inquiry-total"><b>{photos.length}</b><span>Recent photos</span></div></div><div className="management-vendor-grid">{photos.map(photo => <article className="management-vendor-card management-photo-card" key={photo.id}><a className="management-photo-preview" href={`/api/photos/${encodeURIComponent(photo.id)}`} target="_blank" rel="noreferrer"><img src={`/api/photos/${encodeURIComponent(photo.id)}`} alt={photo.filename}/></a><h3 title={photo.filename}>{photo.filename}</h3><p className="management-vendor-person">{photo.contentType} · {Math.max(1, Math.round(photo.length / 1024))} KB</p>{photo.usedBy ? <a href={photo.usedBy.href} target="_blank" rel="noreferrer">{photo.usedBy.kind === 'vendor' ? <Store size={14}/> : <CarFront size={14}/>} {photo.usedBy.label}</a> : <span><ImagePlus size={14}/>Not attached to a listing or profile</span>}<div className="management-vendor-bottom"><small>{new Date(photo.uploadDate).toLocaleDateString('en-IN')}</small><div><button className="suspend" onClick={() => void deletePhoto(photo)}>Delete photo</button></div></div></article>)}{photos.length === 0 && <div className="management-empty"><ImagePlus size={25}/><b>No stored photos</b><span>Uploaded listing and showroom images will appear here.</span></div>}</div></>}
         {section === 'accounts' && expectedRole === 'superadmin' && <><div className="management-section-heading management-list-heading"><div><span className="eyebrow">PLATFORM ACCESS</span><h2>Admins and vendors</h2><p>Create, edit, suspend, reset or remove platform accounts.</p></div><div className="management-heading-actions"><button className="management-primary compact" onClick={() => { setEditingAccount(null); setNewAccountType('admin'); setModalError(''); setFormPassword(''); setShowPassword(false); setVendorEditor(true); }}><Plus size={17}/> Create admin</button><button className="management-secondary compact" onClick={() => { setEditingAccount(null); setNewAccountType('vendor'); setModalError(''); setFormPassword(''); setShowPassword(false); setVendorEditor(true); }}><Plus size={17}/> Create vendor</button></div></div><div className="management-account-tabs-wrap"><div className="management-account-tabs"><button className={accountFilter === 'all' ? 'active' : ''} onClick={() => setAccountFilter('all')}>All accounts <b>{accounts.length}</b></button><button className={accountFilter === 'admin' ? 'active' : ''} onClick={() => setAccountFilter('admin')}><ShieldCheck size={14}/> Administrators <b>{accounts.filter(a => a.accountType === 'admin').length}</b></button><button className={accountFilter === 'vendor' ? 'active' : ''} onClick={() => setAccountFilter('vendor')}><Building2 size={14}/> Vendors <b>{accounts.filter(a => a.accountType === 'vendor').length}</b></button></div></div><div className="management-toolbar"><label className="management-search"><Search size={17}/><input value={accountSearch} onChange={event => setAccountSearch(event.target.value)} placeholder="Search name or email…" aria-label="Search accounts"/></label><span>{filteredAccounts.length} {filteredAccounts.length === 1 ? 'account' : 'accounts'}</span></div><div className="management-vendor-grid">{filteredAccounts.map(account => <article className={`management-vendor-card${account.accountType === 'admin' ? ' management-admin-card' : ''}`} key={`${account.accountType}-${account.id}`}><div className="management-vendor-top"><span className={`management-vendor-icon${account.accountType === 'admin' ? ' is-admin' : ''}`}>{account.accountType === 'admin' ? <ShieldCheck size={20}/> : <Building2 size={20}/>}</span><span className={`account-role-pill ${account.accountType}`}>{account.accountType === 'admin' ? 'Administrator' : 'Vendor'}</span><StatusPill value={account.status}/></div><h3>{account.accountType === 'admin' ? account.name : account.businessName}</h3><p className="management-vendor-person">{account.accountType === 'admin' ? 'Platform administrator' : account.name}</p><a href={`mailto:${account.email}`}><Mail size={14}/>{account.email}</a>{account.accountType === 'vendor' && <><span><MapPin size={14}/>{account.city} · {account.phone}</span>{account.profileUrl && <a href={account.profileUrl} target="_blank" rel="noreferrer"><Eye size={14}/>Open public dealer page</a>}</>}<div className="management-vendor-bottom"><small>{account.accountType === 'admin' ? 'Admin operations access' : 'Vendor workspace'}</small><div><button className="reset" onClick={() => { setEditingAccount(account); setModalError(''); setFormPassword(''); setShowPassword(false); setVendorEditor(true); }}>Edit details</button><button className="reset" onClick={() => openPasswordReset({ id: account.id, name: account.name, email: account.email, accountType: account.accountType })}>Reset password</button><button className={account.status === 'active' ? 'suspend' : 'activate'} onClick={() => void updateAccount(account)}>{account.status === 'active' ? 'Suspend' : 'Reactivate'}</button><button className="suspend" onClick={() => void deleteAccount(account)}>Delete</button></div></div></article>)}{filteredAccounts.length === 0 && <div className="management-empty"><Users size={25}/><b>No accounts found</b><span>{accountSearch ? 'No accounts match your search filter.' : 'Create your first administrator or vendor account.'}</span></div>}</div></>}
         {section === 'submissions' && expectedRole !== 'vendor' && <><div className="management-section-heading management-list-heading"><div><span className="eyebrow">PUBLIC WEBSITE FORMS</span><h2>Website submissions</h2><p>Seller inspection requests and dealer partnership applications appear here after submission.</p></div><div className="management-inquiry-total"><b>{submissions.length}</b><span>Total submissions</span></div></div>{submissions.length ? <div className="management-vendor-grid">{submissions.map(item => <article className="management-vendor-card" key={`${item.type}-${item.id}`}><div className="management-vendor-top"><span className="management-vendor-icon">{item.type === 'seller' ? <CarFront size={20}/> : <Building2 size={20}/>}</span><StatusPill value={item.status}/></div><h3>{item.type === 'seller' ? `${item.year} ${item.make} ${item.model}` : item.businessName}</h3><p className="management-vendor-person">{item.type === 'seller' ? `Seller request · ${item.registration}` : `Dealer application · ${item.name}`}</p><a href={`mailto:${item.email}`}><Mail size={14}/>{item.email || 'Email not provided'}</a><a href={`tel:${item.phone}`}><UserRound size={14}/>{item.phone}</a><span><MapPin size={14}/>{item.city}</span>{item.type === 'seller' && <p className="management-vendor-person">{item.km?.toLocaleString('en-IN')} km · {item.fuel} · {item.condition} · Estimate {formatINR(item.estimatedLow || 0)}–{formatINR(item.estimatedHigh || 0)}{item.preferredDate ? ` · ${item.preferredDate} ${item.preferredTime || ''}` : ''}</p>}<div className="management-vendor-bottom"><small>{new Date(item.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</small><div><label className="management-submission-status">Status<select value={item.status} onChange={event => void updateSubmission(item, event.target.value as WebsiteSubmission['status'])}><option value="new">New</option><option value="contacted">Contacted</option><option value="in_progress">In progress</option><option value="closed">Closed</option></select></label>{item.type === 'seller' && <label className="management-submission-status">Seller access<select aria-label="Private seller verification" value={item.verificationStatus || 'pending'} onChange={event => void verifyPrivateSeller(item, event.target.value as 'pending' | 'approved' | 'rejected')}><option value="pending">Needs review</option><option value="approved">Approve seller</option><option value="rejected">Reject request</option></select></label>}{expectedRole === 'superadmin' && <button className="suspend" onClick={() => void deleteSubmission(item)}>Delete</button>}</div></div></article>)}</div> : <div className="management-empty"><FilePlus2 size={25}/><b>No website submissions yet</b><span>Completed seller requests and dealer applications will appear here.</span></div>}</>}
@@ -723,7 +844,7 @@ export function ManagementPanel({ role: expectedRole }: { role: Role }) {
             </label>}
           </div>
           {(editingAccount?.accountType || newAccountType) === 'vendor' && <label className="management-field">City
-            <input required name="city" maxLength={80} defaultValue={editingAccount?.city || ''} placeholder="Bengaluru"/>
+            <input required name="city" maxLength={80} defaultValue={editingAccount?.city || 'Junagadh'} placeholder="Junagadh"/>
           </label>}
 
           {(editingAccount?.accountType || newAccountType) === 'vendor' && expectedRole === 'superadmin' && (
@@ -989,16 +1110,54 @@ function CarEditor({
   const value = car || blankCar;
   const inspection = value.inspection || {};
 
+  const [selectedMake, setSelectedMake] = useState<string>(value.make || (makes[0]?.name || 'Maruti Suzuki'));
+  const [modelInput, setModelInput] = useState<string>(value.model || '');
+  const [selectedBody, setSelectedBody] = useState<string>(value.body || 'SUV');
+  const [selectedYear, setSelectedYear] = useState<number | string>(value.year || 2024);
+
+  // Retrieve 2022-2026 models for currently selected make
+  const currentMakeObj = makes.find(m => m.name.toLowerCase() === selectedMake.toLowerCase());
+  const companyModels = useMemo(() => {
+    return (currentMakeObj?.models || []).filter(m => m.status !== 'inactive');
+  }, [currentMakeObj]);
+
+  const handleSelectModel = (name: string) => {
+    setModelInput(name);
+    const found = companyModels.find(m => m.name.toLowerCase() === name.toLowerCase());
+    if (found) {
+      if (found.body) {
+        const b = found.body;
+        const normalized = b.includes('SUV') ? 'SUV' : b.includes('Sedan') ? 'Sedan' : b.includes('Hatchback') ? 'Hatchback' : b.includes('MUV') ? 'MPV' : b.includes('Electric') ? 'Electric' : b.includes('Coupe') ? 'Coupe' : b;
+        setSelectedBody(normalized);
+      }
+      if (found.years && found.years.length > 0) {
+        if (!value.year || !found.years.includes(Number(value.year))) {
+          setSelectedYear(Math.max(...found.years));
+        }
+      }
+    }
+  };
+
   return (
     <Modal title={car ? `Edit ${car.make} ${car.model}` : 'Add a vehicle'} onClose={onClose}>
       <form className="management-form management-car-form" onSubmit={onSubmit}>
         <div className="management-form-pair">
           <label className="management-field">
             Company / Make
-            <select required name="make" defaultValue={value.make || (makes[0]?.name || 'Maruti Suzuki')}>
+            <select
+              required
+              name="make"
+              value={selectedMake}
+              onChange={e => {
+                const nextMake = e.target.value;
+                setSelectedMake(nextMake);
+              }}
+            >
               <option value="" disabled>Select vehicle company</option>
               {makes.map(m => (
-                <option key={m.id} value={m.name}>{m.name}</option>
+                <option key={m.id} value={m.name}>
+                  {m.name} {m.models?.length ? `(${m.models.length} models)` : ''}
+                </option>
               ))}
               {value.make && !makes.some(m => m.name.toLowerCase() === value.make.toLowerCase()) && (
                 <option value={value.make}>{value.make}</option>
@@ -1007,7 +1166,48 @@ function CarEditor({
           </label>
           <label className="management-field">
             Model
-            <input required name="model" defaultValue={value.model} maxLength={80} placeholder="e.g. Nexon EV, Swift, Creta" />
+            <input
+              required
+              name="model"
+              list="company-models-datalist"
+              value={modelInput}
+              onChange={e => handleSelectModel(e.target.value)}
+              maxLength={80}
+              placeholder={companyModels.length ? `e.g. ${companyModels.slice(0, 3).map(m => m.name).join(', ')}` : 'e.g. Nexon EV, Swift, Creta'}
+            />
+            <datalist id="company-models-datalist">
+              {companyModels.map(m => (
+                <option key={m.id} value={m.name}>
+                  {m.name} — {m.body || 'Car'} ({m.years?.join(', ') || '2022–2026'})
+                </option>
+              ))}
+            </datalist>
+
+            {/* Quick-pick chips for active models (2022-2026) */}
+            {companyModels.length > 0 && (
+              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
+                <span style={{ fontSize: '10.5px', color: '#64748b', alignSelf: 'center', fontWeight: 600 }}>2022–2026:</span>
+                {companyModels.slice(0, 7).map(m => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => handleSelectModel(m.name)}
+                    style={{
+                      border: modelInput.toLowerCase() === m.name.toLowerCase() ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+                      background: modelInput.toLowerCase() === m.name.toLowerCase() ? '#eff6ff' : '#f8fafc',
+                      color: modelInput.toLowerCase() === m.name.toLowerCase() ? '#1d4ed8' : '#334155',
+                      padding: '2px 7px',
+                      borderRadius: '5px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {m.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </label>
         </div>
 
@@ -1018,7 +1218,36 @@ function CarEditor({
           </label>
           <label className="management-field">
             Model year
-            <input required name="year" type="number" min="1980" max="2100" defaultValue={value.year} />
+            <input
+              required
+              name="year"
+              type="number"
+              min="1980"
+              max="2100"
+              value={selectedYear}
+              onChange={e => setSelectedYear(e.target.value)}
+            />
+            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '5px' }}>
+              {[2022, 2023, 2024, 2025, 2026].map(yr => (
+                <button
+                  key={yr}
+                  type="button"
+                  onClick={() => setSelectedYear(yr)}
+                  style={{
+                    border: String(selectedYear) === String(yr) ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+                    background: String(selectedYear) === String(yr) ? '#eff6ff' : '#f8fafc',
+                    color: String(selectedYear) === String(yr) ? '#1d4ed8' : '#475569',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    fontSize: '10.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {yr}
+                </button>
+              ))}
+            </div>
           </label>
         </div>
 
@@ -1056,13 +1285,18 @@ function CarEditor({
 
         <label className="management-field">
           Body type
-          <select name="body" defaultValue={value.body}>
-            <option>SUV</option>
-            <option>Sedan</option>
-            <option>Hatchback</option>
-            <option>Electric</option>
-            <option>Coupe</option>
-            <option>MPV</option>
+          <select name="body" value={selectedBody} onChange={e => setSelectedBody(e.target.value)}>
+            <option value="SUV">SUV</option>
+            <option value="Compact SUV">Compact SUV</option>
+            <option value="Midsize SUV">Midsize SUV</option>
+            <option value="Hatchback">Hatchback</option>
+            <option value="Sedan">Sedan</option>
+            <option value="MUV">MUV / MPV</option>
+            <option value="MPV">MPV</option>
+            <option value="Coupe">SUV Coupe / Coupe</option>
+            <option value="Electric">Electric SUV / Car</option>
+            <option value="Pickup">Pickup</option>
+            <option value="Van">Van</option>
           </select>
         </label>
 

@@ -40,6 +40,11 @@ export async function GET() {
       ...cars.map(car => String(car.make ?? '').trim())
     ].filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
+    const allModels = [...new Set([
+      ...managedMakes.flatMap(m => (Array.isArray(m.models) ? m.models : []).filter((mod: any) => mod.status !== 'inactive').map((mod: any) => String(mod.name || '').trim())),
+      ...cars.map(car => String(car.model ?? '').trim())
+    ].filter(Boolean))].sort((a, b) => a.localeCompare(b));
+
     const popularCities = managedCities.filter(c => c.popular).map(c => String(c.name)).filter(Boolean);
     const popularMakes = managedMakes.filter(m => m.popular).map(m => ({
       make: String(m.name),
@@ -52,6 +57,7 @@ export async function GET() {
         ...base,
         cities: allCities.length ? allCities : base.cities,
         makes: allMakes.length ? allMakes : base.makes,
+        models: allModels.length ? allModels : base.models,
         popularCities,
         popularMakes,
         source: 'mongodb'
