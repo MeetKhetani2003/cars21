@@ -49,7 +49,7 @@ type IndexingLog = {
   createdAt: string;
 };
 
-export function IndexingManager({ role }: { role: 'superadmin' | 'admin' }) {
+export function IndexingManager({ role }: { role: 'superadmin' | 'manager' | 'admin' }) {
   const [status, setStatus] = useState<IndexingStatus | null>(null);
   const [sitemapUrl, setSitemapUrl] = useState('');
   const [dealers, setDealers] = useState<DealerItem[]>([]);

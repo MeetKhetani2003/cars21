@@ -2,12 +2,57 @@ import 'server-only';
 import { createHmac, createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import type { NextRequest } from 'next/server';
+import { getDb } from './mongodb';
 
 const scrypt = promisify(scryptCallback);
 const cookieName = 'cars21_session';
 const sessionSeconds = 60 * 60 * 12;
 
-export type SessionUser = { sub: string; role: 'superadmin' | 'admin' | 'vendor' | 'buyer'; name: string; email?: string; phone?: string; vendorId?: string; credentialVersion?: string; exp: number };
+export type ManagerPermissions = {
+  overview: boolean;
+  accounts: boolean;
+  listings: boolean;
+  auctions: boolean;
+  vendors: boolean;
+  inquiries: boolean;
+  submissions: boolean;
+  loans: boolean;
+  inspections: boolean;
+  cities: boolean;
+  makes: boolean;
+  plans: boolean;
+  subscriptions: boolean;
+  seo: boolean;
+  photos: boolean;
+  history: boolean;
+  wishlists: boolean;
+  canDelete: boolean;
+  canResetPasswords: boolean;
+};
+
+export const DEFAULT_MANAGER_PERMISSIONS: ManagerPermissions = {
+  overview: true,
+  accounts: true,
+  listings: true,
+  auctions: true,
+  vendors: true,
+  inquiries: true,
+  submissions: true,
+  loans: true,
+  inspections: true,
+  cities: true,
+  makes: true,
+  plans: true,
+  subscriptions: true,
+  seo: true,
+  photos: true,
+  history: true,
+  wishlists: true,
+  canDelete: true,
+  canResetPasswords: true,
+};
+
+export type SessionUser = { sub: string; role: 'superadmin' | 'manager' | 'admin' | 'vendor' | 'buyer'; name: string; email?: string; phone?: string; vendorId?: string; credentialVersion?: string; exp: number };
 
 function signingKey() {
   return process.env.CARS21_SESSION_SECRET || process.env.CARS21_SUPERADMIN_PASSWORD || process.env.CARS21_ADMIN_TOKEN || '';
@@ -63,7 +108,7 @@ export function getSessionFromToken(token?: string): SessionUser | null {
   if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
   try {
     const user = JSON.parse(Buffer.from(payload, 'base64url').toString()) as SessionUser;
-    if (!user.sub || !['superadmin', 'admin', 'vendor', 'buyer'].includes(user.role) || !Number.isFinite(user.exp) || user.exp <= Date.now() / 1000) return null;
+    if (!user.sub || !['superadmin', 'manager', 'admin', 'vendor', 'buyer'].includes(user.role) || !Number.isFinite(user.exp) || user.exp <= Date.now() / 1000) return null;
     if (user.role === 'superadmin' && (!user.credentialVersion || user.credentialVersion !== superadminCredentialVersion())) return null;
     return user;
   } catch { return null; }
@@ -72,11 +117,39 @@ export function getSessionFromToken(token?: string): SessionUser | null {
 export function isAdminRequest(request: NextRequest): boolean {
   const bearer = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || '';
   const role = getSession(request)?.role;
-  return verifyAdminToken(bearer) || role === 'admin' || role === 'superadmin';
+  return verifyAdminToken(bearer) || role === 'admin' || role === 'manager' || role === 'superadmin';
+}
+
+export function isManagerRequest(request: NextRequest): boolean {
+  return getSession(request)?.role === 'manager';
 }
 
 export function isSuperAdminRequest(request: NextRequest): boolean {
   return getSession(request)?.role === 'superadmin';
+}
+
+export function isPrivilegedManagementRequest(request: NextRequest): boolean {
+  const role = getSession(request)?.role;
+  return role === 'superadmin' || role === 'manager';
+}
+
+export async function canManagerPerform(request: NextRequest, perm: keyof ManagerPermissions): Promise<boolean> {
+  const session = getSession(request);
+  if (!session) return false;
+  if (session.role === 'superadmin') return true;
+  if (session.role === 'manager') {
+    try {
+      const db = await getDb();
+      const managerDoc = await db.collection<Record<string, unknown>>('managers').findOne({ id: session.sub, status: 'active' }, { projection: { permissions: 1 } });
+      if (!managerDoc) return false;
+      const perms = (managerDoc.permissions as ManagerPermissions | undefined);
+      if (!perms) return true;
+      return perms[perm] !== false;
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
 
 export function isVendorSession(request: NextRequest) {

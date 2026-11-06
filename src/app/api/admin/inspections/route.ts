@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { isSuperAdminRequest } from '../../../../server/auth';
+import { canManagerPerform, isManagerRequest, isSuperAdminRequest } from '../../../../server/auth';
 import { getDb } from '../../../../server/mongodb';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required.' }, { status: 403 });
+  const isAllowed = isSuperAdminRequest(request) || (isManagerRequest(request) && await canManagerPerform(request, 'inspections'));
+  if (!isAllowed) return NextResponse.json({ error: 'Management access required.' }, { status: 403 });
   try {
     const db = await getDb();
     const cars = await db.collection<Record<string, unknown>>('cars').find({ vendorId: { $exists: true, $ne: '' }, inspection: { $ne: null } }).sort({ submittedForInspectionAt: -1 }).limit(500).toArray();
@@ -23,12 +24,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required.' }, { status: 403 });
+  const isAllowed = isSuperAdminRequest(request) || (isManagerRequest(request) && await canManagerPerform(request, 'inspections'));
+  if (!isAllowed) return NextResponse.json({ error: 'Management access required.' }, { status: 403 });
   const schema = z.object({ carId: z.string().min(2).max(80), reviewStatus: z.enum(['approved', 'changes_requested', 'rejected']), reviewNote: z.string().trim().max(1000).default('') });
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: 'Choose a review decision and check the review note.' }, { status: 400 });
   try {
-    const result = await (await getDb()).collection('cars').updateOne({ id: parsed.data.carId, vendorId: { $exists: true, $ne: '' }, inspection: { $ne: null } }, { $set: { inspectionReviewStatus: parsed.data.reviewStatus, inspectionReviewNote: parsed.data.reviewNote, inspectionReviewedAt: new Date(), inspectionReviewedBy: 'superadmin', updatedAt: new Date() } });
+    const reviewerRole = isSuperAdminRequest(request) ? 'superadmin' : 'manager';
+    const result = await (await getDb()).collection('cars').updateOne({ id: parsed.data.carId, vendorId: { $exists: true, $ne: '' }, inspection: { $ne: null } }, { $set: { inspectionReviewStatus: parsed.data.reviewStatus, inspectionReviewNote: parsed.data.reviewNote, inspectionReviewedAt: new Date(), inspectionReviewedBy: reviewerRole, updatedAt: new Date() } });
     if (!result.matchedCount) return NextResponse.json({ error: 'Inspection submission not found.' }, { status: 404 });
     return NextResponse.json({ ok: true });
   } catch { return NextResponse.json({ error: 'Inspection decision could not be saved.' }, { status: 503 }); }

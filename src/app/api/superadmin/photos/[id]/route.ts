@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
-import { isSuperAdminRequest } from '../../../../../server/auth';
+import { canManagerPerform, isManagerRequest, isSuperAdminRequest } from '../../../../../server/auth';
 import { getDb, getPhotoBucket } from '../../../../../server/mongodb';
 
 export const runtime = 'nodejs';
@@ -10,7 +10,14 @@ type CarPhotoReferences = { imageId?: string; photoIds?: string[]; inspection?: 
 type VendorPhotoReferences = { logoPhotoId?: string; coverPhotoId?: string; shopPhotoIds?: string[] };
 
 export async function DELETE(request: NextRequest, context: Context) {
-  if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required.' }, { status: 403 });
+  const isSuper = isSuperAdminRequest(request);
+  const isMgr = isManagerRequest(request);
+  if (!isSuper && !isMgr) return NextResponse.json({ error: 'Management access required.' }, { status: 403 });
+  if (isMgr) {
+    const hasPhotos = await canManagerPerform(request, 'photos');
+    const hasDelete = await canManagerPerform(request, 'canDelete');
+    if (!hasPhotos || !hasDelete) return NextResponse.json({ error: 'Manager account does not have permission to delete media photos.' }, { status: 403 });
+  }
   const { id } = await context.params;
   if (!ObjectId.isValid(id)) return NextResponse.json({ error: 'Photo not found.' }, { status: 404 });
   try {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/server/mongodb';
-import { getSession } from '@/server/auth';
+import { canManagerPerform, getSession } from '@/server/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest, context: Context) {
 export async function PATCH(request: NextRequest, context: Context) {
   try {
     const session = getSession(request);
-    if (!session || (session.role !== 'superadmin' && session.role !== 'admin')) {
+    if (!session || (session.role !== 'superadmin' && session.role !== 'manager' && session.role !== 'admin')) {
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
     }
 
@@ -87,12 +87,14 @@ export async function PATCH(request: NextRequest, context: Context) {
   }
 }
 
-// DELETE: Delete auction (superadmin only)
+// DELETE: Delete auction (superadmin only, or authorized manager)
 export async function DELETE(request: NextRequest, context: Context) {
   try {
     const session = getSession(request);
-    if (!session || session.role !== 'superadmin') {
-      return NextResponse.json({ error: 'Only superadmin can remove auctions.' }, { status: 403 });
+    const isSuper = session?.role === 'superadmin';
+    const isMgrAllowed = session?.role === 'manager' && (await canManagerPerform(request, 'auctions')) && (await canManagerPerform(request, 'canDelete'));
+    if (!session || (!isSuper && !isMgrAllowed)) {
+      return NextResponse.json({ error: 'Management access required to remove auctions.' }, { status: 403 });
     }
 
     const { id } = await context.params;

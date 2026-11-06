@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { ObjectId, Filter, Document } from 'mongodb';
-import { isSuperAdminRequest } from '../../../../../server/auth';
+import { canManagerPerform, isManagerRequest, isSuperAdminRequest } from '../../../../../server/auth';
 import { getDb } from '../../../../../server/mongodb';
 
 export const runtime = 'nodejs';
@@ -34,7 +34,8 @@ const schema = z.object({
 });
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required.' }, { status: 403 });
+  const isAllowed = isSuperAdminRequest(request) || (isManagerRequest(request) && await canManagerPerform(request, 'plans'));
+  if (!isAllowed) return NextResponse.json({ error: 'Management access required.' }, { status: 403 });
   const { id } = await context.params;
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || 'Check the plan details and limits.' }, { status: 400 });
@@ -53,7 +54,8 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
 }
 
 export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required.' }, { status: 403 });
+  const isAllowed = isSuperAdminRequest(request) || (isManagerRequest(request) && await canManagerPerform(request, 'plans') && await canManagerPerform(request, 'canDelete'));
+  if (!isAllowed) return NextResponse.json({ error: 'Management access required.' }, { status: 403 });
   const { id } = await context.params;
   try {
     const db = await getDb();

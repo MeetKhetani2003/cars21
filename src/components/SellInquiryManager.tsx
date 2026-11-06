@@ -80,7 +80,7 @@ type SellInquiryMetrics = {
   totalExpectedVolume: number;
 };
 
-export function SellInquiryManager({ role }: { role: 'superadmin' | 'admin' | 'vendor' }) {
+export function SellInquiryManager({ role }: { role: 'superadmin' | 'manager' | 'admin' | 'vendor' }) {
   const [inquiries, setInquiries] = useState<SellInquiry[]>([]);
   const [metrics, setMetrics] = useState<SellInquiryMetrics>({
     total: 0,
@@ -499,7 +499,7 @@ export function SellInquiryManager({ role }: { role: 'superadmin' | 'admin' | 'v
                   <Eye size={14} /> View Dossier
                 </button>
 
-                {role === 'superadmin' && (
+                {(role === 'superadmin' || role === 'manager') && (
                   <button
                     type="button"
                     className="danger"

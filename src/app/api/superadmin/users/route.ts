@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getSession, hashPassword, isAdminRequest, isSuperAdminRequest } from '../../../../server/auth';
+import { canManagerPerform, DEFAULT_MANAGER_PERMISSIONS, getSession, hashPassword, isAdminRequest, isManagerRequest, isSuperAdminRequest } from '../../../../server/auth';
 import { getDb } from '../../../../server/mongodb';
 import { vendorSlug } from '../../../../lib/vendor-slug';
 import { ensureDevelopmentDemoVendorProfile } from '../../../../server/demo-vendor';
@@ -12,7 +12,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const accountSchema = z.object({
-  accountType: z.enum(['admin', 'vendor']),
+  accountType: z.enum(['manager', 'admin', 'vendor']),
   name: z.string().trim().min(2, 'Name must have at least 2 characters').max(100),
   email: z.string().trim().email('Please enter a valid email address (e.g. name@domain.com)').max(160),
   businessName: z.string().trim().optional(),
@@ -20,6 +20,7 @@ const accountSchema = z.object({
   city: z.string().trim().optional(),
   assignedAdminId: z.string().trim().optional(),
   assignedAdminName: z.string().trim().optional(),
+  permissions: z.record(z.string(), z.boolean()).optional(),
   password: z.union([
     z.string().trim().min(6, 'Password must have at least 6 characters').max(100),
     z.literal('')
@@ -39,16 +40,49 @@ const accountSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
-  if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required.' }, { status: 403 });
+  const isSuper = isSuperAdminRequest(request);
+  const isMgr = isManagerRequest(request);
+  if (!isSuper && !isMgr) {
+    return NextResponse.json({ error: 'Management access required.' }, { status: 403 });
+  }
+  if (isMgr && !(await canManagerPerform(request, 'accounts'))) {
+    return NextResponse.json({ error: 'Manager permissions do not include account management.' }, { status: 403 });
+  }
+
   try {
     await ensureDevelopmentDemoVendorProfile();
     const db = await getDb();
-    const [admins, vendors] = await Promise.all([
+    
+    // Superadmin sees managers, admins, and vendors
+    // Manager has access to all admins and all vendors (and all data!)
+    const [managers, admins, vendors] = await Promise.all([
+      isSuper ? db.collection<Record<string, unknown>>('managers').find({}).sort({ createdAt: -1 }).limit(100).toArray() : Promise.resolve([]),
       db.collection<Record<string, unknown>>('admins').find({}).sort({ createdAt: -1 }).limit(300).toArray(),
       db.collection<Record<string, unknown>>('vendors').find({}).sort({ createdAt: -1 }).limit(300).toArray(),
     ]);
+
     return NextResponse.json({ accounts: [
-      ...admins.map(item => ({ id: String(item.id ?? item._id), accountType: 'admin', name: item.name, email: item.email, status: item.status, createdAt: item.createdAt })),
+      ...managers.map(item => ({
+        id: String(item.id ?? item._id),
+        accountType: 'manager',
+        name: item.name,
+        email: item.email,
+        phone: item.phone || '',
+        status: item.status,
+        permissions: item.permissions || DEFAULT_MANAGER_PERMISSIONS,
+        createdAt: item.createdAt,
+        addedBy: item.addedBy || null,
+      })),
+      ...admins.map(item => ({
+        id: String(item.id ?? item._id),
+        accountType: 'admin',
+        name: item.name,
+        email: item.email,
+        phone: item.phone || '',
+        status: item.status,
+        createdAt: item.createdAt,
+        addedBy: item.addedBy || null,
+      })),
       ...vendors.map(item => {
         const id = String(item.id ?? item._id);
         const businessName = String(item.businessName ?? item.name ?? 'Dealer');
@@ -96,18 +130,34 @@ export async function POST(request: NextRequest) {
   }
 
   const accountType = parsed.data.accountType;
-  if (accountType === 'admin' && !isSuperAdminRequest(request)) {
-    return NextResponse.json({ error: 'Superadmin access required to create administrator accounts.' }, { status: 403 });
+  if (accountType === 'manager' && !isSuperAdminRequest(request)) {
+    return NextResponse.json({ error: 'Only superadmin can create manager accounts.' }, { status: 403 });
+  }
+  if (accountType === 'admin') {
+    const isSuper = isSuperAdminRequest(request);
+    const isMgr = isManagerRequest(request) && (await canManagerPerform(request, 'accounts'));
+    if (!isSuper && !isMgr) {
+      return NextResponse.json({ error: 'Superadmin or Manager privileges required to create administrator accounts.' }, { status: 403 });
+    }
   }
 
   const email = parsed.data.email.toLowerCase();
   try {
     const session = getSession(request);
     const db = await getDb();
+    const managers = db.collection<Record<string, unknown>>('managers');
     const admins = db.collection<Record<string, unknown>>('admins');
     const vendors = db.collection<Record<string, unknown>>('vendors');
-    await Promise.all([admins.createIndex({ email: 1 }, { unique: true }), vendors.createIndex({ email: 1 }, { unique: true })]);
-    if (await admins.findOne({ email }) || await vendors.findOne({ email })) return NextResponse.json({ error: 'An account already uses that email.' }, { status: 409 });
+    await Promise.all([
+      managers.createIndex({ email: 1 }, { unique: true }),
+      admins.createIndex({ email: 1 }, { unique: true }),
+      vendors.createIndex({ email: 1 }, { unique: true }),
+    ]);
+
+    if (await managers.findOne({ email }) || await admins.findOne({ email }) || await vendors.findOne({ email })) {
+      return NextResponse.json({ error: 'An account already uses that email.' }, { status: 409 });
+    }
+
     const customPassword = parsed.data.password && parsed.data.password.trim().length >= 6 ? parsed.data.password.trim() : null;
     const password = customPassword || randomBytes(12).toString('base64url');
     const { salt, hash } = await hashPassword(password);
@@ -115,7 +165,7 @@ export async function POST(request: NextRequest) {
 
     const addedBy = {
       id: session?.sub || 'system',
-      name: session?.name || (session?.role === 'superadmin' ? 'Super Admin' : 'Admin'),
+      name: session?.name || (session?.role === 'superadmin' ? 'Super Admin' : session?.role === 'manager' ? 'Manager' : 'Admin'),
       email: session?.email || '',
       role: session?.role || 'admin',
     };
@@ -126,13 +176,16 @@ export async function POST(request: NextRequest) {
       accountType,
       name: parsed.data.name,
       email,
+      phone: parsed.data.phone || '',
       ...(accountType === 'vendor' ? {
         businessName: parsed.data.businessName || parsed.data.name,
-        phone: parsed.data.phone || '',
         city: parsed.data.city || '',
         addedBy,
         assignedAdminId,
         assignedAdminName,
+      } : accountType === 'manager' ? {
+        permissions: { ...DEFAULT_MANAGER_PERMISSIONS, ...(parsed.data.permissions || {}) },
+        addedBy,
       } : {
         addedBy,
       })
@@ -149,7 +202,14 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
       updatedAt: new Date()
     };
-    await (accountType === 'admin' ? admins : vendors).insertOne(account);
+
+    if (accountType === 'manager') {
+      await managers.insertOne(account);
+    } else if (accountType === 'admin') {
+      await admins.insertOne(account);
+    } else {
+      await vendors.insertOne(account);
+    }
 
     // Auto-request Google Search Console indexing for newly added dealer
     if (accountType === 'vendor' && account.slug) {

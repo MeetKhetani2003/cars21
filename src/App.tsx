@@ -399,6 +399,7 @@ function CurrentPage(){
   useEffect(()=>{if(pathname==='/dashboard')router.replace('/account')},[pathname,router]);
   useEffect(()=>{if(pathname==='/login'){const params=new URLSearchParams(window.location.search);openLoginModal(params.get('returnTo')||'/')}},[pathname,openLoginModal]);
   if(pathname==='/superadmin'||pathname.startsWith('/superadmin/')) return <ManagementPanel role="superadmin"/>;
+  if(pathname==='/manager'||pathname.startsWith('/manager/')) return <ManagementPanel role="manager"/>;
   if(pathname==='/admin'||pathname.startsWith('/admin/')||pathname==='/operations') return <ManagementPanel role="admin"/>;
   if(pathname==='/vendor'||pathname.startsWith('/vendor/')) return <ManagementPanel role="vendor"/>;
   let page;

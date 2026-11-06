@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
-import { isAdminRequest, isSuperAdminRequest, getSession } from '@/server/auth';
+import { isAdminRequest, isSuperAdminRequest, isManagerRequest, canManagerPerform, getSession } from '@/server/auth';
 import { getDb } from '@/server/mongodb';
 
 export const runtime = 'nodejs';
@@ -77,8 +77,9 @@ export async function PATCH(request: NextRequest, context: Context) {
 }
 
 export async function DELETE(request: NextRequest, context: Context) {
-  if (!isSuperAdminRequest(request)) {
-    return NextResponse.json({ error: 'Superadmin access required to remove loan applications.' }, { status: 403 });
+  const isAllowed = isSuperAdminRequest(request) || (isManagerRequest(request) && await canManagerPerform(request, 'loans') && await canManagerPerform(request, 'canDelete'));
+  if (!isAllowed) {
+    return NextResponse.json({ error: 'Management access required to remove loan applications.' }, { status: 403 });
   }
 
   const { id } = await context.params;

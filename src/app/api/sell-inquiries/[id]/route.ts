@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/server/mongodb';
-import { getSession } from '@/server/auth';
+import { canManagerPerform, getSession } from '@/server/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -11,7 +11,7 @@ type Context = { params: Promise<{ id: string }> };
 export async function GET(request: NextRequest, context: Context) {
   try {
     const session = getSession(request);
-    if (!session || (session.role !== 'superadmin' && session.role !== 'admin' && session.role !== 'vendor')) {
+    if (!session || (session.role !== 'superadmin' && session.role !== 'manager' && session.role !== 'admin' && session.role !== 'vendor')) {
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
     }
 
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest, context: Context) {
 export async function PATCH(request: NextRequest, context: Context) {
   try {
     const session = getSession(request);
-    if (!session || (session.role !== 'superadmin' && session.role !== 'admin')) {
+    if (!session || (session.role !== 'superadmin' && session.role !== 'manager' && session.role !== 'admin')) {
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
     }
 
@@ -86,12 +86,14 @@ export async function PATCH(request: NextRequest, context: Context) {
   }
 }
 
-// DELETE: Remove an inquiry (superadmin only)
+// DELETE: Remove an inquiry (superadmin only, or authorized manager)
 export async function DELETE(request: NextRequest, context: Context) {
   try {
     const session = getSession(request);
-    if (!session || session.role !== 'superadmin') {
-      return NextResponse.json({ error: 'Only superadmin can delete inquiries.' }, { status: 403 });
+    const isSuper = session?.role === 'superadmin';
+    const isMgrAllowed = session?.role === 'manager' && (await canManagerPerform(request, 'inquiries')) && (await canManagerPerform(request, 'canDelete'));
+    if (!session || (!isSuper && !isMgrAllowed)) {
+      return NextResponse.json({ error: 'Management access required to delete inquiries.' }, { status: 403 });
     }
 
     const { id } = await context.params;

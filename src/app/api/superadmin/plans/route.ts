@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { isSuperAdminRequest } from '../../../../server/auth';
+import { canManagerPerform, isManagerRequest, isSuperAdminRequest } from '../../../../server/auth';
 import { getDb } from '../../../../server/mongodb';
 
 export const runtime = 'nodejs';
@@ -32,7 +32,8 @@ const planSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
-  if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required.' }, { status: 403 });
+  const isAllowed = isSuperAdminRequest(request) || (isManagerRequest(request) && await canManagerPerform(request, 'plans'));
+  if (!isAllowed) return NextResponse.json({ error: 'Management access required.' }, { status: 403 });
   try {
     const plans = await (await getDb()).collection('subscription_plans').find({}).sort({ createdAt: -1 }).limit(200).toArray();
     return NextResponse.json({ plans: plans.map(({ _id, ...plan }) => plan) });
@@ -40,7 +41,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required.' }, { status: 403 });
+  const isAllowed = isSuperAdminRequest(request) || (isManagerRequest(request) && await canManagerPerform(request, 'plans'));
+  if (!isAllowed) return NextResponse.json({ error: 'Management access required.' }, { status: 403 });
   const parsed = planSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: 'Check the plan details and limits.' }, { status: 400 });
   const plan = { id: randomBytes(12).toString('hex'), ...parsed.data, createdAt: new Date(), updatedAt: new Date() };

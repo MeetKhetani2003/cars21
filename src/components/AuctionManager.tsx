@@ -30,7 +30,7 @@ function formatINR(val: number): string {
   return '₹' + Math.round(val).toLocaleString('en-IN');
 }
 
-export function AuctionManager({ role }: { role: 'superadmin' | 'admin' | 'vendor' }) {
+export function AuctionManager({ role }: { role: 'superadmin' | 'manager' | 'admin' | 'vendor' }) {
   const [auctions, setAuctions] = useState<AuctionRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -229,7 +229,7 @@ export function AuctionManager({ role }: { role: 'superadmin' | 'admin' | 'vendo
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             Refresh
           </button>
-          {(role === 'superadmin' || role === 'admin') && (
+          {(role === 'superadmin' || role === 'manager' || role === 'admin') && (
             <button
               type="button"
               className="management-primary"
@@ -514,7 +514,7 @@ export function AuctionManager({ role }: { role: 'superadmin' | 'admin' | 'vendo
                     View on Live Auction Page <ExternalLink size={12} />
                   </a>
 
-                  {isLive && (role === 'superadmin' || role === 'admin') && (
+                  {isLive && (role === 'superadmin' || role === 'manager' || role === 'admin') && (
                     <button
                       type="button"
                       onClick={() => handleDeclareWinner(auction)}
@@ -539,7 +539,7 @@ export function AuctionManager({ role }: { role: 'superadmin' | 'admin' | 'vendo
                     </button>
                   )}
 
-                  {role === 'superadmin' && (
+                  {(role === 'superadmin' || role === 'manager') && (
                     <button
                       type="button"
                       onClick={() => handleDeleteAuction(auction.id, auction.auctionNumber)}

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
-import { isAdminRequest, isSuperAdminRequest } from '../../../../../server/auth';
+import { canManagerPerform, isAdminRequest, isManagerRequest, isSuperAdminRequest } from '../../../../../server/auth';
 import { getDb } from '../../../../../server/mongodb';
 
 export const runtime = 'nodejs';
@@ -40,7 +40,8 @@ export async function PATCH(request: NextRequest, context: Context) {
 }
 
 export async function DELETE(request: NextRequest, context: Context) {
-  if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required to delete submissions.' }, { status: 403 });
+  const isAllowed = isSuperAdminRequest(request) || (isManagerRequest(request) && await canManagerPerform(request, 'submissions') && await canManagerPerform(request, 'canDelete'));
+  if (!isAllowed) return NextResponse.json({ error: 'Management access required to delete submissions.' }, { status: 403 });
   const { id } = await context.params;
   const parsed = z.object({ type: z.enum(['seller', 'dealer']) }).safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: 'Choose a submission type.' }, { status: 400 });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { isSuperAdminRequest } from '../../../../server/auth';
+import { canManagerPerform, isManagerRequest, isSuperAdminRequest } from '../../../../server/auth';
 import { getDb } from '../../../../server/mongodb';
 
 export const runtime = 'nodejs';
@@ -9,7 +9,8 @@ export const dynamic = 'force-dynamic';
 const assignSchema = z.object({ vendorId: z.string().min(2).max(100), planId: z.string().min(2).max(80), durationDays: z.number().int().min(1).max(3650).optional() });
 
 export async function GET(request: NextRequest) {
-  if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required.' }, { status: 403 });
+  const isAllowed = isSuperAdminRequest(request) || (isManagerRequest(request) && await canManagerPerform(request, 'subscriptions'));
+  if (!isAllowed) return NextResponse.json({ error: 'Management access required.' }, { status: 403 });
   try {
     const db = await getDb();
     const [assignments, vendors, plans] = await Promise.all([
@@ -24,7 +25,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required.' }, { status: 403 });
+  const isAllowed = isSuperAdminRequest(request) || (isManagerRequest(request) && await canManagerPerform(request, 'subscriptions'));
+  if (!isAllowed) return NextResponse.json({ error: 'Management access required.' }, { status: 403 });
   const parsed = assignSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: 'Choose a vendor and subscription plan.' }, { status: 400 });
   try {
@@ -37,7 +39,8 @@ export async function POST(request: NextRequest) {
     if (!plan) return NextResponse.json({ error: 'Choose an active plan.' }, { status: 404 });
     const now = new Date();
     const durationDays = parsed.data.durationDays || Number(plan.durationDays);
-    const assignment = { vendorId: parsed.data.vendorId, planId: parsed.data.planId, planName: String(plan.name), status: 'active', startAt: now, endAt: new Date(now.getTime() + durationDays * 86_400_000), assignedBy: 'superadmin', createdAt: now, updatedAt: now };
+    const assignedBy = isSuperAdminRequest(request) ? 'superadmin' : 'manager';
+    const assignment = { vendorId: parsed.data.vendorId, planId: parsed.data.planId, planName: String(plan.name), status: 'active', startAt: now, endAt: new Date(now.getTime() + durationDays * 86_400_000), assignedBy, createdAt: now, updatedAt: now };
     const collection = db.collection('vendor_subscriptions');
     await collection.updateMany({ vendorId: parsed.data.vendorId, status: 'active' }, { $set: { status: 'replaced', updatedAt: now } });
     const result = await collection.insertOne(assignment);
@@ -47,12 +50,14 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required.' }, { status: 403 });
+  const isAllowed = isSuperAdminRequest(request) || (isManagerRequest(request) && await canManagerPerform(request, 'subscriptions'));
+  if (!isAllowed) return NextResponse.json({ error: 'Management access required.' }, { status: 403 });
   const parsed = z.object({ vendorId: z.string().min(2).max(100), action: z.literal('cancel') }).safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: 'Choose an active vendor subscription to cancel.' }, { status: 400 });
   try {
     const db = await getDb();
-    const result = await db.collection('vendor_subscriptions').updateOne({ vendorId: parsed.data.vendorId, status: 'active' }, { $set: { status: 'cancelled', updatedAt: new Date(), cancelledBy: 'superadmin' } });
+    const cancelledBy = isSuperAdminRequest(request) ? 'superadmin' : 'manager';
+    const result = await db.collection('vendor_subscriptions').updateOne({ vendorId: parsed.data.vendorId, status: 'active' }, { $set: { status: 'cancelled', updatedAt: new Date(), cancelledBy } });
     if (!result.matchedCount) return NextResponse.json({ error: 'No active subscription was found for this vendor.' }, { status: 404 });
     await db.collection('cars').updateMany({ vendorId: parsed.data.vendorId }, { $set: { priorityPlacement: false, updatedAt: new Date() } });
     return NextResponse.json({ ok: true });

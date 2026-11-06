@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
-import { isAdminRequest, isSuperAdminRequest, isVendorSession } from '../../../../server/auth';
+import { canManagerPerform, isAdminRequest, isManagerRequest, isSuperAdminRequest, isVendorSession } from '../../../../server/auth';
 import { getDb } from '../../../../server/mongodb';
 
 export const runtime = 'nodejs';
@@ -26,14 +26,16 @@ export async function PATCH(request: NextRequest, context: Context) {
       return NextResponse.json({ error: 'This vendor account is suspended.' }, { status: 403 });
     }
     const filter = admin ? { _id: new ObjectId(id) } : { _id: new ObjectId(id), vendorId: vendor?.vendorId };
-    const result = await db.collection('inquiries').updateOne(filter, { $set: { status: parsed.data.status, updatedAt: new Date(), lastUpdatedBy: admin ? (isSuperAdminRequest(request) ? 'superadmin' : 'admin') : vendor?.vendorId } });
+    const updaterRole = admin ? (isSuperAdminRequest(request) ? 'superadmin' : isManagerRequest(request) ? 'manager' : 'admin') : vendor?.vendorId;
+    const result = await db.collection('inquiries').updateOne(filter, { $set: { status: parsed.data.status, updatedAt: new Date(), lastUpdatedBy: updaterRole } });
     if (!result.matchedCount) return NextResponse.json({ error: 'Enquiry not found in your workspace.' }, { status: 404 });
     return NextResponse.json({ ok: true, status: parsed.data.status });
   } catch { return NextResponse.json({ error: 'Enquiry could not be updated.' }, { status: 503 }); }
 }
 
 export async function DELETE(request: NextRequest, context: Context) {
-  if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required to delete enquiries.' }, { status: 403 });
+  const isAllowed = isSuperAdminRequest(request) || (isManagerRequest(request) && await canManagerPerform(request, 'inquiries') && await canManagerPerform(request, 'canDelete'));
+  if (!isAllowed) return NextResponse.json({ error: 'Management access required to delete enquiries.' }, { status: 403 });
   const { id } = await context.params;
   if (!ObjectId.isValid(id)) return NextResponse.json({ error: 'Enquiry not found.' }, { status: 404 });
   try {

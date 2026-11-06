@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { ObjectId, Filter, Document } from 'mongodb';
-import { hashPassword, isSuperAdminRequest } from '../../../../../server/auth';
+import { canManagerPerform, hashPassword, isManagerRequest, isSuperAdminRequest } from '../../../../../server/auth';
 import { getDb } from '../../../../../server/mongodb';
 import { vendorSlug } from '../../../../../lib/vendor-slug';
 
@@ -19,7 +19,7 @@ function buildIdFilter(id: string): Filter<Document> {
 }
 
 const accountTypeSchema = z.object({
-  accountType: z.enum(['admin', 'vendor']),
+  accountType: z.enum(['manager', 'admin', 'vendor']),
   status: z.enum(['active', 'suspended']).optional(),
   name: z.string().trim().min(2).max(100).optional(),
   email: z.string().trim().email().max(160).optional(),
@@ -40,6 +40,7 @@ const accountTypeSchema = z.object({
   shopPhotoIds: z.array(z.string().max(80)).max(8).optional(),
   assignedAdminId: z.string().optional(),
   assignedAdminName: z.string().optional(),
+  permissions: z.record(z.string(), z.boolean()).optional(),
   password: z.union([
     z.string().trim().min(6, 'Password must have at least 6 characters').max(100),
     z.literal('')
@@ -47,28 +48,56 @@ const accountTypeSchema = z.object({
 });
 
 export async function PATCH(request: NextRequest, context: Context) {
-  if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required.' }, { status: 403 });
+  const isSuper = isSuperAdminRequest(request);
+  const isMgr = isManagerRequest(request);
+  if (!isSuper && !isMgr) return NextResponse.json({ error: 'Management access required.' }, { status: 403 });
+
   const parsed = accountTypeSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || 'Invalid account details.' }, { status: 400 });
+
+  if (parsed.data.accountType === 'manager' && !isSuper) {
+    return NextResponse.json({ error: 'Only superadmin can modify manager accounts and permissions.' }, { status: 403 });
+  }
+
+  if (isMgr && !(await canManagerPerform(request, 'accounts'))) {
+    return NextResponse.json({ error: 'Manager account does not have permission to edit accounts.' }, { status: 403 });
+  }
+
   const { id } = await context.params;
   try {
     const db = await getDb();
-    const collectionName = parsed.data.accountType === 'admin' ? 'admins' : 'vendors';
+    const collectionName = parsed.data.accountType === 'manager' ? 'managers' : parsed.data.accountType === 'admin' ? 'admins' : 'vendors';
     const collection = db.collection<Record<string, unknown>>(collectionName);
     const filter = buildIdFilter(id);
+
     if (parsed.data.email) {
       const email = parsed.data.email.toLowerCase();
-      const otherCollection = db.collection(collectionName === 'admins' ? 'vendors' : 'admins');
-      if (await collection.findOne({ email, id: { $ne: id } }) || await otherCollection.findOne({ email })) return NextResponse.json({ error: 'Another account already uses that email.' }, { status: 409 });
+      const otherCollections = ['managers', 'admins', 'vendors'].filter(col => col !== collectionName);
+      for (const other of otherCollections) {
+        if (await db.collection(other).findOne({ email })) {
+          return NextResponse.json({ error: 'Another account already uses that email.' }, { status: 409 });
+        }
+      }
+      if (await collection.findOne({ email, id: { $ne: id } })) {
+        return NextResponse.json({ error: 'Another account already uses that email.' }, { status: 409 });
+      }
     }
-    const { accountType: _accountType, password: newPassword, ...changes } = parsed.data;
+
+    const { accountType: _accountType, password: newPassword, permissions: updatedPermissions, ...changes } = parsed.data;
     if (changes.email) changes.email = changes.email.toLowerCase();
     const updates: Record<string, unknown> = { ...changes, updatedAt: new Date() };
+
+    // Update manager permissions if provided (superadmin only)
+    if (parsed.data.accountType === 'manager' && updatedPermissions && isSuper) {
+      updates.permissions = updatedPermissions;
+    }
+
     if (newPassword && newPassword.trim().length >= 6) {
       const { salt, hash } = await hashPassword(newPassword.trim());
       updates.passwordSalt = salt;
       updates.passwordHash = hash;
     }
+
     if (parsed.data.accountType === 'vendor' && changes.businessName) updates.slug = vendorSlug(changes.businessName, id);
     if (parsed.data.accountType === 'vendor' && changes.assignedAdminId !== undefined) {
       let adminName = changes.assignedAdminName || '';
@@ -79,6 +108,7 @@ export async function PATCH(request: NextRequest, context: Context) {
       updates.assignedAdminId = changes.assignedAdminId || null;
       updates.assignedAdminName = adminName || null;
     }
+
     const result = await collection.updateOne(filter, { $set: updates });
     if (!result.matchedCount) return NextResponse.json({ error: 'Account not found.' }, { status: 404 });
     const currentVendor = parsed.data.accountType === 'vendor' ? await collection.findOne(filter, { projection: { businessName: 1, name: 1 } }) : null;
@@ -88,26 +118,56 @@ export async function PATCH(request: NextRequest, context: Context) {
 }
 
 export async function DELETE(request: NextRequest, context: Context) {
-  if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required.' }, { status: 403 });
+  const isSuper = isSuperAdminRequest(request);
+  const isMgr = isManagerRequest(request);
+  if (!isSuper && !isMgr) return NextResponse.json({ error: 'Management access required.' }, { status: 403 });
+
   const parsed = accountTypeSchema.pick({ accountType: true }).safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: 'Select an account type.' }, { status: 400 });
+
+  if (parsed.data.accountType === 'manager' && !isSuper) {
+    return NextResponse.json({ error: 'Only superadmin can remove manager accounts.' }, { status: 403 });
+  }
+
+  if (isMgr) {
+    const hasAccounts = await canManagerPerform(request, 'accounts');
+    const hasDelete = await canManagerPerform(request, 'canDelete');
+    if (!hasAccounts || !hasDelete) {
+      return NextResponse.json({ error: 'Manager account does not have permission to delete accounts.' }, { status: 403 });
+    }
+  }
+
   const { id } = await context.params;
   try {
     const filter = buildIdFilter(id);
-    const result = await (await getDb()).collection(parsed.data.accountType === 'admin' ? 'admins' : 'vendors').deleteOne(filter);
+    const collectionName = parsed.data.accountType === 'manager' ? 'managers' : parsed.data.accountType === 'admin' ? 'admins' : 'vendors';
+    const result = await (await getDb()).collection(collectionName).deleteOne(filter);
     if (!result.deletedCount) return NextResponse.json({ error: 'Account not found.' }, { status: 404 });
     return NextResponse.json({ ok: true });
   } catch { return NextResponse.json({ error: 'Account could not be deleted.' }, { status: 503 }); }
 }
 
 export async function POST(request: NextRequest, context: Context) {
-  if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required.' }, { status: 403 });
+  const isSuper = isSuperAdminRequest(request);
+  const isMgr = isManagerRequest(request);
+  if (!isSuper && !isMgr) return NextResponse.json({ error: 'Management access required.' }, { status: 403 });
+
   const parsed = accountTypeSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || 'Select an account type.' }, { status: 400 });
+
+  if (parsed.data.accountType === 'manager' && !isSuper) {
+    return NextResponse.json({ error: 'Only superadmin can reset manager passwords.' }, { status: 403 });
+  }
+
+  if (isMgr && !(await canManagerPerform(request, 'canResetPasswords'))) {
+    return NextResponse.json({ error: 'Manager account does not have password reset privileges.' }, { status: 403 });
+  }
+
   const { id } = await context.params;
   try {
     const filter = buildIdFilter(id);
-    const collection = (await getDb()).collection(parsed.data.accountType === 'admin' ? 'admins' : 'vendors');
+    const collectionName = parsed.data.accountType === 'manager' ? 'managers' : parsed.data.accountType === 'admin' ? 'admins' : 'vendors';
+    const collection = (await getDb()).collection(collectionName);
     if (!await collection.findOne(filter)) return NextResponse.json({ error: 'Account not found.' }, { status: 404 });
     const customPassword = parsed.data.password && parsed.data.password.trim().length >= 6 ? parsed.data.password.trim() : null;
     const password = customPassword || randomBytes(12).toString('base64url');

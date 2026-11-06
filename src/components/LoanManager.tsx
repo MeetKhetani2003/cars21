@@ -73,7 +73,7 @@ type LoanMetrics = {
   totalVolume: number;
 };
 
-export function LoanManager({ role }: { role: 'superadmin' | 'admin' | 'vendor' }) {
+export function LoanManager({ role }: { role: 'superadmin' | 'manager' | 'admin' | 'vendor' }) {
   const [loans, setLoans] = useState<LoanApplication[]>([]);
   const [metrics, setMetrics] = useState<LoanMetrics>({
     total: 0,
@@ -434,7 +434,7 @@ export function LoanManager({ role }: { role: 'superadmin' | 'admin' | 'vendor' 
                 >
                   <ExternalLink size={13} /> View Vehicle
                 </a>
-                {role === 'superadmin' && (
+                {(role === 'superadmin' || role === 'manager') && (
                   <button
                     type="button"
                     className="management-secondary compact danger"

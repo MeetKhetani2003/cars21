@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isSuperAdminRequest } from '../../../../server/auth';
+import { canManagerPerform, isManagerRequest, isSuperAdminRequest } from '../../../../server/auth';
 import { getDb, getPhotoBucket } from '../../../../server/mongodb';
 import { vendorSlug } from '../../../../lib/vendor-slug';
 
@@ -7,7 +7,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  if (!isSuperAdminRequest(request)) return NextResponse.json({ error: 'Superadmin access required.' }, { status: 403 });
+  const isAllowed = isSuperAdminRequest(request) || (isManagerRequest(request) && await canManagerPerform(request, 'photos'));
+  if (!isAllowed) return NextResponse.json({ error: 'Management access required.' }, { status: 403 });
   try {
     const db = await getDb();
     const bucket = await getPhotoBucket();

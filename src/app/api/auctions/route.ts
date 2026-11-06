@@ -393,8 +393,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = getSession(request);
-    if (!session || (session.role !== 'superadmin' && session.role !== 'admin')) {
-      return NextResponse.json({ error: 'Only administrators can organize an auction.' }, { status: 401 });
+    if (!session || (session.role !== 'superadmin' && session.role !== 'manager' && session.role !== 'admin')) {
+      return NextResponse.json({ error: 'Only administrators and managers can organize an auction.' }, { status: 401 });
     }
 
     const body = await request.json().catch(() => null);

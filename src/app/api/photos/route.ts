@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isAdminRequest, isSuperAdminRequest, isVendorSession } from '../../../server/auth';
+import { canManagerPerform, isAdminRequest, isManagerRequest, isSuperAdminRequest, isVendorSession } from '../../../server/auth';
 import { getDb, getPhotoBucket } from '../../../server/mongodb';
 
 export const runtime = 'nodejs';
@@ -21,7 +21,9 @@ export async function POST(request: NextRequest) {
   if (file.size < 1 || file.size > maximumBytes) return NextResponse.json({ error: 'Photos must be 4 MB or smaller.' }, { status: 413 });
   try {
     const requestedVendorId = String(form.get('vendorId') || '').trim();
-    if (requestedVendorId && !isSuperAdminRequest(request)) return NextResponse.json({ error: 'Only the superadmin can upload photos for another vendor.' }, { status: 403 });
+    if (requestedVendorId && !isSuperAdminRequest(request) && !(isManagerRequest(request) && await canManagerPerform(request, 'photos'))) {
+      return NextResponse.json({ error: 'Only superadmin or authorized manager can upload photos for another vendor.' }, { status: 403 });
+    }
     if (requestedVendorId && !await (await getDb()).collection('vendors').findOne({ id: requestedVendorId }, { projection: { _id: 1 } })) return NextResponse.json({ error: 'Vendor account not found.' }, { status: 404 });
     if (vendor && !await (await getDb()).collection('vendors').findOne({ id: vendor.vendorId, status: 'active' }, { projection: { _id: 1 } })) {
       return NextResponse.json({ error: 'This vendor account is suspended.' }, { status: 403 });

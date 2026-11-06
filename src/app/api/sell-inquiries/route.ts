@@ -207,8 +207,8 @@ function getDemoSellInquiries() {
 export async function GET(request: NextRequest) {
   try {
     const session = getSession(request);
-    // Allow admin, superadmin, or vendor
-    const isPrivileged = session?.role === 'superadmin' || session?.role === 'admin' || session?.role === 'vendor';
+    // Allow admin, manager, superadmin, or vendor
+    const isPrivileged = session?.role === 'superadmin' || session?.role === 'manager' || session?.role === 'admin' || session?.role === 'vendor';
     if (!isPrivileged) {
       return NextResponse.json({ error: 'Unauthorized workspace access.' }, { status: 401 });
     }
