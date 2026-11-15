@@ -7,7 +7,7 @@ import { getDb } from '../../../../../server/mongodb';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 type Context = { params: Promise<{ id: string }> };
-const schema = z.object({ type: z.enum(['seller', 'dealer']), status: z.enum(['new', 'contacted', 'in_progress', 'closed']).optional(), verificationStatus: z.enum(['approved', 'rejected', 'pending']).optional() }).refine(value => Boolean(value.status || (value.type === 'seller' && value.verificationStatus)), 'Choose a valid update.');
+const schema = z.object({ type: z.enum(['seller', 'dealer', 'buyer']), status: z.enum(['new', 'contacted', 'in_progress', 'closed']).optional(), verificationStatus: z.enum(['approved', 'rejected', 'pending']).optional() }).refine(value => Boolean(value.status || (value.type === 'seller' && value.verificationStatus)), 'Choose a valid update.');
 
 export async function PATCH(request: NextRequest, context: Context) {
   if (!isAdminRequest(request)) return NextResponse.json({ error: 'Admin access required.' }, { status: 401 });
@@ -16,7 +16,8 @@ export async function PATCH(request: NextRequest, context: Context) {
   if (!parsed.success) return NextResponse.json({ error: 'Choose a valid submission update.' }, { status: 400 });
   try {
     const db = await getDb();
-    const collection = db.collection<Record<string, unknown>>(parsed.data.type === 'seller' ? 'sellerLeads' : 'dealerApplications');
+    const collectionName = parsed.data.type === 'seller' ? 'sellerLeads' : parsed.data.type === 'dealer' ? 'dealerApplications' : 'buyLeads';
+    const collection = db.collection<Record<string, unknown>>(collectionName);
     const existing = await collection.findOne({ id }) ?? (ObjectId.isValid(id) ? await collection.findOne({ _id: new ObjectId(id) }) : null);
     if (!existing) return NextResponse.json({ error: 'Submission not found.' }, { status: 404 });
     const update: Record<string, unknown> = { updatedAt: new Date() };
@@ -43,10 +44,11 @@ export async function DELETE(request: NextRequest, context: Context) {
   const isAllowed = isSuperAdminRequest(request) || (isManagerRequest(request) && await canManagerPerform(request, 'submissions') && await canManagerPerform(request, 'canDelete'));
   if (!isAllowed) return NextResponse.json({ error: 'Management access required to delete submissions.' }, { status: 403 });
   const { id } = await context.params;
-  const parsed = z.object({ type: z.enum(['seller', 'dealer']) }).safeParse(await request.json().catch(() => null));
+  const parsed = z.object({ type: z.enum(['seller', 'dealer', 'buyer']) }).safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: 'Choose a submission type.' }, { status: 400 });
   try {
-    const collection = (await getDb()).collection(parsed.data.type === 'seller' ? 'sellerLeads' : 'dealerApplications');
+    const collectionName = parsed.data.type === 'seller' ? 'sellerLeads' : parsed.data.type === 'dealer' ? 'dealerApplications' : 'buyLeads';
+    const collection = (await getDb()).collection(collectionName);
     const result = await collection.deleteOne({ id });
     const fallback = result.deletedCount || !ObjectId.isValid(id) ? null : await collection.deleteOne({ _id: new ObjectId(id) });
     if (!result.deletedCount && !fallback?.deletedCount) return NextResponse.json({ error: 'Submission not found.' }, { status: 404 });

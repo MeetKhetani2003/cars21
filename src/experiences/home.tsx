@@ -14,8 +14,7 @@ import { SectionTitle, TrustStrip } from '../components/shared';
 import { HomeEmiCalculator } from '../components/HomeEmiCalculator';
 import { FeaturedCarsSection } from '../components/FeaturedCarsSection';
 import { estimateCarValuation } from '../lib/valuation';
-
-
+import { useBuyerExperience } from '../components/BuyerExperienceProvider';
 
 type HomeFilters = {
   cities: string[];
@@ -27,6 +26,7 @@ type HomeFilters = {
 };
 
 export function HomePage() {
+  const { isLeadCaptured, openBuyCarLeadModal } = useBuyerExperience();
   const [hubTab, setHubTab] = useState<'buy' | 'sell' | 'val' | 'dealer'>('buy');
   const [city, setCity] = useState('');
   const [make, setMake] = useState('');
@@ -90,14 +90,45 @@ export function HomePage() {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const p = new URLSearchParams();
-    if (city) p.set('city', city);
-    if (query.trim()) p.set('q', query.trim());
-    if (make) p.set('make', make);
-    const band = priceBands.find(item => item.value === budget);
-    if (band?.min) p.set('minPrice', String(band.min));
-    if (band?.max) p.set('maxPrice', String(band.max));
-    nav(`/buy-cars${p.size ? `?${p}` : ''}`);
+    const doSearch = () => {
+      const p = new URLSearchParams();
+      if (city) p.set('city', city);
+      if (query.trim()) p.set('q', query.trim());
+      if (make) p.set('make', make);
+      const band = priceBands.find(item => item.value === budget);
+      if (band?.min) p.set('minPrice', String(band.min));
+      if (band?.max) p.set('maxPrice', String(band.max));
+      nav(`/buy-cars${p.size ? `?${p}` : ''}`);
+    };
+
+    if (!isLeadCaptured) {
+      openBuyCarLeadModal(doSearch);
+      return;
+    }
+    doSearch();
+  };
+
+  const handleQuickFilter = (q: string, m?: string, b?: string) => {
+    const doFilter = () => {
+      if (q) setQuery(q);
+      if (m) setMake(m);
+      if (b) setBudget(b);
+      const p = new URLSearchParams();
+      if (q) p.set('q', q);
+      if (m) p.set('make', m);
+      if (b) {
+        const band = priceBands.find(item => item.value === b);
+        if (band?.min) p.set('minPrice', String(band.min));
+        if (band?.max) p.set('maxPrice', String(band.max));
+      }
+      nav(`/buy-cars${p.size ? `?${p}` : ''}`);
+    };
+
+    if (!isLeadCaptured) {
+      openBuyCarLeadModal(doFilter);
+      return;
+    }
+    doFilter();
   };
 
   const handleSellSubmit = (e: React.FormEvent) => {
@@ -217,11 +248,11 @@ export function HomePage() {
 
                 <div className="luminous-quick-tags">
                   <span className="tag-label">Popular:</span>
-                  <span className="luminous-chip" onClick={() => { setQuery('Creta'); setMake('Hyundai'); }}>Hyundai Creta</span>
-                  <span className="luminous-chip" onClick={() => { setQuery('Electric'); }}>EVs &amp; Hybrids</span>
-                  <span className="luminous-chip" onClick={() => { setBudget('low'); }}>Under ₹10 Lakhs</span>
-                  <span className="luminous-chip" onClick={() => { setQuery('City'); setMake('Honda'); }}>Honda City</span>
-                  <span className="luminous-chip" onClick={() => { setQuery('SUV'); }}>Compact SUVs</span>
+                  <span className="luminous-chip" onClick={() => handleQuickFilter('Creta', 'Hyundai')}>Hyundai Creta</span>
+                  <span className="luminous-chip" onClick={() => handleQuickFilter('Electric')}>EVs &amp; Hybrids</span>
+                  <span className="luminous-chip" onClick={() => handleQuickFilter('', '', 'low')}>Under ₹10 Lakhs</span>
+                  <span className="luminous-chip" onClick={() => handleQuickFilter('City', 'Honda')}>Honda City</span>
+                  <span className="luminous-chip" onClick={() => handleQuickFilter('SUV')}>Compact SUVs</span>
                 </div>
               </form>
             )}
@@ -305,29 +336,6 @@ export function HomePage() {
           </div>
         </div>
       </div>
-
-      {/* Trust Stats Bar directly at bottom of hero */}
-      <div className="container hero-stats-bar">
-        <div className="hero-stat-item">
-          <b>42,000+</b>
-          <span>Happy Car Owners</span>
-        </div>
-        <div className="hero-stat-divider" />
-        <div className="hero-stat-item">
-          <b>140+ Points</b>
-          <span>Digital Diagnostics</span>
-        </div>
-        <div className="hero-stat-divider" />
-        <div className="hero-stat-item">
-          <b>30 Minutes</b>
-          <span>Fast Bank Payout</span>
-        </div>
-        <div className="hero-stat-divider" />
-        <div className="hero-stat-item">
-          <b>1,200+</b>
-          <span>Dealership Partners</span>
-        </div>
-      </div>
     </section>
     {/* FEATURED CERTIFIED CAR SHOWCASE (WITH MEMBER LOGIN LOCK & ACTION TRACKING) */}
     <FeaturedCarsSection cars={featuredCars} />
@@ -338,7 +346,16 @@ export function HomePage() {
     {/* CARS24 SUPER-APP QUICK SERVICES GRID */}
     <section className="container services-superapp-section">
       <div className="superapp-grid">
-        <Link href="/buy-cars" className="superapp-item">
+        <Link 
+          href="/buy-cars" 
+          className="superapp-item"
+          onClick={(e) => {
+            if (!isLeadCaptured) {
+              e.preventDefault();
+              openBuyCarLeadModal(() => nav('/buy-cars'));
+            }
+          }}
+        >
           <div className="superapp-icon-wrap blue"><CarFront size={26} /></div>
           <b>Buy Used Cars</b>
           <small>2,450+ Inspected</small>

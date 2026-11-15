@@ -428,9 +428,8 @@ export function InventoryPage() {
                     <div className="skeleton-photo shimmer" />
                     <div className="skeleton-body">
                       <div className="skeleton-line shimmer title" />
-                      <div className="skeleton-line shimmer sub" />
-                      <div className="skeleton-line shimmer specs" />
                       <div className="skeleton-line shimmer price" />
+                      <div className="skeleton-line shimmer btn" />
                     </div>
                   </div>
                 ))}

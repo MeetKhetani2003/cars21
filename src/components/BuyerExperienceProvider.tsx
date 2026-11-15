@@ -4,11 +4,32 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { usePathname, useRouter } from 'next/navigation';
 import type { Car } from '../data';
 import { LoginModal } from './LoginModal';
+import { BuyCarLeadModal } from './BuyCarLeadModal';
 
 export type BuyerProfile = { name: string; email: string; picture?: string; phone?: string; city?: string };
 export type SavedVendor = { id: string; slug: string; name: string; businessName: string; city: string; listingCount: number };
+export type LeadInfo = { name: string; phone: string; city: string };
 type WishlistResult = 'saved' | 'removed' | 'login' | 'error';
-type BuyerExperience = { buyer: BuyerProfile | null; wishlistIds: string[]; wishlistCars: Car[]; savedVendorIds: string[]; savedVendors: SavedVendor[]; loadingBuyer: boolean; openLoginModal: (returnTo?: string) => void; closeLoginModal: () => void; toggleWishlist: (carId: string) => Promise<WishlistResult>; toggleSavedVendor: (slug: string) => Promise<WishlistResult>; refreshBuyer: () => Promise<void>; signOut: () => Promise<void> };
+type BuyerExperience = {
+  buyer: BuyerProfile | null;
+  wishlistIds: string[];
+  wishlistCars: Car[];
+  savedVendorIds: string[];
+  savedVendors: SavedVendor[];
+  loadingBuyer: boolean;
+  openLoginModal: (returnTo?: string) => void;
+  closeLoginModal: () => void;
+  toggleWishlist: (carId: string) => Promise<WishlistResult>;
+  toggleSavedVendor: (slug: string) => Promise<WishlistResult>;
+  refreshBuyer: () => Promise<void>;
+  signOut: () => Promise<void>;
+  // Lead Collection state & actions
+  isLeadCaptured: boolean;
+  leadInfo: LeadInfo | null;
+  openBuyCarLeadModal: (onSuccessAction?: (lead?: LeadInfo) => void) => void;
+  closeBuyCarLeadModal: () => void;
+  saveLeadInfo: (info: LeadInfo) => void;
+};
 const Context = createContext<BuyerExperience | null>(null);
 function currentPath() { return typeof window === 'undefined' ? '/' : `${window.location.pathname}${window.location.search}${window.location.hash}`; }
 
@@ -17,6 +38,80 @@ export function BuyerExperienceProvider({ children }: { children: ReactNode }) {
   const [buyer, setBuyer] = useState<BuyerProfile | null>(null); const [wishlistIds, setWishlistIds] = useState<string[]>([]); const [wishlistCars, setWishlistCars] = useState<Car[]>([]); const [loadingBuyer, setLoadingBuyer] = useState(true);
   const [savedVendorIds, setSavedVendorIds] = useState<string[]>([]); const [savedVendors, setSavedVendors] = useState<SavedVendor[]>([]);
   const [loginOpen, setLoginOpen] = useState(false); const [returnTo, setReturnTo] = useState('/');
+
+  // Lead Collection State
+  const [leadModalOpen, setLeadModalOpen] = useState(false);
+  const [leadOnSuccess, setLeadOnSuccess] = useState<((lead?: LeadInfo) => void) | null>(null);
+  const [leadInfo, setLeadInfo] = useState<LeadInfo | null>(null);
+
+  // Hydrate lead capture state from localStorage / sessionStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('cars21_lead_info') || sessionStorage.getItem('cars21:lead_info');
+      if (stored) {
+        setLeadInfo(JSON.parse(stored));
+      }
+    } catch {}
+  }, []);
+
+  const isLeadCaptured = Boolean(buyer || leadInfo);
+
+  // Auto-trigger lead capture modal on website entrance if not captured yet
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (loadingBuyer) return;
+    if (buyer || isLeadCaptured) return;
+
+    const path = window.location.pathname;
+    if (
+      path.startsWith('/admin') ||
+      path.startsWith('/superadmin') ||
+      path.startsWith('/manager') ||
+      path.startsWith('/vendor') ||
+      path.startsWith('/inspector') ||
+      path.startsWith('/operations') ||
+      path === '/login'
+    ) {
+      return;
+    }
+
+    try {
+      const captured = localStorage.getItem('cars21_lead_captured') || sessionStorage.getItem('cars21_lead_captured');
+      if (captured === 'true') return;
+
+      const dismissed = sessionStorage.getItem('cars21_lead_dismissed');
+      if (dismissed === 'true') return;
+    } catch {}
+
+    const timer = window.setTimeout(() => {
+      setLeadModalOpen(true);
+    }, 1200);
+
+    return () => window.clearTimeout(timer);
+  }, [buyer, isLeadCaptured, loadingBuyer]);
+
+  const openBuyCarLeadModal = useCallback((onSuccessAction?: (lead?: LeadInfo) => void) => {
+    setLeadOnSuccess(() => onSuccessAction || null);
+    setLeadModalOpen(true);
+  }, []);
+
+  const closeBuyCarLeadModal = useCallback(() => {
+    setLeadModalOpen(false);
+    setLeadOnSuccess(null);
+    try {
+      sessionStorage.setItem('cars21_lead_dismissed', 'true');
+    } catch {}
+  }, []);
+
+  const saveLeadInfo = useCallback((info: LeadInfo) => {
+    setLeadInfo(info);
+    try {
+      localStorage.setItem('cars21_lead_captured', 'true');
+      localStorage.setItem('cars21_lead_info', JSON.stringify(info));
+      sessionStorage.setItem('cars21_lead_captured', 'true');
+      sessionStorage.setItem('cars21:lead_info', JSON.stringify(info));
+    } catch {}
+  }, []);
   const refreshBuyer = useCallback(async () => {
     try {
       const response = await fetch('/api/auth/session', { credentials: 'same-origin', cache: 'no-store' });
@@ -88,7 +183,59 @@ export function BuyerExperienceProvider({ children }: { children: ReactNode }) {
     catch { return 'error'; }
   }, [buyer, openLoginModal, savedVendors]);
   const signOut = useCallback(async () => { await fetch('/api/auth/session', { method: 'DELETE', credentials: 'same-origin' }).catch(() => null); setBuyer(null); setWishlistIds([]); setWishlistCars([]); setSavedVendorIds([]); setSavedVendors([]); }, []);
-  const value = useMemo(() => ({ buyer, wishlistIds, wishlistCars, savedVendorIds, savedVendors, loadingBuyer, openLoginModal, closeLoginModal, toggleWishlist, toggleSavedVendor, refreshBuyer, signOut }), [buyer, wishlistIds, wishlistCars, savedVendorIds, savedVendors, loadingBuyer, openLoginModal, closeLoginModal, toggleWishlist, toggleSavedVendor, refreshBuyer, signOut]);
-  return <Context.Provider value={value}>{children}<LoginModal open={loginOpen} returnTo={returnTo} onClose={closeLoginModal}/></Context.Provider>;
+  const value = useMemo(() => ({
+    buyer,
+    wishlistIds,
+    wishlistCars,
+    savedVendorIds,
+    savedVendors,
+    loadingBuyer,
+    openLoginModal,
+    closeLoginModal,
+    toggleWishlist,
+    toggleSavedVendor,
+    refreshBuyer,
+    signOut,
+    isLeadCaptured,
+    leadInfo,
+    openBuyCarLeadModal,
+    closeBuyCarLeadModal,
+    saveLeadInfo
+  }), [
+    buyer,
+    wishlistIds,
+    wishlistCars,
+    savedVendorIds,
+    savedVendors,
+    loadingBuyer,
+    openLoginModal,
+    closeLoginModal,
+    toggleWishlist,
+    toggleSavedVendor,
+    refreshBuyer,
+    signOut,
+    isLeadCaptured,
+    leadInfo,
+    openBuyCarLeadModal,
+    closeBuyCarLeadModal,
+    saveLeadInfo
+  ]);
+
+  return (
+    <Context.Provider value={value}>
+      {children}
+      <LoginModal open={loginOpen} returnTo={returnTo} onClose={closeLoginModal} />
+      <BuyCarLeadModal
+        open={leadModalOpen}
+        onClose={closeBuyCarLeadModal}
+        onSuccess={(lead) => {
+          saveLeadInfo(lead);
+          if (leadOnSuccess) {
+            leadOnSuccess(lead);
+          }
+        }}
+      />
+    </Context.Provider>
+  );
 }
 export function useBuyerExperience() { const value = useContext(Context); if (!value) throw new Error('useBuyerExperience must be used inside BuyerExperienceProvider.'); return value; }

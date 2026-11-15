@@ -6,7 +6,7 @@ import {
   ArrowRight, Check, ChevronRight, Fuel, Gauge, Heart, MapPin, 
   ShieldCheck, UserRound, Calendar, Award, Sparkles, Phone, 
   MessageSquare, FileText, CheckCircle2, RotateCcw, Wrench, 
-  Clock, Shield, CarFront, Settings2, Download, Landmark
+  Clock, Shield, CarFront, Settings2, Download, Landmark, Lock
 } from 'lucide-react';
 import { cars, calcEmi, formatINR, type Car } from '../data';
 import { CarCard } from '../components/CarCard';
@@ -36,6 +36,8 @@ function InspectionScoreBar({ label, score, status = 'Passed' }: { label: string
 }
 
 function InspectionReport({ car }: { car: Car }) {
+  const { buyer, openLoginModal } = useBuyerExperience();
+
   if (car.inspectionReviewStatus && car.inspectionReviewStatus !== 'approved') {
     return (
       <div className="inspection-review-notice">
@@ -85,43 +87,83 @@ function InspectionReport({ car }: { car: Car }) {
         ))}
       </div>
 
-      {/* Detailed Checkpoint Breakdown */}
-      <div className="inspection-checkpoints-list">
-        <h4>Diagnostic Findings & Health Summary</h4>
-        <div className="checkpoints-table">
-          {sections.map(sec => (
-            <div key={sec.key} className="checkpoint-row">
-              <div className="cp-name">
-                <CheckCircle2 size={16} className="text-emerald" />
-                <b>{sec.label}</b>
-              </div>
-              <div className="cp-detail">{sec.desc}</div>
-              <div className="cp-status">
-                <span className="cp-tag-verified">Verified</span>
+      {!buyer ? (
+        <div style={{
+          background: '#fff7ed',
+          border: '1px solid #fed7aa',
+          borderRadius: '16px',
+          padding: '32px 24px',
+          textAlign: 'center',
+          marginTop: '20px'
+        }}>
+          <div style={{
+            width: '52px',
+            height: '52px',
+            borderRadius: '14px',
+            background: '#ffedd5',
+            color: '#ea580c',
+            display: 'grid',
+            placeItems: 'center',
+            margin: '0 auto 14px'
+          }}>
+            <Lock size={26} />
+          </div>
+          <h3 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
+            Sign In to Unlock Full 140-Point Diagnostic Report
+          </h3>
+          <p style={{ margin: '0 auto 18px', maxWidth: '480px', fontSize: '13px', color: '#64748b', lineHeight: 1.6 }}>
+            OBD-II scanner readouts, engine compression values, brake wear analysis, and high-resolution technician evidence photos are exclusive to signed-in members.
+          </p>
+          <button
+            type="button"
+            className="button button-orange"
+            onClick={() => openLoginModal()}
+            style={{ fontWeight: 750, minHeight: '44px', padding: '0 24px' }}
+          >
+            Continue with Google to Unlock <ArrowRight size={15} />
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* Detailed Checkpoint Breakdown */}
+          <div className="inspection-checkpoints-list">
+            <h4>Diagnostic Findings & Health Summary</h4>
+            <div className="checkpoints-table">
+              {sections.map(sec => (
+                <div key={sec.key} className="checkpoint-row">
+                  <div className="cp-name">
+                    <CheckCircle2 size={16} className="text-emerald" />
+                    <b>{sec.label}</b>
+                  </div>
+                  <div className="cp-detail">{sec.desc}</div>
+                  <div className="cp-status">
+                    <span className="cp-tag-verified">Verified</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {Boolean(car.inspection?.notes) && (
+            <div className="inspector-notes-box">
+              <b>Inspector Notes:</b>
+              <p>{String(car.inspection?.notes)}</p>
+            </div>
+          )}
+
+          {evidence.length > 0 && (
+            <div className="inspection-evidence-gallery">
+              <h4>Inspector Uploaded Diagnostic Proof ({evidence.length} photos)</h4>
+              <div className="evidence-grid">
+                {evidence.map((id, index) => (
+                  <a key={id} href={`/api/photos/${encodeURIComponent(id)}`} target="_blank" rel="noreferrer" className="evidence-thumb-link">
+                    <img src={`/api/photos/${encodeURIComponent(id)}`} alt={`Inspection checkpoint proof ${index + 1}`} loading="lazy" />
+                  </a>
+                ))}
               </div>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {Boolean(car.inspection?.notes) && (
-        <div className="inspector-notes-box">
-          <b>Inspector Notes:</b>
-          <p>{String(car.inspection?.notes)}</p>
-        </div>
-      )}
-
-      {evidence.length > 0 && (
-        <div className="inspection-evidence-gallery">
-          <h4>Inspector Uploaded Diagnostic Proof ({evidence.length} photos)</h4>
-          <div className="evidence-grid">
-            {evidence.map((id, index) => (
-              <a key={id} href={`/api/photos/${encodeURIComponent(id)}`} target="_blank" rel="noreferrer" className="evidence-thumb-link">
-                <img src={`/api/photos/${encodeURIComponent(id)}`} alt={`Inspection checkpoint proof ${index + 1}`} loading="lazy" />
-              </a>
-            ))}
-          </div>
-        </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -132,12 +174,13 @@ export function CarPage() {
   const [car, setCar] = useState<Car>(() => cars.find(item => item.id === carId) || cars[0]);
   const [selectedImage, setSelectedImage] = useState(car.image);
   const [tab, setTab] = useState<'overview' | 'inspection' | 'assurance' | 'specs'>('overview');
-  const { wishlistIds, toggleWishlist, loadingBuyer } = useBuyerExperience();
+  const { buyer: contextBuyer, wishlistIds, toggleWishlist, loadingBuyer, openLoginModal } = useBuyerExperience();
   const saved = wishlistIds.includes(car.id);
   const listingPhotos = [...new Set([car.image, ...(car.photos || [])].filter(Boolean))];
   const [enquiryState, setEnquiryState] = useState<EnquiryState>('idle');
   const [formMessage, setFormMessage] = useState('');
   const [buyer, setBuyer] = useState<{ name: string; email?: string } | null>(null);
+  const effectiveBuyer = contextBuyer || buyer;
   const [loanModalOpen, setLoanModalOpen] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const lastTrackedCar = useRef('');
@@ -433,7 +476,13 @@ export function CarPage() {
               <button 
                 type="button" 
                 className="button button-loan button-full cta-loan-btn"
-                onClick={() => setLoanModalOpen(true)}
+                onClick={() => {
+                  if (!effectiveBuyer) {
+                    openLoginModal();
+                    return;
+                  }
+                  setLoanModalOpen(true);
+                }}
               >
                 <Landmark size={17} /> Get Car Loan (Instant Approval)
               </button>

@@ -29,7 +29,7 @@ export type MakeRecord = {
 
 const ALL_YEARS_2022_2026 = [2022, 2023, 2024, 2025, 2026];
 
-export const DEFAULT_MAKES: Array<Omit<MakeRecord, 'id' | 'createdAt' | 'updatedAt'>> = [
+const DEFAULT_MAKES: Array<Omit<MakeRecord, 'id' | 'createdAt' | 'updatedAt'>> = [
   {
     name: 'Maruti Suzuki',
     country: 'India / Japan',

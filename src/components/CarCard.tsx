@@ -1,127 +1,115 @@
 'use client';
 
-import { Heart, Gauge, Fuel, Settings2, ArrowUpRight, MapPin, ShieldCheck, ChevronRight, Landmark } from 'lucide-react';
-import { Link } from '../lib/navigation';
+import { Heart, ArrowRight } from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate } from '../lib/navigation';
 import type { Car } from '../data';
-import { calcEmi, formatINR } from '../data';
+import { formatINR } from '../data';
 import { useBuyerExperience } from './BuyerExperienceProvider';
-import { LoanApplicationModal } from './LoanApplicationModal';
 
-export function CarCard({car,compact=false}:{car:Car;compact?:boolean}){
-  const {wishlistIds,toggleWishlist,loadingBuyer}=useBuyerExperience();
-  const saved=wishlistIds.includes(car.id);
-  const [saving,setSaving]=useState(false);
-  const [feedback,setFeedback]=useState('');
-  const [loanModalOpen, setLoanModalOpen] = useState(false);
+export function CarCard({ car, compact = false }: { car: Car; compact?: boolean }) {
+  const { buyer, wishlistIds, toggleWishlist, loadingBuyer, isLeadCaptured, openBuyCarLeadModal, openLoginModal } = useBuyerExperience();
+  const saved = wishlistIds.includes(car.id);
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState('');
+  const nav = useNavigate();
 
-  async function toggle(){
-    if(saving||loadingBuyer)return;
+  async function toggle(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (saving || loadingBuyer) return;
     setSaving(true);
     setFeedback('');
-    const result=await toggleWishlist(car.id);
-    if(result==='error')setFeedback('Could not update wishlist. Try again.');
+    const result = await toggleWishlist(car.id);
+    if (result === 'error') setFeedback('Could not update wishlist.');
     setSaving(false);
   }
 
-  const emiVal = Math.round(calcEmi(car.price * 0.8, 10.5, 60));
+  const handleCardOrViewClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // 1. If lead is not captured yet, collect lead (name, number, city) first
+    if (!isLeadCaptured) {
+      openBuyCarLeadModal(() => {
+        if (!buyer) {
+          openLoginModal(`/car/${car.id}`);
+        } else {
+          nav(`/car/${car.id}`);
+        }
+      });
+      return;
+    }
+
+    // 2. Lead is captured, but detailed vehicle info & diagnostics require login
+    if (!buyer) {
+      openLoginModal(`/car/${car.id}`);
+      return;
+    }
+
+    // 3. User is logged in & lead captured -> go to car details
+    nav(`/car/${car.id}`);
+  };
 
   return (
-    <article className={'car-card ' + (compact ? 'compact' : '')}>
-      <div className={'car-photo ' + car.accent}>
-        <Link to={`/car/${car.id}`} aria-label={`View ${car.year} ${car.make} ${car.model}`} className="car-photo-link">
-          <img src={car.image} alt={`${car.color} ${car.year} ${car.make} ${car.model}`} loading="lazy" />
-        </Link>
-        <div className="photo-badges-wrap">
-          <span className="photo-badge assured-badge">
-            <ShieldCheck size={13} /> {car.badge || 'Cars21 Assured'}
-          </span>
-          <span className="photo-badge-return">7-Day Return</span>
-        </div>
-        <button 
-          type="button" 
-          className={'favorite ' + (saved ? 'saved' : '')} 
-          onClick={() => void toggle()} 
-          aria-label={saved ? 'Remove from saved cars' : `Save ${car.make} ${car.model}`} 
-          aria-pressed={saved} 
+    <article 
+      className={'car-card minimal-car-card ' + (compact ? 'compact' : '')}
+      onClick={handleCardOrViewClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          handleCardOrViewClick(e as unknown as React.MouseEvent);
+        }
+      }}
+    >
+      {/* 1. CAR IMAGE */}
+      <div className="car-photo">
+        <img
+          src={car.image}
+          alt={`${car.year} ${car.make} ${car.model}`}
+          loading="lazy"
+          className="car-photo-img"
+        />
+        <button
+          type="button"
+          className={'favorite ' + (saved ? 'saved' : '')}
+          onClick={toggle}
+          aria-label={saved ? 'Remove from saved cars' : `Save ${car.make} ${car.model}`}
+          aria-pressed={saved}
           disabled={saving || loadingBuyer}
         >
-          {saving ? <span className="wishlist-spinner" aria-hidden="true" /> : <Heart size={16} fill={saved ? 'currentColor' : 'none'} />}
+          {saving ? (
+            <span className="wishlist-spinner" aria-hidden="true" />
+          ) : (
+            <Heart size={15} fill={saved ? '#ef4444' : 'none'} color={saved ? '#ef4444' : 'currentColor'} />
+          )}
         </button>
         {feedback && <span className="wishlist-card-feedback" role="status">{feedback}</span>}
       </div>
 
+      {/* 2. MINIMAL BODY: MODEL YEAR, NAME, PRICE & VIEW CAR BUTTON */}
       <div className="car-card-body">
-        <div className="car-title-row">
-          <Link to={`/car/${car.id}`} className="car-name">
-            {car.year} {car.make} {car.model}
-          </Link>
-          <span className="score-pill">
-            <span className="score-pill-dot" />
-            {car.score}<small>/100</small>
-          </span>
-        </div>
-
-        <p className="car-variant">{car.variant}</p>
-
-        <div className="spec-row">
-          <span className="spec-chip">
-            <Gauge size={13} /> {(car.km / 1000).toFixed(1)}k km
-          </span>
-          <span className="spec-chip">
-            <Fuel size={13} /> {car.fuel}
-          </span>
-          <span className="spec-chip">
-            <Settings2 size={13} /> {car.transmission === 'Automatic' ? 'Auto' : 'Manual'}
-          </span>
+        <div className="car-title-block">
+          <h3 className="car-name" title={`${car.year} ${car.make} ${car.model}`}>
+            <span className="car-year">{car.year}</span> {car.make} {car.model}
+          </h3>
         </div>
 
         <div className="car-price-row">
-          <div>
-            <strong className="car-price-tag">{formatINR(car.price)}</strong>
-            <div className="car-emi-pill">
-              <span>EMI from {formatINR(emiVal)}/mo</span>
-              <button 
-                type="button" 
-                className="card-quick-loan-trigger"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setLoanModalOpen(true);
-                }}
-                title="Get car loan"
-              >
-                Get Loan
-              </button>
-            </div>
-          </div>
-          <Link className="icon-arrow" to={`/car/${car.id}`} aria-label={`View details for ${car.make} ${car.model}`}>
-            <ArrowUpRight size={17} />
-          </Link>
+          <strong className="car-price-tag">{formatINR(car.price)}</strong>
         </div>
 
-        <div className="car-card-location">
-          <span className="loc-text">
-            <MapPin size={13} /> {car.city}{car.area ? ` · ${car.area}` : ''}
-          </span>
-          <span className="owners-text">{car.owners} owner{car.owners > 1 ? 's' : ''}</span>
-          <ChevronRight size={13} className="loc-arrow" />
-        </div>
-
-        {car.vendorSlug && (
-          <Link className="car-vendor-link" to={`/dealers/${car.vendorSlug}`}>
-            Sold by {car.vendorName || 'dealer'} <ArrowUpRight size={12} />
-          </Link>
-        )}
+        <button
+          type="button"
+          className="card-view-car-btn"
+          onClick={handleCardOrViewClick}
+          aria-label={`View ${car.year} ${car.make} ${car.model}`}
+        >
+          <span>View Car</span>
+          <ArrowRight size={13} className="view-btn-arrow" />
+        </button>
       </div>
-
-      {loanModalOpen && (
-        <LoanApplicationModal
-          car={car}
-          onClose={() => setLoanModalOpen(false)}
-        />
-      )}
     </article>
   );
 }
-

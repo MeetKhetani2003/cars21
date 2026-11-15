@@ -15,10 +15,11 @@ import { ManagementPanel } from './experiences/management';
 import { HomePage, InventoryPage, CarPage, SellPage, VehicleDetailsPage, ValuationPage, InspectionBookingPage, InspectionStatusPage, OfferPage, AuctionResultPage, InspectionPage, VehicleHistoryPage, LoansPage, EmiPage, EligibilityPage, DealerPage, AuctionPage, HelpPage, AccountPage, InspectorPage, OperationsPage, NotFoundPage } from './experiences';
 
 export function SiteHeader(){
+  const router = useRouter();
   const [open,setOpen]=useState(false);
   const [city,setCity]=useState('Bengaluru');
   const [cityModalOpen,setCityModalOpen]=useState(false);
-  const {buyer,openLoginModal,wishlistIds}=useBuyerExperience();
+  const {buyer, openLoginModal, wishlistIds, isLeadCaptured, openBuyCarLeadModal}=useBuyerExperience();
   const close=()=>setOpen(false);
 
   useEffect(() => {
@@ -74,7 +75,18 @@ export function SiteHeader(){
           </div>
 
           <nav className="main-nav desktop-only-nav" aria-label="Main navigation">
-            <Link href="/buy-cars" className="nav-item-link">Buy Cars</Link>
+            <Link 
+              href="/buy-cars" 
+              className="nav-item-link"
+              onClick={(e) => {
+                if (!isLeadCaptured) {
+                  e.preventDefault();
+                  openBuyCarLeadModal(() => router.push('/buy-cars'));
+                }
+              }}
+            >
+              Buy Cars
+            </Link>
             <Link href="/sell-car/valuation" className="nav-item-link">Car Valuation</Link>
             <Link href="/loans24" className="nav-item-link">Car Loans</Link>
             <Link href="/dealers" className="nav-item-link">Dealers</Link>
@@ -172,7 +184,17 @@ export function SiteHeader(){
               {/* SECTION: BUY & EXPLORE */}
               <div className="mobile-nav-group">
                 <span className="mobile-group-title">BUY &amp; EXPLORE</span>
-                <Link href="/buy-cars" onClick={close} className="mobile-menu-item">
+                <Link 
+                  href="/buy-cars" 
+                  onClick={(e) => {
+                    close();
+                    if (!isLeadCaptured) {
+                      e.preventDefault();
+                      openBuyCarLeadModal(() => router.push('/buy-cars'));
+                    }
+                  }} 
+                  className="mobile-menu-item"
+                >
                   <span className="mobile-menu-icon" style={{ background: '#eff6ff', color: '#2563eb' }}><Car size={18}/></span>
                   <div className="mobile-menu-text">
                     <strong>Buy Verified Cars</strong>
