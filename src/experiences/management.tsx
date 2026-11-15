@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { Activity, ArrowDownToLine, ArrowLeft, ArrowUpRight, BadgeCheck, Building2, CarFront, Check, CheckCircle2, ChevronDown, CircleDollarSign, ClipboardCheck, ClipboardList, CreditCard, Download, ExternalLink, Eye, EyeOff, FilePlus2, FileText, Gauge, Gavel, Globe2, Heart, History as HistoryIcon, ImagePlus, Key, Landmark, LayoutDashboard, LogOut, Mail, MapPin, Menu, MessageSquareText, Pencil, Phone, Plus, RefreshCw, Search, ShieldAlert, ShieldCheck, Store, Trash2, UserCheck, UserRound, Users, X, XCircle } from 'lucide-react';
+import { Activity, ArrowDownToLine, ArrowLeft, ArrowUpRight, BadgeCheck, Building2, CarFront, Check, CheckCircle2, ChevronDown, CircleDollarSign, ClipboardCheck, ClipboardList, CreditCard, Download, ExternalLink, Eye, EyeOff, FilePlus2, FileText, Gauge, Gavel, Globe2, Heart, History as HistoryIcon, Image as ImageIcon, ImagePlus, Key, Landmark, LayoutDashboard, LogOut, Mail, MapPin, Menu, MessageSquareText, Pencil, Phone, Plus, RefreshCw, Search, ShieldAlert, ShieldCheck, Star, Store, Trash2, UserCheck, UserRound, Users, X, XCircle } from 'lucide-react';
 import { formatINR } from '../data';
 import { UserHistoryPanel } from '../components/UserHistoryPanel';
 import { WishlistInsights } from '../components/WishlistInsights';
@@ -526,7 +526,20 @@ export function ManagementPanel({ role: expectedRole }: { role: Role }) {
       const [uploadedListingPhotos, uploadedEvidencePhotos] = await Promise.all([Promise.all(listingFiles.map(uploadPhoto)), Promise.all(evidenceFiles.map(uploadPhoto))]);
       const nextPhotoIds = [...new Set([...currentPhotoIds, ...uploadedListingPhotos])];
       const nextEvidencePhotoIds = [...new Set([...evidencePhotoIds, ...uploadedEvidencePhotos])];
-      if (!imageId && uploadedListingPhotos[0]) imageId = uploadedListingPhotos[0];
+      if (!imageId && nextPhotoIds[0]) imageId = nextPhotoIds[0];
+      if (nextPhotoIds.length > 0 && (!imageId || !nextPhotoIds.includes(imageId))) {
+        imageId = nextPhotoIds[0];
+      }
+      if (imageId && nextPhotoIds.includes(imageId)) {
+        const pIdx = nextPhotoIds.indexOf(imageId);
+        if (pIdx > 0) {
+          nextPhotoIds.splice(pIdx, 1);
+          nextPhotoIds.unshift(imageId);
+        }
+      }
+      if (nextPhotoIds.length === 0 && (!values.get('image') || String(values.get('image')).startsWith('/api/photos/'))) {
+        imageId = '';
+      }
 
       // Vehicle document upload
       const docFile = values.get('documentFile');
@@ -1022,7 +1035,7 @@ export function ManagementPanel({ role: expectedRole }: { role: Role }) {
           <InquiryList inquiries={inquiries.slice(0, 4)} onStatus={updateInquiry} onDelete={(expectedRole === 'superadmin' || (expectedRole === 'manager' && hasPermission('canDelete'))) ? deleteInquiry : undefined} />
           <div className="management-shortcuts"><button onClick={() => { setSection('listings'); setCarEditor('new'); }}><Plus size={18}/><span><b>Add a vehicle</b><small>Create a listing or review vendor submissions</small></span><ArrowLeft size={16}/></button>{(expectedRole === 'superadmin' || (expectedRole === 'manager' && hasPermission('accounts'))) && <button onClick={() => { setSection('accounts'); setEditingAccount(null); setNewAccountType('admin'); setModalError(''); setFormPassword(''); setShowPassword(false); setVendorEditor(true); }}><Users size={18}/><span><b>Create an account</b><small>Add an administrator or vendor</small></span><ArrowLeft size={16}/></button>}</div>
         </>}
-        {section === 'listings' && <><div className="management-section-heading management-list-heading"><div><span className="eyebrow">{expectedRole === 'vendor' ? 'YOUR INVENTORY' : 'MARKETPLACE INVENTORY'}</span><h2>{expectedRole === 'vendor' ? 'Manage your listings' : 'Vehicle listings'}</h2><p>{expectedRole === 'vendor' ? 'Listings stay visible for enquiries while their inspection packets are reviewed.' : 'Create, edit, publish or remove vehicles across Cars21.'}</p></div><button type="button" className="management-primary compact" onClick={() => setCarEditor('new')}><Plus size={17}/> Add vehicle</button></div><div className="management-toolbar management-listing-filters"><label className="management-search"><Search size={17}/><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search make, model, city…" aria-label="Search vehicle listings"/></label>{expectedRole !== 'vendor' && <label className="management-filter">Dealer<select value={listingVendor} onChange={event => setListingVendor(event.target.value)}><option value="all">All dealers</option>{vendors.map(vendor => <option key={vendor.id} value={vendor.id}>{vendor.businessName}</option>)}</select></label>}<label className="management-filter">Status<select value={listingStatus} onChange={event => setListingStatus(event.target.value)}><option value="all">All statuses</option><option value="active">Live</option><option value="pending">Needs review</option><option value="paused">Paused</option><option value="sold">Sold</option></select></label><span>{filteredCars.length} {filteredCars.length === 1 ? 'listing' : 'listings'}</span></div><div className="management-listings">{filteredCars.map(car => <article className="management-car-row" key={car.id}><div className="management-car-image clickable" onClick={() => setReviewingCar(car)} title="Click to view vehicle details and documents">{car.image ? <img src={car.image} alt={`${car.year} ${car.make} ${car.model}`}/> : <CarFront size={22}/>}</div><div className="management-car-name clickable" onClick={() => setReviewingCar(car)} title="Click to view vehicle details and documents"><b>{car.year} {car.make} {car.model}</b><span>{car.variant || 'Standard'} · {car.city}</span><small>{car.vendorName || (car.vendorId ? 'Dealer listing' : car.sellerUserId ? `Private seller · ${car.sellerName || 'Verified seller'}` : 'Cars21 direct')} · {car.id}</small></div><strong className="management-price">{formatINR(car.price)}</strong><div><StatusPill value={car.status || 'active'}/>{car.vendorId&&car.inspectionReviewStatus&&<small className="inspection-listing-status">Inspection · {car.inspectionReviewStatus.replace('_',' ')}</small>}<div className="management-car-verify-wrap"><span className={`car-verify-badge ${car.verificationStatus || (car.documentPhotoId ? 'under_verification' : 'unverified')}`}>{car.verificationStatus === 'verified' ? '✓ Verified RC' : car.verificationStatus === 'under_verification' ? '⏳ Under verification' : car.verificationStatus === 'rejected' ? '✕ RC Rejected' : '○ Unverified'}</span>{car.documentPhotoId && <a href={`/api/photos/${encodeURIComponent(car.documentPhotoId)}`} target="_blank" rel="noreferrer" className="management-doc-link" title="Open RC Document"><FileText size={12}/> View RC</a>}</div></div><div className="management-row-actions"><button type="button" className="management-view-car-btn" onClick={() => setReviewingCar(car)} title="View vehicle details, RC documents and inspection proof"><Eye size={14}/> View car</button><a href={`/car/${encodeURIComponent(car.id)}`} target="_blank" rel="noreferrer" className="management-public-link" title="Open live public marketplace page in new tab" aria-label="Open public listing"><ExternalLink size={14}/></a>{expectedRole !== 'vendor' && (<>{car.verificationStatus !== 'verified' && <button type="button" className="quick-verify-btn approve" title="Approve vehicle registration document" onClick={() => void verifyCarDoc(car, 'verified')}>Approve RC</button>}{car.verificationStatus === 'verified' && <button type="button" className="quick-verify-btn reject" title="Reject vehicle registration document" onClick={() => void verifyCarDoc(car, 'rejected')}>Revoke RC</button>}</>)}{car.vendorSlug && <a href={`/dealers/${car.vendorSlug}`} target="_blank" rel="noreferrer" aria-label={`View ${car.vendorName || 'dealer'} profile`}><Store size={15}/></a>}<button aria-label={`Edit ${car.make} ${car.model}`} onClick={() => setCarEditor(car)} title="Edit listing"><Pencil size={15}/></button><button className="danger" aria-label={`Remove ${car.make} ${car.model}`} onClick={() => void removeCar(car)} title="Remove listing"><Trash2 size={15}/></button></div></article>)}{filteredCars.length === 0 && <div className="management-empty"><CarFront size={25}/><b>{dataLoading ? 'Loading inventory…' : 'No listings found'}</b><span>{search || listingStatus !== 'all' || listingVendor !== 'all' ? 'Try changing your search or filters.' : 'Add your first vehicle to get started.'}</span><button type="button" className="management-primary compact" style={{ marginTop: '12px' }} onClick={() => setCarEditor('new')}><Plus size={16}/> Add vehicle</button></div>}</div></>}
+        {section === 'listings' && <><div className="management-section-heading management-list-heading"><div><span className="eyebrow">{expectedRole === 'vendor' ? 'YOUR INVENTORY' : 'MARKETPLACE INVENTORY'}</span><h2>{expectedRole === 'vendor' ? 'Manage your listings' : 'Vehicle listings'}</h2><p>{expectedRole === 'vendor' ? 'Listings stay visible for enquiries while their inspection packets are reviewed.' : 'Create, edit, publish or remove vehicles across Cars21.'}</p></div><button type="button" className="management-primary compact" onClick={() => setCarEditor('new')}><Plus size={17}/> Add vehicle</button></div><div className="management-toolbar management-listing-filters"><label className="management-search"><Search size={17}/><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search make, model, city…" aria-label="Search vehicle listings"/></label>{expectedRole !== 'vendor' && <label className="management-filter">Dealer<select value={listingVendor} onChange={event => setListingVendor(event.target.value)}><option value="all">All dealers</option>{vendors.map(vendor => <option key={vendor.id} value={vendor.id}>{vendor.businessName}</option>)}</select></label>}<label className="management-filter">Status<select value={listingStatus} onChange={event => setListingStatus(event.target.value)}><option value="all">All statuses</option><option value="active">Live</option><option value="pending">Needs review</option><option value="paused">Paused</option><option value="sold">Sold</option></select></label><span>{filteredCars.length} {filteredCars.length === 1 ? 'listing' : 'listings'}</span></div><div className="management-listings">{filteredCars.map(car => <article className="management-car-row" key={car.id}><div className="management-car-image clickable" onClick={() => setReviewingCar(car)} title="Click to view vehicle details and photos">{car.image ? <img src={car.image} alt={`${car.year} ${car.make} ${car.model}`}/> : <CarFront size={22}/>}<span className="management-car-photo-pill" title="Listing photos count"><ImageIcon size={10} /> {(Array.isArray(car.photoIds) && car.photoIds.length > 0 ? car.photoIds.length : (car.imageId ? 1 : car.image ? 1 : 0))}</span></div><div className="management-car-name clickable" onClick={() => setReviewingCar(car)} title="Click to view vehicle details and documents"><b>{car.year} {car.make} {car.model}</b><span>{car.variant || 'Standard'} · {car.city}</span><small>{car.vendorName || (car.vendorId ? 'Dealer listing' : car.sellerUserId ? `Private seller · ${car.sellerName || 'Verified seller'}` : 'Cars21 direct')} · {car.id}</small></div><strong className="management-price">{formatINR(car.price)}</strong><div><StatusPill value={car.status || 'active'}/>{car.vendorId&&car.inspectionReviewStatus&&<small className="inspection-listing-status">Inspection · {car.inspectionReviewStatus.replace('_',' ')}</small>}<div className="management-car-verify-wrap"><span className={`car-verify-badge ${car.verificationStatus || (car.documentPhotoId ? 'under_verification' : 'unverified')}`}>{car.verificationStatus === 'verified' ? '✓ Verified RC' : car.verificationStatus === 'under_verification' ? '⏳ Under verification' : car.verificationStatus === 'rejected' ? '✕ RC Rejected' : '○ Unverified'}</span>{car.documentPhotoId && <a href={`/api/photos/${encodeURIComponent(car.documentPhotoId)}`} target="_blank" rel="noreferrer" className="management-doc-link" title="Open RC Document"><FileText size={12}/> View RC</a>}</div></div><div className="management-row-actions"><button type="button" className="management-view-car-btn" onClick={() => setReviewingCar(car)} title="View vehicle details, RC documents and inspection proof"><Eye size={14}/> View car</button><a href={`/car/${encodeURIComponent(car.id)}`} target="_blank" rel="noreferrer" className="management-public-link" title="Open live public marketplace page in new tab" aria-label="Open public listing"><ExternalLink size={14}/></a>{expectedRole !== 'vendor' && (<>{car.verificationStatus !== 'verified' && <button type="button" className="quick-verify-btn approve" title="Approve vehicle registration document" onClick={() => void verifyCarDoc(car, 'verified')}>Approve RC</button>}{car.verificationStatus === 'verified' && <button type="button" className="quick-verify-btn reject" title="Reject vehicle registration document" onClick={() => void verifyCarDoc(car, 'rejected')}>Revoke RC</button>}</>)}{car.vendorSlug && <a href={`/dealers/${car.vendorSlug}`} target="_blank" rel="noreferrer" aria-label={`View ${car.vendorName || 'dealer'} profile`}><Store size={15}/></a>}<button aria-label={`Manage photos for ${car.make} ${car.model}`} onClick={() => setCarEditor(car)} title="Manage, change or delete images"><ImagePlus size={15}/></button><button aria-label={`Edit ${car.make} ${car.model}`} onClick={() => setCarEditor(car)} title="Edit listing"><Pencil size={15}/></button><button className="danger" aria-label={`Remove ${car.make} ${car.model}`} onClick={() => void removeCar(car)} title="Remove listing"><Trash2 size={15}/></button></div></article>)}{filteredCars.length === 0 && <div className="management-empty"><CarFront size={25}/><b>{dataLoading ? 'Loading inventory…' : 'No listings found'}</b><span>{search || listingStatus !== 'all' || listingVendor !== 'all' ? 'Try changing your search or filters.' : 'Add your first vehicle to get started.'}</span><button type="button" className="management-primary compact" style={{ marginTop: '12px' }} onClick={() => setCarEditor('new')}><Plus size={16}/> Add vehicle</button></div>}</div></>}
         {section === 'auctions' && expectedRole !== 'vendor' && <AuctionManager role={expectedRole}/>}
         {section === 'cities' && expectedRole !== 'vendor' && <CityManager/>}
         {section === 'makes' && expectedRole !== 'vendor' && <VehicleCompanyManager/>}
@@ -1355,6 +1368,7 @@ export function ManagementPanel({ role: expectedRole }: { role: Role }) {
           setReviewingCar(null);
           setCarEditor(c);
         }}
+        onRefresh={refresh}
       />
     )}
   </main>;
@@ -1417,6 +1431,79 @@ function CarEditor({
         }
       }
     }
+  };
+
+  // Photos state management:
+  const initialPhotoIds = useMemo(() => {
+    const list: string[] = [];
+    if (value.imageId) list.push(value.imageId);
+    if (Array.isArray(value.photoIds)) {
+      value.photoIds.forEach(id => {
+        if (!list.includes(id)) list.push(id);
+      });
+    }
+    return list;
+  }, [value.photoIds, value.imageId]);
+
+  const [activePhotoIds, setActivePhotoIds] = useState<string[]>(initialPhotoIds);
+  const [primaryImageId, setPrimaryImageId] = useState<string>(value.imageId || initialPhotoIds[0] || '');
+  const [imageUrl, setImageUrl] = useState<string>(value.image || '');
+  const [newSelectedFiles, setNewSelectedFiles] = useState<{ file: File; url: string }[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Evidence photos state for vendors:
+  const initialEvidenceIds = useMemo(() => {
+    return Array.isArray(inspection.evidencePhotoIds) ? (inspection.evidencePhotoIds as string[]) : [];
+  }, [inspection.evidencePhotoIds]);
+  const [activeEvidenceIds, setActiveEvidenceIds] = useState<string[]>(initialEvidenceIds);
+
+  useEffect(() => {
+    return () => {
+      newSelectedFiles.forEach(item => URL.revokeObjectURL(item.url));
+    };
+  }, [newSelectedFiles]);
+
+  const syncFiles = (files: { file: File }[]) => {
+    if (!fileInputRef.current) return;
+    try {
+      const dt = new DataTransfer();
+      files.forEach(item => dt.items.add(item.file));
+      fileInputRef.current.files = dt.files;
+    } catch {}
+  };
+
+  const handleFilesChosen = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const added = files.map(file => ({ file, url: URL.createObjectURL(file) }));
+    setNewSelectedFiles(prev => {
+      const combined = [...prev, ...added];
+      syncFiles(combined);
+      return combined;
+    });
+  };
+
+  const handleRemoveStagedFile = (idx: number) => {
+    setNewSelectedFiles(prev => {
+      URL.revokeObjectURL(prev[idx].url);
+      const next = prev.filter((_, i) => i !== idx);
+      syncFiles(next);
+      return next;
+    });
+  };
+
+  const handleRemoveExistingPhoto = (idToRemove: string) => {
+    setActivePhotoIds(prev => {
+      const next = prev.filter(id => id !== idToRemove);
+      if (primaryImageId === idToRemove) {
+        setPrimaryImageId(next[0] || '');
+      }
+      return next;
+    });
+  };
+
+  const handleRemoveEvidencePhoto = (idToRemove: string) => {
+    setActiveEvidenceIds(prev => prev.filter(id => id !== idToRemove));
   };
 
   return (
@@ -1683,24 +1770,134 @@ function CarEditor({
           <input name="sellerWhatsApp" type="tel" defaultValue={value.sellerWhatsApp || ''} />
         </label>
 
-        <label className="management-field">
-          Listing photos
-          <input name="photos" type="file" accept="image/jpeg,image/png,image/webp,image/avif" multiple />
-          <small>{role === 'vendor' ? imageLimit ? `Up to ${imageLimit} photos total per vehicle, including inspection evidence.` : 'An active subscription is needed to upload listing photos.' : 'JPEG, PNG, WebP or AVIF · up to 4 MB each'}</small>
-        </label>
-        {(value.photoIds?.length || value.imageId) && (
-          <div className="management-car-photo-previews">
-            {(value.photoIds?.length ? value.photoIds : value.imageId ? [value.imageId] : []).slice(0, 20).map((id, index) => (
-              <img key={`${id}-${index}`} src={`/api/photos/${encodeURIComponent(id)}`} alt={`Current listing photo ${index + 1}`} />
-            ))}
+        {/* VEHICLE PHOTOS & GALLERY STUDIO */}
+        <div className="management-photo-studio">
+          <div className="management-photo-studio-header">
+            <div>
+              <h4 style={{ margin: 0, fontSize: '13.5px', fontWeight: 800, color: '#0f172a' }}>
+                Vehicle Photos &amp; Media ({activePhotoIds.length + newSelectedFiles.length})
+              </h4>
+              <p style={{ margin: '3px 0 0', fontSize: '11.5px', color: '#64748b' }}>
+                Add new photos, set the main cover image, or delete photos anytime.
+              </p>
+            </div>
+            <label className="management-photo-add-btn">
+              <Plus size={14} /> Add Photos
+              <input
+                ref={fileInputRef}
+                name="photos"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/avif"
+                multiple
+                style={{ display: 'none' }}
+                onChange={handleFilesChosen}
+              />
+            </label>
           </div>
-        )}
-        <label className="management-field">
-          Or image URL
-          <input name="image" type="url" defaultValue={value.image || ''} placeholder="https://…" />
-        </label>
-        <input type="hidden" name="imageId" value={value.imageId || ''} />
-        <input type="hidden" name="photoIds" value={JSON.stringify(value.photoIds || (value.imageId ? [value.imageId] : []))} />
+
+          {/* ACTIVE & STAGED PHOTOS GRID */}
+          {(activePhotoIds.length > 0 || newSelectedFiles.length > 0) ? (
+            <div className="management-photo-manage-grid">
+              {/* Existing Uploaded Photos */}
+              {activePhotoIds.map((id, index) => {
+                const isPrimary = (primaryImageId === id) || (!primaryImageId && index === 0);
+                return (
+                  <div key={id} className={`management-photo-manage-card ${isPrimary ? 'primary-cover' : ''}`}>
+                    <img src={`/api/photos/${encodeURIComponent(id)}`} alt={`Listing photo ${index + 1}`} />
+                    
+                    {/* Primary Badge or Set Cover Button */}
+                    {isPrimary ? (
+                      <span className="photo-card-badge primary">★ Cover Photo</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="photo-card-set-cover-btn"
+                        onClick={() => setPrimaryImageId(id)}
+                        title="Set this photo as the main listing cover"
+                      >
+                        Set as Cover
+                      </button>
+                    )}
+
+                    {/* Delete Photo Button */}
+                    <button
+                      type="button"
+                      className="photo-card-delete-btn"
+                      title="Delete this photo from vehicle"
+                      onClick={() => handleRemoveExistingPhoto(id)}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                );
+              })}
+
+              {/* Newly Selected Local Photos (Staged Before Save) */}
+              {newSelectedFiles.map((item, idx) => (
+                <div key={item.url} className="management-photo-manage-card staged">
+                  <img src={item.url} alt={`New upload preview ${idx + 1}`} />
+                  <span className="photo-card-badge new">New Upload</span>
+                  <button
+                    type="button"
+                    className="photo-card-delete-btn"
+                    title="Remove this pending photo"
+                    onClick={() => handleRemoveStagedFile(idx)}
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="management-photo-empty-dropzone" onClick={() => fileInputRef.current?.click()}>
+              <ImagePlus size={26} />
+              <b>No vehicle photos uploaded yet</b>
+              <span>Click here or use &quot;Add Photos&quot; to upload high-res images (JPEG, PNG, WebP or AVIF up to 4MB each)</span>
+            </div>
+          )}
+
+          {/* External Image URL Alternative */}
+          <div style={{ marginTop: '12px' }}>
+            <label className="management-field">
+              <span>Or External Image URL</span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  name="image"
+                  type="url"
+                  value={imageUrl}
+                  onChange={e => setImageUrl(e.target.value)}
+                  placeholder="https://example.com/car-photo.jpg"
+                  style={{ flex: 1 }}
+                />
+                {imageUrl && (
+                  <button
+                    type="button"
+                    className="management-secondary compact"
+                    style={{ color: '#ef4444' }}
+                    onClick={() => setImageUrl('')}
+                    title="Clear image URL"
+                  >
+                    <Trash2 size={13} /> Clear
+                  </button>
+                )}
+              </div>
+            </label>
+            {imageUrl && !imageUrl.startsWith('/api/photos/') && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
+                <img
+                  src={imageUrl}
+                  alt="External preview"
+                  style={{ width: '60px', height: '42px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                  onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                />
+                <small style={{ color: '#64748b' }}>External image preview</small>
+              </div>
+            )}
+          </div>
+
+          <input type="hidden" name="imageId" value={primaryImageId} />
+          <input type="hidden" name="photoIds" value={JSON.stringify(activePhotoIds)} />
+        </div>
 
         {role === 'vendor' && (
           <fieldset className="inspection-packet-fields">
@@ -1730,11 +1927,21 @@ function CarEditor({
               <input name="evidencePhotos" type="file" accept="image/jpeg,image/png,image/webp,image/avif" multiple />
               <small>Evidence photos count toward your plan’s per-listing photo limit.</small>
             </label>
-            <input type="hidden" name="evidencePhotoIds" value={JSON.stringify(Array.isArray(inspection.evidencePhotoIds) ? inspection.evidencePhotoIds : [])} />
-            {Array.isArray(inspection.evidencePhotoIds) && inspection.evidencePhotoIds.length > 0 && (
-              <div className="management-car-photo-previews">
-                {inspection.evidencePhotoIds.map((id, index) => (
-                  <img key={`${id}-${index}`} src={`/api/photos/${encodeURIComponent(id)}`} alt={`Current inspection evidence ${index + 1}`} />
+            <input type="hidden" name="evidencePhotoIds" value={JSON.stringify(activeEvidenceIds)} />
+            {activeEvidenceIds.length > 0 && (
+              <div className="management-photo-manage-grid" style={{ marginTop: '8px' }}>
+                {activeEvidenceIds.map((id, index) => (
+                  <div key={`${id}-${index}`} className="management-photo-manage-card" style={{ height: '70px', aspectRatio: 'auto' }}>
+                    <img src={`/api/photos/${encodeURIComponent(id)}`} alt={`Inspection evidence ${index + 1}`} />
+                    <button
+                      type="button"
+                      className="photo-card-delete-btn"
+                      title="Remove this inspection photo"
+                      onClick={() => handleRemoveEvidencePhoto(id)}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -1794,7 +2001,8 @@ function CarReviewModal({
   verifying,
   onClose,
   onVerify,
-  onEdit
+  onEdit,
+  onRefresh
 }: {
   car: CarRecord;
   expectedRole: Role;
@@ -1802,9 +2010,12 @@ function CarReviewModal({
   onClose: () => void;
   onVerify: (car: CarRecord, status: 'verified' | 'rejected' | 'under_verification' | 'unverified', note?: string) => Promise<void>;
   onEdit: (car: CarRecord) => void;
+  onRefresh?: () => Promise<void>;
 }) {
   const [reviewNote, setReviewNote] = useState(car.verificationNote || '');
   const [actionSuccess, setActionSuccess] = useState('');
+  const [deletedPhotoIds, setDeletedPhotoIds] = useState<string[]>([]);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const allPhotos = useMemo(() => {
     const list: { id?: string; url: string; label: string }[] = [];
@@ -1820,8 +2031,25 @@ function CarReviewModal({
         }
       });
     }
-    return list;
-  }, [car]);
+    return list.filter(p => !p.id || !deletedPhotoIds.includes(p.id));
+  }, [car, deletedPhotoIds]);
+
+  async function handleDeletePhoto(id: string) {
+    if (!window.confirm('Are you sure you want to delete this photo from this vehicle listing?')) return;
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/photos/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Could not delete photo');
+      setDeletedPhotoIds(prev => [...prev, id]);
+      setActionSuccess('✓ Photo removed from vehicle listing.');
+      setTimeout(() => setActionSuccess(''), 3500);
+      await onRefresh?.();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Photo could not be deleted.');
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   const evidencePhotos = useMemo(() => {
     if (car.inspection && Array.isArray(car.inspection.evidencePhotoIds)) {
@@ -2196,25 +2424,47 @@ function CarReviewModal({
           {/* LISTING PHOTOS GALLERY */}
           {allPhotos.length > 0 && (
             <div className="car-review-gallery-wrap">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
                 <h4 className="car-review-section-title" style={{ margin: 0 }}>
                   Listing Photos ({allPhotos.length})
                 </h4>
-                <small style={{ color: '#64748b' }}>Click any photo to open full resolution</small>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="management-secondary compact"
+                    onClick={() => { onClose(); onEdit(car); }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '11px', padding: '4px 9px' }}
+                  >
+                    <ImagePlus size={13} /> Change / Manage Photos
+                  </button>
+                  <small style={{ color: '#64748b' }}>Click any photo to open full resolution</small>
+                </div>
               </div>
               <div className="car-review-photos-grid">
                 {allPhotos.map((photo, index) => (
-                  <a
-                    key={photo.url + index}
-                    href={photo.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="car-review-photo-link"
-                    title={`View ${photo.label}`}
-                  >
-                    <img src={photo.url} alt={photo.label} loading="lazy" />
-                    <span className="photo-tag">{photo.label}</span>
-                  </a>
+                  <div key={photo.url + index} className="car-review-photo-card" style={{ position: 'relative' }}>
+                    <a
+                      href={photo.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="car-review-photo-link"
+                      title={`View ${photo.label}`}
+                    >
+                      <img src={photo.url} alt={photo.label} loading="lazy" />
+                      <span className="photo-tag">{photo.label}</span>
+                    </a>
+                    {photo.id && (
+                      <button
+                        type="button"
+                        className="photo-card-delete-floating"
+                        title="Delete this photo from vehicle listing"
+                        disabled={deletingId === photo.id}
+                        onClick={() => handleDeletePhoto(photo.id!)}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>

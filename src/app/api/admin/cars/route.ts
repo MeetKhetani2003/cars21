@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
           vendorName: vendor?.name ?? '',
           vendorSlug: vendor?.slug ?? '',
           _id: undefined,
-          imageId: undefined,
+          imageId: car.imageId ? String(car.imageId) : undefined,
           image: car.imageId ? `/api/photos/${encodeURIComponent(String(car.imageId))}` : car.image,
           documentPhotoId,
           documentNumber: car.documentNumber ? String(car.documentNumber) : undefined,
