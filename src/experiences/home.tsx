@@ -165,173 +165,168 @@ export function HomePage() {
   }, [featuredCars, inventoryTab]);
 
   return <>
-    {/* HERO SECTION WITH COMMAND HUB */}
-    {/* MODERN LUMINOUS STUDIO HERO SECTION */}
-    <section className="luminous-hero">
-      <div className="container luminous-hero-grid">
-        {/* Left Column: Copy & Command Hub */}
-        <div className="luminous-hero-left">
+    {/* MINIMAL STREAMLINED HERO SECTION (SEARCH & FEATURES ONLY, NO IMAGE) */}
+    <section className="luminous-hero minimal-hero">
+      <div className="container minimal-hero-container">
+        {/* Header Copy */}
+        <div className="minimal-hero-header">
           <div className="hero-trust-badge">
             <span className="trust-badge-dot" />
-            <span>⭐ 4.9/5 Rating · 2,450+ Inspected Cars in Bengaluru</span>
+            <span>⭐ 4.9/5 Rating · 2,450+ Certified Cars</span>
           </div>
 
           <h1 className="luminous-hero-title">
-            The Better Way to<br />
-            <span className="hero-gradient-orange">Buy &amp; Sell Used Cars.</span>
+            The Better Way to <span className="hero-gradient-orange">Buy &amp; Sell Used Cars.</span>
           </h1>
 
           <p className="luminous-hero-desc">
-            India&apos;s certified auto marketplace. 140+ point cloud diagnostics, 7-day unconditional money-back guarantee, and instant 30-min bank payout.
+            India&apos;s certified automotive marketplace. Transparent dealer pricing, 140+ point cloud inspection, and 7-day unconditional money-back guarantee.
           </p>
-
-          {/* Integrated Multi-Tab Command Hub Card */}
-          <div className="luminous-command-card">
-            <div className="luminous-hub-tabs" role="tablist">
-              <button
-                type="button"
-                className={`luminous-tab ${hubTab === 'buy' ? 'active' : ''}`}
-                onClick={() => setHubTab('buy')}
-              >
-                <Search size={15} /> Buy Verified Cars
-              </button>
-              <button
-                type="button"
-                className={`luminous-tab ${hubTab === 'sell' ? 'active' : ''}`}
-                onClick={() => setHubTab('sell')}
-              >
-                <Zap size={15} /> Sell Your Car <span className="hub-tab-badge">Instant Cash</span>
-              </button>
-              <button
-                type="button"
-                className={`luminous-tab ${hubTab === 'val' ? 'active' : ''}`}
-                onClick={() => setHubTab('val')}
-              >
-                <Sliders size={15} /> AI Valuation
-              </button>
-            </div>
-
-            {hubTab === 'buy' && (
-              <form onSubmit={handleSearchSubmit}>
-                <div className="luminous-search-row">
-                  <div className="luminous-input-group">
-                    <Search size={16} />
-                    <input
-                      type="search"
-                      placeholder="Search Honda City, Creta, Nexon EV..."
-                      value={query}
-                      onChange={e => setQuery(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="luminous-select-group">
-                    <MapPin size={15} />
-                    <select value={city} onChange={e => setCity(e.target.value)}>
-                      <option value="">All Metros</option>
-                      {filters.cities.map(item => <option key={item} value={item}>{item}</option>)}
-                    </select>
-                    <ChevronDown size={14} className="select-chevron" />
-                  </div>
-
-                  <div className="luminous-select-group">
-                    <IndianRupee size={15} />
-                    <select value={budget} onChange={e => setBudget(e.target.value)}>
-                      {priceBands.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
-                    </select>
-                    <ChevronDown size={14} className="select-chevron" />
-                  </div>
-
-                  <button type="submit" className="luminous-submit-btn">
-                    Search <ArrowRight size={16} />
-                  </button>
-                </div>
-
-                <div className="luminous-quick-tags">
-                  <span className="tag-label">Popular:</span>
-                  <span className="luminous-chip" onClick={() => handleQuickFilter('Creta', 'Hyundai')}>Hyundai Creta</span>
-                  <span className="luminous-chip" onClick={() => handleQuickFilter('Electric')}>EVs &amp; Hybrids</span>
-                  <span className="luminous-chip" onClick={() => handleQuickFilter('', '', 'low')}>Under ₹10 Lakhs</span>
-                  <span className="luminous-chip" onClick={() => handleQuickFilter('City', 'Honda')}>Honda City</span>
-                  <span className="luminous-chip" onClick={() => handleQuickFilter('SUV')}>Compact SUVs</span>
-                </div>
-              </form>
-            )}
-
-            {hubTab === 'sell' && (
-              <form onSubmit={handleSellSubmit} className="luminous-sell-form">
-                <div className="plate-search-box">
-                  <div className="plate-ind-tag">
-                    <div className="plate-ind-circle">●</div>
-                    <span>IND</span>
-                  </div>
-                  <input
-                    type="text"
-                    className="plate-input"
-                    placeholder="ENTER VEHICLE NUMBER (e.g. KA 01 AB 1234)"
-                    value={sellInput}
-                    onChange={e => setSellInput(e.target.value)}
-                  />
-                  <button type="submit" className="plate-submit-btn">
-                    Get Instant Price <ArrowRight size={16} />
-                  </button>
-                </div>
-
-                <div className="luminous-sell-perks">
-                  <span>⚡ Instant Payout in 30 Mins</span>
-                  <span>🏠 Free Doorstep Inspection</span>
-                  <span>📄 100% Free RC Transfer</span>
-                </div>
-              </form>
-            )}
-
-            {hubTab === 'val' && (
-              <div className="luminous-val-panel">
-                <div>
-                  <b>Calculate instant AI valuation</b>
-                  <p>Our valuation engine references real-time dealer auction pricing across 6 metros.</p>
-                </div>
-                <Link href="/sell-car/valuation" className="luminous-submit-btn">
-                  Launch Valuation Engine <ArrowRight size={16} />
-                </Link>
-              </div>
-            )}
-          </div>
         </div>
 
-        {/* Right Column: Flagship Studio Vehicle Showcase */}
-        <div className="luminous-hero-right">
-          <div className="showcase-stage">
-            <div className="showcase-glow" />
-            <img
-              src="/images/kars21-hero.png"
-              alt="Cars21 Flagship Verified SUV"
-              className="showcase-car-img"
-              fetchPriority="high"
-            />
+        {/* Integrated Multi-Tab Command Hub Card */}
+        <div className="luminous-command-card minimal-search-card">
+          <div className="luminous-hub-tabs" role="tablist">
+            <button
+              type="button"
+              className={`luminous-tab ${hubTab === 'buy' ? 'active' : ''}`}
+              onClick={() => setHubTab('buy')}
+            >
+              <Search size={15} /> Buy Verified Cars
+            </button>
+            <button
+              type="button"
+              className={`luminous-tab ${hubTab === 'sell' ? 'active' : ''}`}
+              onClick={() => setHubTab('sell')}
+            >
+              <Zap size={15} /> Sell Your Car <span className="hub-tab-badge">Instant Cash</span>
+            </button>
+            <button
+              type="button"
+              className={`luminous-tab ${hubTab === 'val' ? 'active' : ''}`}
+              onClick={() => setHubTab('val')}
+            >
+              <Sliders size={15} /> AI Valuation
+            </button>
+          </div>
 
-            {/* Floating Glassmorphic Badges */}
-            <div className="floating-badge badge-top">
-              <div className="badge-icon-box green"><ShieldCheck size={18} /></div>
-              <div>
-                <b>140-Point Passed</b>
-                <small>Engine &amp; Chassis 100% Verified</small>
+          {hubTab === 'buy' && (
+            <form onSubmit={handleSearchSubmit}>
+              <div className="luminous-search-row">
+                <div className="luminous-input-group">
+                  <Search size={16} />
+                  <input
+                    type="search"
+                    placeholder="Search Honda City, Creta, Nexon EV..."
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                  />
+                </div>
+
+                <div className="luminous-select-group">
+                  <MapPin size={15} />
+                  <select value={city} onChange={e => setCity(e.target.value)}>
+                    <option value="">All Metros</option>
+                    {filters.cities.map(item => <option key={item} value={item}>{item}</option>)}
+                  </select>
+                  <ChevronDown size={14} className="select-chevron" />
+                </div>
+
+                <div className="luminous-select-group">
+                  <IndianRupee size={15} />
+                  <select value={budget} onChange={e => setBudget(e.target.value)}>
+                    {priceBands.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                  <ChevronDown size={14} className="select-chevron" />
+                </div>
+
+                <button type="submit" className="luminous-submit-btn">
+                  Search <ArrowRight size={16} />
+                </button>
               </div>
+
+              <div className="luminous-quick-tags">
+                <span className="tag-label">Popular:</span>
+                <span className="luminous-chip" onClick={() => handleQuickFilter('Creta', 'Hyundai')}>Hyundai Creta</span>
+                <span className="luminous-chip" onClick={() => handleQuickFilter('Electric')}>EVs &amp; Hybrids</span>
+                <span className="luminous-chip" onClick={() => handleQuickFilter('', '', 'low')}>Under ₹10 Lakhs</span>
+                <span className="luminous-chip" onClick={() => handleQuickFilter('City', 'Honda')}>Honda City</span>
+                <span className="luminous-chip" onClick={() => handleQuickFilter('SUV')}>Compact SUVs</span>
+              </div>
+            </form>
+          )}
+
+          {hubTab === 'sell' && (
+            <form onSubmit={handleSellSubmit} className="luminous-sell-form">
+              <div className="plate-search-box">
+                <div className="plate-ind-tag">
+                  <div className="plate-ind-circle">●</div>
+                  <span>IND</span>
+                </div>
+                <input
+                  type="text"
+                  className="plate-input"
+                  placeholder="ENTER VEHICLE NUMBER (e.g. KA 01 AB 1234)"
+                  value={sellInput}
+                  onChange={e => setSellInput(e.target.value)}
+                />
+                <button type="submit" className="plate-submit-btn">
+                  Get Instant Price <ArrowRight size={16} />
+                </button>
+              </div>
+
+              <div className="luminous-sell-perks">
+                <span>⚡ Instant Payout in 30 Mins</span>
+                <span>🏠 Free Doorstep Inspection</span>
+                <span>📄 100% Free RC Transfer</span>
+              </div>
+            </form>
+          )}
+
+          {hubTab === 'val' && (
+            <div className="luminous-val-panel">
+              <div>
+                <b>Calculate instant AI valuation</b>
+                <p>Our valuation engine references real-time dealer auction pricing across 6 metros.</p>
+              </div>
+              <Link href="/sell-car/valuation" className="luminous-submit-btn">
+                Launch Valuation Engine <ArrowRight size={16} />
+              </Link>
             </div>
+          )}
+        </div>
 
-            <div className="floating-badge badge-bottom-left">
-              <div className="badge-icon-box orange"><Zap size={18} /></div>
-              <div>
-                <b>Instant Cash Offer</b>
-                <small>Credited in 30 mins</small>
-              </div>
+        {/* Visible Core Features Strip in Hero */}
+        <div className="hero-features-bar">
+          <div className="hero-feature-card">
+            <div className="hero-feature-icon green"><ShieldCheck size={20} /></div>
+            <div className="hero-feature-text">
+              <strong>140-Point Inspection</strong>
+              <span>Engine, battery &amp; chassis verified</span>
             </div>
+          </div>
 
-            <div className="floating-badge badge-bottom-right">
-              <div className="badge-icon-box blue"><Clock size={18} /></div>
-              <div>
-                <b>7-Day Money Back</b>
-                <small>100% Unconditional Refund</small>
-              </div>
+          <div className="hero-feature-card">
+            <div className="hero-feature-icon blue"><Clock size={20} /></div>
+            <div className="hero-feature-text">
+              <strong>7-Day Money Back</strong>
+              <span>100% unconditional refund</span>
+            </div>
+          </div>
+
+          <div className="hero-feature-card">
+            <div className="hero-feature-icon orange"><Zap size={20} /></div>
+            <div className="hero-feature-text">
+              <strong>Instant 30-Min Payout</strong>
+              <span>Direct bank transfer for sellers</span>
+            </div>
+          </div>
+
+          <div className="hero-feature-card">
+            <div className="hero-feature-icon purple"><FileCheck2 size={20} /></div>
+            <div className="hero-feature-text">
+              <strong>100% Free RC Transfer</strong>
+              <span>Doorstep pickup &amp; zero paperwork</span>
             </div>
           </div>
         </div>
