@@ -6,9 +6,11 @@ import {
   Search, Phone, Mail, MapPin, ExternalLink, FileText,
   User, ChevronRight, AlertCircle, Check, RefreshCw, Trash2,
   DollarSign, Calendar, Eye, Image as ImageIcon, MessageCircle,
-  Camera, CheckCheck, Sparkles, Building2, ArrowUpRight, X
+  Camera, CheckCheck, Sparkles, Building2, ArrowUpRight, X,
+  Gavel, Plus
 } from 'lucide-react';
 import { formatINR } from '../data';
+import { ListInAuctionModal, type AuctionVehicleInput } from './ListInAuctionModal';
 
 export type SellInquiry = {
   id: string;
@@ -64,6 +66,11 @@ export type SellInquiry = {
   status: 'new' | 'contacted' | 'inspection_scheduled' | 'price_negotiated' | 'purchased' | 'rejected';
   adminNotes?: string;
   assignedAdminName?: string;
+  listedCarId?: string;
+  auctionId?: string;
+  auctionNumber?: string;
+  inAuction?: boolean;
+  auctionStatus?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -105,6 +112,64 @@ export function SellInquiryManager({ role }: { role: 'superadmin' | 'manager' | 
   const [dossierInquiry, setDossierInquiry] = useState<SellInquiry | null>(null);
   const [counterOfferInput, setCounterOfferInput] = useState('');
   const [adminNotesInput, setAdminNotesInput] = useState('');
+  const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [auctionVehicleInput, setAuctionVehicleInput] = useState<AuctionVehicleInput | null>(null);
+
+  async function publishInquiryToInventory(inquiry: SellInquiry) {
+    setPublishingId(inquiry.id);
+    setError('');
+    setNotice('');
+    try {
+      const res = await fetch(`/api/sell-inquiries/${encodeURIComponent(inquiry.id)}/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to publish listing to inventory.');
+      setNotice(data.message || `✓ ${inquiry.vehicle.purchaseYear || inquiry.vehicle.mfgYear} ${inquiry.vehicle.make} ${inquiry.vehicle.model} published to Cars21 inventory!`);
+      setInquiries(prev => prev.map(item => item.id === inquiry.id ? { ...item, listedCarId: data.carId } : item));
+      if (dossierInquiry?.id === inquiry.id) {
+        setDossierInquiry(prev => prev ? { ...prev, listedCarId: data.carId } : null);
+      }
+      setTimeout(() => setNotice(''), 4000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to list car in inventory.');
+    } finally {
+      setPublishingId(null);
+    }
+  }
+
+  function openAuctionModalForInquiry(inquiry: SellInquiry) {
+    const photoIds = [
+      inquiry.media?.photoFrontId,
+      inquiry.media?.photoBackId,
+      inquiry.media?.photoLeftSideId,
+      inquiry.media?.photoRightSideId,
+      inquiry.media?.photoInteriorId,
+      ...(inquiry.media?.additionalPhotoIds || [])
+    ].filter(Boolean) as string[];
+
+    setAuctionVehicleInput({
+      inquiryId: inquiry.id,
+      carId: inquiry.listedCarId || undefined,
+      sourceType: 'sell_inquiry',
+      make: inquiry.vehicle.make,
+      model: inquiry.vehicle.model,
+      variant: inquiry.vehicle.variant,
+      year: inquiry.vehicle.purchaseYear || inquiry.vehicle.mfgYear || 2023,
+      registration: inquiry.vehicle.registration,
+      km: inquiry.vehicle.km,
+      fuel: inquiry.vehicle.fuel,
+      transmission: inquiry.vehicle.transmission,
+      price: inquiry.pricing.counterOffer || inquiry.pricing.expectedPrice || inquiry.pricing.estimatedMarketValue,
+      city: inquiry.seller.city,
+      conditionScore: inquiry.vehicle.condition === 'Excellent' ? 95 : inquiry.vehicle.condition === 'Good' ? 90 : 85,
+      image: inquiry.media?.photoFrontId ? `/api/photos/${encodeURIComponent(inquiry.media.photoFrontId)}` : undefined,
+      photoIds,
+      rcVerified: inquiry.documents.verificationStatus === 'verified',
+      sellerName: inquiry.seller.name,
+    });
+  }
 
   async function loadInquiries() {
     setLoading(true);
@@ -407,7 +472,7 @@ export function SellInquiryManager({ role }: { role: 'superadmin' | 'manager' | 
           const heroPhotoUrl = heroPhotoId ? `/api/photos/${encodeURIComponent(heroPhotoId)}` : null;
 
           return (
-            <article className="management-car-row" key={inquiry.id} style={{ gridTemplateColumns: '70px minmax(180px, 1.2fr) minmax(130px, 1fr) minmax(140px, auto) auto' }}>
+            <article className="management-car-row sell-inquiry-row" key={inquiry.id}>
               {/* Photo Thumbnail */}
               <div
                 className="management-car-image clickable"
@@ -489,14 +554,62 @@ export function SellInquiryManager({ role }: { role: 'superadmin' | 'manager' | 
 
               {/* Action Buttons */}
               <div className="management-row-actions">
+                {/* 1. Inventory Listing Action */}
+                {inquiry.listedCarId ? (
+                  <a
+                    href={`/car/${encodeURIComponent(inquiry.listedCarId)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="management-inventory-badge"
+                    title="View live public listing in Cars21 marketplace"
+                  >
+                    <CheckCircle2 size={13} />
+                    <span>In Inventory</span>
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    className="management-publish-btn"
+                    onClick={() => publishInquiryToInventory(inquiry)}
+                    disabled={publishingId === inquiry.id}
+                    title="Publish this vehicle into Cars21 public car inventory"
+                  >
+                    <Plus size={13} />
+                    <span>{publishingId === inquiry.id ? 'Listing…' : 'List in Cars'}</span>
+                  </button>
+                )}
+
+                {/* 2. Auction Listing Action */}
+                {inquiry.auctionId || inquiry.inAuction ? (
+                  <a
+                    href="/dealer-auctions"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="management-auction-badge in-auction"
+                    title={`Vehicle listed in Auction Lot ${inquiry.auctionNumber || 'Live'}. Click to view live dealer bidding.`}
+                  >
+                    <Gavel size={13} />
+                    <span>In Auction</span>
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    className="management-auction-action-btn"
+                    onClick={() => openAuctionModalForInquiry(inquiry)}
+                    title="List this vehicle in a B2B auction or yard event"
+                  >
+                    <Gavel size={13} />
+                    <span>Auction</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   className="management-view-car-btn"
                   onClick={() => setDossierInquiry(inquiry)}
                   title="Open full inspection dossier, photos, and RC document"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
                 >
-                  <Eye size={14} /> View Dossier
+                  <Eye size={14} /> <span>View Dossier</span>
                 </button>
 
                 {(role === 'superadmin' || role === 'manager') && (
@@ -573,7 +686,52 @@ export function SellInquiryManager({ role }: { role: 'superadmin' | 'manager' | 
                   {getStatusBadge(dossierInquiry.status)}
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  {/* Publish to Inventory */}
+                  {dossierInquiry.listedCarId ? (
+                    <a
+                      href={`/car/${encodeURIComponent(dossierInquiry.listedCarId)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="management-primary compact"
+                      style={{ background: '#059669', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <CheckCircle2 size={15} /> In Inventory (View)
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => publishInquiryToInventory(dossierInquiry)}
+                      disabled={publishingId === dossierInquiry.id}
+                      className="management-primary compact"
+                      style={{ background: '#2563eb', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: publishingId === dossierInquiry.id ? 'not-allowed' : 'pointer' }}
+                    >
+                      <CarFront size={15} /> {publishingId === dossierInquiry.id ? 'Listing Car…' : 'Publish to Car Listings'}
+                    </button>
+                  )}
+
+                  {/* List in Auction */}
+                  {dossierInquiry.auctionId || dossierInquiry.inAuction ? (
+                    <a
+                      href="/dealer-auctions"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="management-secondary compact"
+                      style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <Gavel size={15} /> In Auction ({dossierInquiry.auctionNumber || 'Live'})
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => openAuctionModalForInquiry(dossierInquiry)}
+                      className="management-secondary compact"
+                      style={{ background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                    >
+                      <Gavel size={15} /> List in Auction
+                    </button>
+                  )}
+
                   <a
                     href={`https://wa.me/91${dossierInquiry.seller.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello ${dossierInquiry.seller.name}, this is Cars21 regarding your car sell enquiry for ${dossierInquiry.vehicle.make} ${dossierInquiry.vehicle.model} (${dossierInquiry.vehicle.registration}). Expected Price: ${formatINR(dossierInquiry.pricing.expectedPrice)}.`)}`}
                     target="_blank"
@@ -581,7 +739,7 @@ export function SellInquiryManager({ role }: { role: 'superadmin' | 'manager' | 
                     className="management-primary compact"
                     style={{ background: '#16a34a', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                   >
-                    <MessageCircle size={15} /> Chat on WhatsApp
+                    <MessageCircle size={15} /> WhatsApp
                   </a>
 
                   <a
@@ -904,6 +1062,35 @@ export function SellInquiryManager({ role }: { role: 'superadmin' | 'manager' | 
             </div>
           </div>
         </div>
+      )}
+
+      {/* B2B AUCTION LISTING MODAL */}
+      {auctionVehicleInput && (
+        <ListInAuctionModal
+          isOpen={Boolean(auctionVehicleInput)}
+          vehicle={auctionVehicleInput}
+          onClose={() => setAuctionVehicleInput(null)}
+          onSuccess={(auction) => {
+            setNotice(`✓ ${auctionVehicleInput.make} ${auctionVehicleInput.model} listed in Auction Lot ${auction.auctionNumber}!`);
+            setInquiries(prev => prev.map(item => item.id === auctionVehicleInput.inquiryId ? {
+              ...item,
+              auctionId: auction.id,
+              auctionNumber: auction.auctionNumber,
+              inAuction: true,
+              auctionStatus: auction.status
+            } : item));
+            if (dossierInquiry?.id === auctionVehicleInput.inquiryId) {
+              setDossierInquiry(prev => prev ? {
+                ...prev,
+                auctionId: auction.id,
+                auctionNumber: auction.auctionNumber,
+                inAuction: true,
+                auctionStatus: auction.status
+              } : null);
+            }
+            setTimeout(() => setNotice(''), 4000);
+          }}
+        />
       )}
     </div>
   );

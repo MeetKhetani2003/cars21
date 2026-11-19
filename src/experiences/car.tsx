@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useParams } from '../lib/navigation';
-import { 
-  ArrowRight, Check, ChevronRight, Fuel, Gauge, Heart, MapPin, 
-  ShieldCheck, UserRound, Calendar, Award, Sparkles, Phone, 
-  MessageSquare, FileText, CheckCircle2, RotateCcw, Wrench, 
+import {
+  ArrowRight, Check, ChevronRight, Fuel, Gauge, Heart, MapPin,
+  ShieldCheck, UserRound, Calendar, Award, Sparkles, Phone,
+  MessageSquare, FileText, CheckCircle2, RotateCcw, Wrench,
   Clock, Shield, CarFront, Settings2, Download, Landmark, Lock
 } from 'lucide-react';
 import { cars, calcEmi, formatINR, type Car } from '../data';
@@ -212,17 +212,17 @@ export function CarPage() {
     const controller = new AbortController();
     fetch(`/api/cars/${encodeURIComponent(carId)}`, { signal: controller.signal })
       .then(response => response.ok ? response.json() : null)
-      .then(payload => { 
-        if (payload?.car) { 
-          setCar(payload.car as Car); 
-          setSelectedImage((payload.car as Car).image); 
-          if (lastTrackedCar.current !== carId) { 
-            lastTrackedCar.current = carId; 
+      .then(payload => {
+        if (payload?.car) {
+          setCar(payload.car as Car);
+          setSelectedImage((payload.car as Car).image);
+          if (lastTrackedCar.current !== carId) {
+            lastTrackedCar.current = carId;
             void recordAction({ action: 'car_view', carId });
-          } 
-        } 
+          }
+        }
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => controller.abort();
   }, [carId, recordAction]);
 
@@ -283,9 +283,9 @@ export function CarPage() {
           {/* Main Visual Stage */}
           <div className="luxury-gallery-stage">
             <div className={`gallery-photo-main ${car.accent || ''}`}>
-              <img 
-                src={selectedImage} 
-                alt={`${car.color} ${car.year} ${car.make} ${car.model}`} 
+              <img
+                src={selectedImage}
+                alt={`${car.color} ${car.year} ${car.make} ${car.model}`}
                 className="stage-main-img"
               />
               {/* Floating Quality Badges */}
@@ -466,9 +466,9 @@ export function CarPage() {
               </div>
               <div className="hub-emi-strip">
                 <span>EMI starting from <b>{formatINR(emiVal)}/mo</b></span>
-                <button 
-                  type="button" 
-                  className="hub-quick-loan-btn" 
+                <button
+                  type="button"
+                  className="hub-quick-loan-btn"
                   onClick={() => setLoanModalOpen(true)}
                   title="Apply for car loan"
                 >
@@ -483,8 +483,8 @@ export function CarPage() {
 
             {/* Primary Action Buttons */}
             <div className="hub-actions-cluster">
-              <a 
-                href="#booking-form" 
+              <a
+                href="#booking-form"
                 className="button button-orange button-full cta-book-btn"
                 onClick={(e) => {
                   if (!hasBookingAccess) {
@@ -498,8 +498,8 @@ export function CarPage() {
               >
                 Book Free Test Drive / Visit <ArrowRight size={16} />
               </a>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="button button-loan button-full cta-loan-btn"
                 onClick={() => {
                   if (!hasBookingAccess) {
@@ -515,8 +515,8 @@ export function CarPage() {
               >
                 <Landmark size={17} /> Get Car Loan (Instant Approval)
               </button>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className={`button button-outline button-full cta-save-btn ${saved ? 'is-saved' : ''}`}
                 onClick={() => {
                   if (!hasBookingAccess) {
@@ -545,24 +545,24 @@ export function CarPage() {
                   <div className="form-fields-stack">
                     <label className="field-group-label">
                       <span>Full Name</span>
-                      <input 
-                        name="name" 
-                        required 
-                        defaultValue={leadInfo?.name || effectiveBuyer?.name || ''} 
-                        placeholder="Your full name" 
-                        className="hub-input" 
+                      <input
+                        name="name"
+                        required
+                        defaultValue={leadInfo?.name || effectiveBuyer?.name || ''}
+                        placeholder="Your full name"
+                        className="hub-input"
                       />
                     </label>
                     <label className="field-group-label">
                       <span>Phone Number (for WhatsApp update)</span>
-                      <input 
-                        name="phone" 
-                        type="tel" 
-                        required 
-                        pattern="\\+?[\\d\\s()-]{10,18}" 
+                      <input
+                        name="phone"
+                        type="tel"
+                        required
+                        pattern="\\+?[\\d\\s()-]{10,18}"
                         defaultValue={leadInfo?.phone || ''}
-                        placeholder="+91 98765 43210" 
-                        className="hub-input" 
+                        placeholder="+91 98765 43210"
+                        className="hub-input"
                       />
                     </label>
                     <div className="fields-split-row">
@@ -592,9 +592,9 @@ export function CarPage() {
                   <div className="prompt-icon"><Shield size={20} /></div>
                   <h4>Schedule Test Drive Online</h4>
                   <p>Enter your contact details to schedule a free doorstep test drive or experience center visit.</p>
-                  <button 
+                  <button
                     type="button"
-                    onClick={() => openBuyCarLeadModal()} 
+                    onClick={() => openBuyCarLeadModal()}
                     className="button button-orange button-full"
                     style={{ fontWeight: 750 }}
                   >
@@ -610,29 +610,29 @@ export function CarPage() {
       {/* Lower Detailed Information Hub */}
       <section className="container detail-lower-section">
         <div className="luxury-tabs-bar">
-          <button 
-            type="button" 
+          <button
+            type="button"
             className={`luxury-tab-btn ${tab === 'overview' ? 'active' : ''}`}
             onClick={() => setTab('overview')}
           >
             Vehicle Overview
           </button>
-          <button 
-            type="button" 
+          <button
+            type="button"
             className={`luxury-tab-btn ${tab === 'inspection' ? 'active' : ''}`}
             onClick={() => setTab('inspection')}
           >
             140-Point Inspection Report
           </button>
-          <button 
-            type="button" 
+          <button
+            type="button"
             className={`luxury-tab-btn ${tab === 'assurance' ? 'active' : ''}`}
             onClick={() => setTab('assurance')}
           >
             Cars21 Assurance & Warranty
           </button>
-          <button 
-            type="button" 
+          <button
+            type="button"
             className={`luxury-tab-btn ${tab === 'specs' ? 'active' : ''}`}
             onClick={() => setTab('specs')}
           >

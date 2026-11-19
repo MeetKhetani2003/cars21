@@ -27,6 +27,7 @@ export type AuctionRecord = {
   // Vehicle Details
   vehicle: {
     carId?: string;
+    inquiryId?: string;
     make: string;
     model: string;
     variant: string;
@@ -451,6 +452,7 @@ export async function POST(request: NextRequest) {
       } : undefined,
       vehicle: {
         carId: vehicle.carId || undefined,
+        inquiryId: vehicle.inquiryId || undefined,
         make: vehicle.make,
         model: vehicle.model,
         variant: vehicle.variant || 'Standard',
@@ -490,6 +492,38 @@ export async function POST(request: NextRequest) {
 
     const db = await getDb();
     await db.collection('auctions').insertOne({ ...newAuction, _id: new ObjectId() });
+
+    // Link car in cars collection if listing originates from an inventory vehicle
+    if (vehicle.carId) {
+      await db.collection('cars').updateOne(
+        { id: vehicle.carId },
+        {
+          $set: {
+            auctionId: id,
+            auctionNumber,
+            inAuction: true,
+            auctionStatus: status,
+            updatedAt: new Date()
+          }
+        }
+      );
+    }
+
+    // Link sell inquiry in sellInquiries collection if listing originates from a sell car request
+    if (vehicle.inquiryId) {
+      await db.collection('sellInquiries').updateOne(
+        { id: vehicle.inquiryId },
+        {
+          $set: {
+            auctionId: id,
+            auctionNumber,
+            inAuction: true,
+            auctionStatus: status,
+            updatedAt: new Date().toISOString()
+          }
+        }
+      );
+    }
 
     return NextResponse.json({
       success: true,

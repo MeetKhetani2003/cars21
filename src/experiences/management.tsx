@@ -16,6 +16,7 @@ import { LoanManager } from '../components/LoanManager';
 import { SellInquiryManager } from '../components/SellInquiryManager';
 import { AuctionManager } from '../components/AuctionManager';
 import { IndexingManager } from '../components/IndexingManager';
+import { ListInAuctionModal, type AuctionVehicleInput } from '../components/ListInAuctionModal';
 
 type Role = 'superadmin' | 'manager' | 'admin' | 'vendor';
 export type ManagerPermissions = {
@@ -156,6 +157,10 @@ type CarRecord = {
   vendorName?: string;
   vendorSlug?: string;
   status?: string;
+  auctionId?: string;
+  auctionNumber?: string;
+  inAuction?: boolean;
+  auctionStatus?: string;
 };
 type Vendor = {
   id: string;
@@ -389,6 +394,7 @@ export function ManagementPanel({ role: expectedRole }: { role: Role }) {
   const [vendorProfile, setVendorProfile] = useState<VendorBusinessProfile | null>(null);
   const [carEditor, setCarEditor] = useState<CarRecord | 'new' | null>(null);
   const [reviewingCar, setReviewingCar] = useState<CarRecord | null>(null);
+  const [auctionListingVehicle, setAuctionListingVehicle] = useState<AuctionVehicleInput | null>(null);
   const [vendorEditor, setVendorEditor] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [newAccountType, setNewAccountType] = useState<'manager' | 'admin' | 'vendor'>('vendor');
@@ -1035,7 +1041,7 @@ export function ManagementPanel({ role: expectedRole }: { role: Role }) {
           <InquiryList inquiries={inquiries.slice(0, 4)} onStatus={updateInquiry} onDelete={(expectedRole === 'superadmin' || (expectedRole === 'manager' && hasPermission('canDelete'))) ? deleteInquiry : undefined} />
           <div className="management-shortcuts"><button onClick={() => { setSection('listings'); setCarEditor('new'); }}><Plus size={18}/><span><b>Add a vehicle</b><small>Create a listing or review vendor submissions</small></span><ArrowLeft size={16}/></button>{(expectedRole === 'superadmin' || (expectedRole === 'manager' && hasPermission('accounts'))) && <button onClick={() => { setSection('accounts'); setEditingAccount(null); setNewAccountType('admin'); setModalError(''); setFormPassword(''); setShowPassword(false); setVendorEditor(true); }}><Users size={18}/><span><b>Create an account</b><small>Add an administrator or vendor</small></span><ArrowLeft size={16}/></button>}</div>
         </>}
-        {section === 'listings' && <><div className="management-section-heading management-list-heading"><div><span className="eyebrow">{expectedRole === 'vendor' ? 'YOUR INVENTORY' : 'MARKETPLACE INVENTORY'}</span><h2>{expectedRole === 'vendor' ? 'Manage your listings' : 'Vehicle listings'}</h2><p>{expectedRole === 'vendor' ? 'Listings stay visible for enquiries while their inspection packets are reviewed.' : 'Create, edit, publish or remove vehicles across Cars21.'}</p></div><button type="button" className="management-primary compact" onClick={() => setCarEditor('new')}><Plus size={17}/> Add vehicle</button></div><div className="management-toolbar management-listing-filters"><label className="management-search"><Search size={17}/><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search make, model, city…" aria-label="Search vehicle listings"/></label>{expectedRole !== 'vendor' && <label className="management-filter">Dealer<select value={listingVendor} onChange={event => setListingVendor(event.target.value)}><option value="all">All dealers</option>{vendors.map(vendor => <option key={vendor.id} value={vendor.id}>{vendor.businessName}</option>)}</select></label>}<label className="management-filter">Status<select value={listingStatus} onChange={event => setListingStatus(event.target.value)}><option value="all">All statuses</option><option value="active">Live</option><option value="pending">Needs review</option><option value="paused">Paused</option><option value="sold">Sold</option></select></label><span>{filteredCars.length} {filteredCars.length === 1 ? 'listing' : 'listings'}</span></div><div className="management-listings">{filteredCars.map(car => <article className="management-car-row" key={car.id}><div className="management-car-image clickable" onClick={() => setReviewingCar(car)} title="Click to view vehicle details and photos">{car.image ? <img src={car.image} alt={`${car.year} ${car.make} ${car.model}`}/> : <CarFront size={22}/>}<span className="management-car-photo-pill" title="Listing photos count"><ImageIcon size={10} /> {(Array.isArray(car.photoIds) && car.photoIds.length > 0 ? car.photoIds.length : (car.imageId ? 1 : car.image ? 1 : 0))}</span></div><div className="management-car-name clickable" onClick={() => setReviewingCar(car)} title="Click to view vehicle details and documents"><b>{car.year} {car.make} {car.model}</b><span>{car.variant || 'Standard'} · {car.city}</span><small>{car.vendorName || (car.vendorId ? 'Dealer listing' : car.sellerUserId ? `Private seller · ${car.sellerName || 'Verified seller'}` : 'Cars21 direct')} · {car.id}</small></div><strong className="management-price">{formatINR(car.price)}</strong><div><StatusPill value={car.status || 'active'}/>{car.vendorId&&car.inspectionReviewStatus&&<small className="inspection-listing-status">Inspection · {car.inspectionReviewStatus.replace('_',' ')}</small>}<div className="management-car-verify-wrap"><span className={`car-verify-badge ${car.verificationStatus || (car.documentPhotoId ? 'under_verification' : 'unverified')}`}>{car.verificationStatus === 'verified' ? '✓ Verified RC' : car.verificationStatus === 'under_verification' ? '⏳ Under verification' : car.verificationStatus === 'rejected' ? '✕ RC Rejected' : '○ Unverified'}</span>{car.documentPhotoId && <a href={`/api/photos/${encodeURIComponent(car.documentPhotoId)}`} target="_blank" rel="noreferrer" className="management-doc-link" title="Open RC Document"><FileText size={12}/> View RC</a>}</div></div><div className="management-row-actions"><button type="button" className="management-view-car-btn" onClick={() => setReviewingCar(car)} title="View vehicle details, RC documents and inspection proof"><Eye size={14}/> View car</button><a href={`/car/${encodeURIComponent(car.id)}`} target="_blank" rel="noreferrer" className="management-public-link" title="Open live public marketplace page in new tab" aria-label="Open public listing"><ExternalLink size={14}/></a>{expectedRole !== 'vendor' && (<>{car.verificationStatus !== 'verified' && <button type="button" className="quick-verify-btn approve" title="Approve vehicle registration document" onClick={() => void verifyCarDoc(car, 'verified')}>Approve RC</button>}{car.verificationStatus === 'verified' && <button type="button" className="quick-verify-btn reject" title="Reject vehicle registration document" onClick={() => void verifyCarDoc(car, 'rejected')}>Revoke RC</button>}</>)}{car.vendorSlug && <a href={`/dealers/${car.vendorSlug}`} target="_blank" rel="noreferrer" aria-label={`View ${car.vendorName || 'dealer'} profile`}><Store size={15}/></a>}<button aria-label={`Manage photos for ${car.make} ${car.model}`} onClick={() => setCarEditor(car)} title="Manage, change or delete images"><ImagePlus size={15}/></button><button aria-label={`Edit ${car.make} ${car.model}`} onClick={() => setCarEditor(car)} title="Edit listing"><Pencil size={15}/></button><button className="danger" aria-label={`Remove ${car.make} ${car.model}`} onClick={() => void removeCar(car)} title="Remove listing"><Trash2 size={15}/></button></div></article>)}{filteredCars.length === 0 && <div className="management-empty"><CarFront size={25}/><b>{dataLoading ? 'Loading inventory…' : 'No listings found'}</b><span>{search || listingStatus !== 'all' || listingVendor !== 'all' ? 'Try changing your search or filters.' : 'Add your first vehicle to get started.'}</span><button type="button" className="management-primary compact" style={{ marginTop: '12px' }} onClick={() => setCarEditor('new')}><Plus size={16}/> Add vehicle</button></div>}</div></>}
+        {section === 'listings' && <><div className="management-section-heading management-list-heading"><div><span className="eyebrow">{expectedRole === 'vendor' ? 'YOUR INVENTORY' : 'MARKETPLACE INVENTORY'}</span><h2>{expectedRole === 'vendor' ? 'Manage your listings' : 'Vehicle listings'}</h2><p>{expectedRole === 'vendor' ? 'Listings stay visible for enquiries while their inspection packets are reviewed.' : 'Create, edit, publish or remove vehicles across Cars21.'}</p></div><button type="button" className="management-primary compact" onClick={() => setCarEditor('new')}><Plus size={17}/> Add vehicle</button></div><div className="management-toolbar management-listing-filters"><label className="management-search"><Search size={17}/><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search make, model, city…" aria-label="Search vehicle listings"/></label>{expectedRole !== 'vendor' && <label className="management-filter">Dealer<select value={listingVendor} onChange={event => setListingVendor(event.target.value)}><option value="all">All dealers</option>{vendors.map(vendor => <option key={vendor.id} value={vendor.id}>{vendor.businessName}</option>)}</select></label>}<label className="management-filter">Status<select value={listingStatus} onChange={event => setListingStatus(event.target.value)}><option value="all">All statuses</option><option value="active">Live</option><option value="pending">Needs review</option><option value="paused">Paused</option><option value="sold">Sold</option></select></label><span>{filteredCars.length} {filteredCars.length === 1 ? 'listing' : 'listings'}</span></div><div className="management-listings">{filteredCars.map(car => <article className="management-car-row" key={car.id}><div className="management-car-image clickable" onClick={() => setReviewingCar(car)} title="Click to view vehicle details and photos">{car.image ? <img src={car.image} alt={`${car.year} ${car.make} ${car.model}`}/> : <CarFront size={22}/>}<span className="management-car-photo-pill" title="Listing photos count"><ImageIcon size={10} /> {(Array.isArray(car.photoIds) && car.photoIds.length > 0 ? car.photoIds.length : (car.imageId ? 1 : car.image ? 1 : 0))}</span></div><div className="management-car-name clickable" onClick={() => setReviewingCar(car)} title="Click to view vehicle details and documents"><b>{car.year} {car.make} {car.model}</b><span>{car.variant || 'Standard'} · {car.city}</span><small>{car.vendorName || (car.vendorId ? 'Dealer listing' : car.sellerUserId ? `Private seller · ${car.sellerName || 'Verified seller'}` : 'Cars21 direct')} · {car.id}</small></div><strong className="management-price">{formatINR(car.price)}</strong><div><StatusPill value={car.status || 'active'}/>{car.vendorId&&car.inspectionReviewStatus&&<small className="inspection-listing-status">Inspection · {car.inspectionReviewStatus.replace('_',' ')}</small>}<div className="management-car-verify-wrap"><span className={`car-verify-badge ${car.verificationStatus || (car.documentPhotoId ? 'under_verification' : 'unverified')}`}>{car.verificationStatus === 'verified' ? '✓ Verified RC' : car.verificationStatus === 'under_verification' ? '⏳ Under verification' : car.verificationStatus === 'rejected' ? '✕ RC Rejected' : '○ Unverified'}</span>{car.documentPhotoId && <a href={`/api/photos/${encodeURIComponent(car.documentPhotoId)}`} target="_blank" rel="noreferrer" className="management-doc-link" title="Open RC Document"><FileText size={12}/> View RC</a>}</div></div><div className="management-row-actions"><button type="button" className="management-view-car-btn" onClick={() => setReviewingCar(car)} title="View vehicle details, RC documents and inspection proof"><Eye size={14}/> <span>View car</span></button><a href={`/car/${encodeURIComponent(car.id)}`} target="_blank" rel="noreferrer" className="management-public-link" title="Open live public marketplace page in new tab" aria-label="Open public listing"><ExternalLink size={14}/></a>{(car.auctionId || car.inAuction) ? (<a href="/dealer-auctions" target="_blank" rel="noreferrer" className="management-auction-badge in-auction" title={`Listed in Live Auction Lot ${car.auctionNumber || ''}`}><Gavel size={13}/> <span>{car.auctionNumber || 'In Auction'}</span></a>) : (expectedRole !== 'vendor' && (<button type="button" className="management-auction-action-btn" title="List vehicle in physical yard or digital auction" onClick={() => setAuctionListingVehicle({ sourceType: 'inventory', carId: car.id, make: car.make, model: car.model, variant: car.variant, year: car.year, registration: car.documentNumber, km: car.km, fuel: car.fuel, transmission: car.transmission, price: car.price, city: car.city, conditionScore: Number(car.inspection?.conditionScore) || car.score || 90, image: car.image || (car.imageId ? `/api/photos/${car.imageId}` : undefined), photoIds: car.photoIds, rcVerified: car.verificationStatus === 'verified', sellerName: car.vendorName || car.sellerName })}><Gavel size={13}/> <span>Auction</span></button>))}{expectedRole !== 'vendor' && (<>{car.verificationStatus !== 'verified' && <button type="button" className="quick-verify-btn approve" title="Approve vehicle registration document" onClick={() => void verifyCarDoc(car, 'verified')}><Check size={13}/> <span>Approve RC</span></button>}{car.verificationStatus === 'verified' && <button type="button" className="quick-verify-btn reject" title="Reject vehicle registration document" onClick={() => void verifyCarDoc(car, 'rejected')}><X size={13}/> <span>Revoke RC</span></button>}</>)}{car.vendorSlug && <a href={`/dealers/${car.vendorSlug}`} target="_blank" rel="noreferrer" aria-label={`View ${car.vendorName || 'dealer'} profile`} title="Open dealer profile"><Store size={15}/></a>}<button aria-label={`Manage photos for ${car.make} ${car.model}`} onClick={() => setCarEditor(car)} title="Manage, change or delete images"><ImagePlus size={15}/></button><button aria-label={`Edit ${car.make} ${car.model}`} onClick={() => setCarEditor(car)} title="Edit listing"><Pencil size={15}/></button><button className="danger" aria-label={`Remove ${car.make} ${car.model}`} onClick={() => void removeCar(car)} title="Remove listing"><Trash2 size={15}/></button></div></article>)}{filteredCars.length === 0 && <div className="management-empty"><CarFront size={25}/><b>{dataLoading ? 'Loading inventory…' : 'No listings found'}</b><span>{search || listingStatus !== 'all' || listingVendor !== 'all' ? 'Try changing your search or filters.' : 'Add your first vehicle to get started.'}</span><button type="button" className="management-primary compact" style={{ marginTop: '12px' }} onClick={() => setCarEditor('new')}><Plus size={16}/> Add vehicle</button></div>}</div></>}
         {section === 'auctions' && expectedRole !== 'vendor' && <AuctionManager role={expectedRole}/>}
         {section === 'cities' && expectedRole !== 'vendor' && <CityManager/>}
         {section === 'makes' && expectedRole !== 'vendor' && <VehicleCompanyManager/>}
@@ -1369,6 +1375,40 @@ export function ManagementPanel({ role: expectedRole }: { role: Role }) {
           setCarEditor(c);
         }}
         onRefresh={refresh}
+        onListInAuction={(c) => {
+          setReviewingCar(null);
+          setAuctionListingVehicle({
+            sourceType: 'inventory',
+            carId: c.id,
+            make: c.make,
+            model: c.model,
+            variant: c.variant,
+            year: c.year,
+            registration: c.documentNumber,
+            km: c.km,
+            fuel: c.fuel,
+            transmission: c.transmission,
+            price: c.price,
+            city: c.city,
+            conditionScore: Number(c.inspection?.conditionScore) || c.score || 90,
+            image: c.image || (c.imageId ? `/api/photos/${c.imageId}` : undefined),
+            photoIds: c.photoIds,
+            rcVerified: c.verificationStatus === 'verified',
+            sellerName: c.vendorName || c.sellerName,
+          });
+        }}
+      />
+    )}
+    {auctionListingVehicle && (
+      <ListInAuctionModal
+        isOpen={Boolean(auctionListingVehicle)}
+        vehicle={auctionListingVehicle}
+        onClose={() => setAuctionListingVehicle(null)}
+        onSuccess={(auction) => {
+          setAuctionListingVehicle(null);
+          setNotice(`✓ ${auction.vehicle.year} ${auction.vehicle.make} ${auction.vehicle.model} listed in Auction Lot ${auction.auctionNumber}!`);
+          void refresh();
+        }}
       />
     )}
   </main>;
@@ -2002,7 +2042,8 @@ function CarReviewModal({
   onClose,
   onVerify,
   onEdit,
-  onRefresh
+  onRefresh,
+  onListInAuction
 }: {
   car: CarRecord;
   expectedRole: Role;
@@ -2011,6 +2052,7 @@ function CarReviewModal({
   onVerify: (car: CarRecord, status: 'verified' | 'rejected' | 'under_verification' | 'unverified', note?: string) => Promise<void>;
   onEdit: (car: CarRecord) => void;
   onRefresh?: () => Promise<void>;
+  onListInAuction?: (car: CarRecord) => void;
 }) {
   const [reviewNote, setReviewNote] = useState(car.verificationNote || '');
   const [actionSuccess, setActionSuccess] = useState('');
@@ -2129,7 +2171,54 @@ function CarReviewModal({
                 City: <b>{car.city}</b>
               </span>
             </div>
-            <div style={{ display: 'flex', gap: '6px' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {(car.auctionId || car.inAuction) ? (
+                <a
+                  href="/dealer-auctions"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    background: '#fef3c7',
+                    border: '1px solid #fde68a',
+                    color: '#92400e',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    textDecoration: 'none'
+                  }}
+                  title="View vehicle on Live Auctions desk"
+                >
+                  <Gavel size={14} /> Lot #{car.auctionNumber || 'Live'}
+                </a>
+              ) : (
+                onListInAuction && expectedRole !== 'vendor' && (
+                  <button
+                    type="button"
+                    onClick={() => onListInAuction(car)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      background: 'linear-gradient(135deg, #ea580c, #c2410c)',
+                      border: 'none',
+                      color: '#ffffff',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 6px rgba(234, 88, 12, 0.25)'
+                    }}
+                    title="List this vehicle in Yard or Online Digital Auction"
+                  >
+                    <Gavel size={14} /> List in Auction
+                  </button>
+                )
+              )}
               <button type="button" className="car-review-edit-btn" onClick={() => onEdit(car)}>
                 <Pencil size={14} /> Edit vehicle
               </button>
@@ -2543,6 +2632,16 @@ function CarReviewModal({
             <button type="button" className="management-secondary" onClick={onClose}>
               Close
             </button>
+            {onListInAuction && expectedRole !== 'vendor' && !(car.auctionId || car.inAuction) && (
+              <button
+                type="button"
+                className="management-primary"
+                style={{ background: 'linear-gradient(135deg, #ea580c, #c2410c)', borderColor: '#ea580c', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                onClick={() => onListInAuction(car)}
+              >
+                <Gavel size={15} /> List in Auction Lot
+              </button>
+            )}
             <button type="button" className="management-primary" onClick={() => onEdit(car)}>
               <Pencil size={15} /> Edit listing details
             </button>

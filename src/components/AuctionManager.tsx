@@ -30,6 +30,31 @@ function formatINR(val: number): string {
   return '₹' + Math.round(val).toLocaleString('en-IN');
 }
 
+function getRemainingTimeText(endsAt?: string, status?: string): { text: string; color: string; isEndingSoon: boolean } {
+  if (status === 'completed') {
+    return { text: 'Concluded', color: '#64748b', isEndingSoon: false };
+  }
+  if (!endsAt) {
+    return { text: 'Open Bidding', color: '#2563eb', isEndingSoon: false };
+  }
+  const diff = new Date(endsAt).getTime() - Date.now();
+  if (diff <= 0) {
+    return { text: status === 'live' ? 'Time Expired (Hammering)' : 'Past Schedule', color: '#dc2626', isEndingSoon: true };
+  }
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+  if (hours > 24) {
+    const days = Math.floor(hours / 24);
+    return { text: `${days}d ${hours % 24}h remaining`, color: '#2563eb', isEndingSoon: false };
+  }
+  if (hours > 0) {
+    return { text: `${hours}h ${mins}m remaining`, color: hours < 2 ? '#ea580c' : '#2563eb', isEndingSoon: hours < 2 };
+  }
+  return { text: `${mins}m ${secs}s remaining`, color: '#dc2626', isEndingSoon: true };
+}
+
 export function AuctionManager({ role }: { role: 'superadmin' | 'manager' | 'admin' | 'vendor' }) {
   const [auctions, setAuctions] = useState<AuctionRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,6 +93,106 @@ export function AuctionManager({ role }: { role: 'superadmin' | 'manager' | 'adm
   const [reservePrice, setReservePrice] = useState(1350000);
   const [minIncrement, setMinIncrement] = useState(10000);
   const [durationMinutes, setDurationMinutes] = useState(120);
+
+  // Quick Vehicle Auto-fill
+  const [linkedCarId, setLinkedCarId] = useState<string>('');
+  const [linkedInquiryId, setLinkedInquiryId] = useState<string>('');
+  const [selectedVehicleOption, setSelectedVehicleOption] = useState<string>('');
+  const [inventoryOptions, setInventoryOptions] = useState<any[]>([]);
+  const [inquiryOptions, setInquiryOptions] = useState<any[]>([]);
+  const [loadingOptions, setLoadingOptions] = useState(false);
+
+  // Extend Duration State
+  const [extendingAuction, setExtendingAuction] = useState<AuctionRecord | null>(null);
+  const [customExtendMinutes, setCustomExtendMinutes] = useState<string>('30');
+  const [extendDateTimeInput, setExtendDateTimeInput] = useState<string>('');
+  const [extendTab, setExtendTab] = useState<'preset' | 'datetime'>('preset');
+  const [extendingInFlight, setExtendingInFlight] = useState(false);
+
+  // Live countdown tick
+  const [, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(Date.now()), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const loadVehicleOptions = useCallback(async () => {
+    try {
+      setLoadingOptions(true);
+      const [carsRes, inqRes] = await Promise.all([
+        fetch('/api/cars?limit=100', { cache: 'no-store' }).then(r => r.json()).catch(() => ({ cars: [] })),
+        fetch('/api/sell-inquiries', { cache: 'no-store' }).then(r => r.json()).catch(() => ({ inquiries: [] })),
+      ]);
+      if (Array.isArray(carsRes.cars)) setInventoryOptions(carsRes.cars);
+      if (Array.isArray(inqRes.inquiries)) setInquiryOptions(inqRes.inquiries);
+    } catch (e) {
+      console.warn('Could not load vehicle options for auction auto-fill:', e);
+    } finally {
+      setLoadingOptions(false);
+    }
+  }, []);
+
+  const handleSelectVehicleOption = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setSelectedVehicleOption(val);
+    if (!val) {
+      setLinkedCarId('');
+      setLinkedInquiryId('');
+      return;
+    }
+    if (val.startsWith('inv:')) {
+      const carId = val.replace('inv:', '');
+      const car = inventoryOptions.find(c => c.id === carId);
+      if (car) {
+        setLinkedCarId(car.id);
+        setLinkedInquiryId('');
+        setMake(car.make || '');
+        setModel(car.model || '');
+        setVariant(car.variant || 'Standard');
+        setYear(Number(car.year) || new Date().getFullYear());
+        setRegistration(car.documentNumber || car.registration || 'GJ 11 AB 4589');
+        setKm(Number(car.km) || 0);
+        setFuel(car.fuel || 'Petrol');
+        setTransmission(car.transmission || 'Manual');
+        setConditionScore(Number(car.score) || 90);
+        const img = car.image || (car.imageId ? `/api/photos/${car.imageId}` : '');
+        if (img) setImageUrl(img);
+        const pr = Number(car.price) || 500000;
+        setStartingPrice(Math.round(pr * 0.8));
+        setReservePrice(pr);
+        setTitle(`${venueCity} ${car.year} ${car.make} ${car.model} ${auctionType === 'offline' ? 'Yard' : 'Digital'} Auction`);
+      }
+    } else if (val.startsWith('inq:')) {
+      const inqId = val.replace('inq:', '');
+      const inq = inquiryOptions.find(i => i.id === inqId);
+      if (inq) {
+        setLinkedInquiryId(inq.id);
+        setLinkedCarId('');
+        setMake(inq.vehicle?.make || inq.make || '');
+        setModel(inq.vehicle?.model || inq.model || '');
+        setVariant(inq.vehicle?.variant || inq.variant || 'Standard');
+        setYear(Number(inq.vehicle?.year || inq.year) || new Date().getFullYear());
+        setRegistration(inq.vehicle?.registrationNumber || inq.registration || inq.registrationNumber || 'GJ 11 AB 4589');
+        setKm(Number(inq.vehicle?.km || inq.km) || 0);
+        setFuel(inq.vehicle?.fuel || inq.fuel || 'Petrol');
+        setTransmission(inq.vehicle?.transmission || inq.transmission || 'Manual');
+        setConditionScore(Number(inq.conditionScore) || 90);
+        const photoId = inq.photos?.frontId || inq.photoFrontId;
+        const img = photoId ? `/api/photos/${photoId}` : '';
+        if (img) setImageUrl(img);
+        const pr = Number(inq.expectedPrice || inq.estimatedLow || 500000);
+        setStartingPrice(Math.round(pr * 0.8));
+        setReservePrice(pr);
+        setTitle(`${venueCity} ${inq.vehicle?.year || inq.year} ${inq.vehicle?.make || inq.make} ${inq.vehicle?.model || inq.model} B2B Yard Auction`);
+      }
+    }
+  };
+
+  const handleClearVehicleLink = () => {
+    setSelectedVehicleOption('');
+    setLinkedCarId('');
+    setLinkedInquiryId('');
+  };
 
   const fetchAuctions = useCallback(async () => {
     try {
@@ -109,6 +234,8 @@ export function AuctionManager({ role }: { role: 'superadmin' | 'manager' | 'adm
           coordinatorPhone,
         } : undefined,
         vehicle: {
+          carId: linkedCarId || undefined,
+          inquiryId: linkedInquiryId || undefined,
           make,
           model,
           variant,
@@ -127,7 +254,10 @@ export function AuctionManager({ role }: { role: 'superadmin' | 'manager' | 'adm
           reservePrice: Number(reservePrice),
           minIncrement: Number(minIncrement),
         },
-        durationMinutes: Number(durationMinutes),
+        schedule: {
+          durationMinutes: Number(durationMinutes),
+          startsAt: new Date().toISOString(),
+        },
       };
 
       const res = await fetch('/api/auctions', {
@@ -145,6 +275,65 @@ export function AuctionManager({ role }: { role: 'superadmin' | 'manager' | 'adm
       setError(err.message || 'Could not create auction');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Quick 1-click extend auction duration
+  const handleQuickExtend = async (auction: AuctionRecord, minutes: number) => {
+    try {
+      setSaving(true);
+      setError('');
+      const res = await fetch(`/api/auctions/${encodeURIComponent(auction.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ extendMinutes: minutes })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to extend auction duration');
+      const newEnd = data.auction?.schedule?.endsAt ? new Date(data.auction.schedule.endsAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '';
+      setNotice(`✓ Lot ${auction.auctionNumber} duration extended by +${minutes}m! New end time: ${newEnd}`);
+      setTimeout(() => setNotice(''), 4500);
+      await fetchAuctions();
+    } catch (err: any) {
+      setError(err.message || 'Could not extend auction duration');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Custom modal extend duration handler
+  const handleApplyCustomExtension = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!extendingAuction) return;
+    setExtendingInFlight(true);
+    setError('');
+    try {
+      let payload: any = {};
+      if (extendTab === 'preset') {
+        const mins = Number(customExtendMinutes) || 30;
+        payload = { extendMinutes: mins };
+      } else {
+        if (!extendDateTimeInput) throw new Error('Please pick a valid future end date and time.');
+        payload = { schedule: { endsAt: new Date(extendDateTimeInput).toISOString() } };
+      }
+
+      const res = await fetch(`/api/auctions/${encodeURIComponent(extendingAuction.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to extend auction');
+
+      const newEnd = data.auction?.schedule?.endsAt ? new Date(data.auction.schedule.endsAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) : '';
+      setNotice(`✓ Lot ${extendingAuction.auctionNumber} duration updated successfully! Ends at: ${newEnd}`);
+      setExtendingAuction(null);
+      setTimeout(() => setNotice(''), 4500);
+      await fetchAuctions();
+    } catch (err: any) {
+      setError(err.message || 'Could not extend auction');
+    } finally {
+      setExtendingInFlight(false);
     }
   };
 
@@ -235,6 +424,7 @@ export function AuctionManager({ role }: { role: 'superadmin' | 'manager' | 'adm
               className="management-primary"
               onClick={() => {
                 setTitle('');
+                void loadVehicleOptions();
                 setModalOpen(true);
               }}
               style={{
@@ -493,10 +683,33 @@ export function AuctionManager({ role }: { role: 'superadmin' | 'manager' | 'adm
                       )}
                     </div>
                   )}
+
+                  {/* Schedule & Live Timer Strip */}
+                  {(() => {
+                    const timerInfo = getRemainingTimeText(auction.schedule?.endsAt, auction.status);
+                    return (
+                      <div style={{ marginTop: '8px', padding: '8px 10px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                          <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Clock3 size={12} color="#2563eb" />
+                            {isCompleted ? 'Ended' : isLive ? 'Live Timer' : 'Scheduled'}
+                          </span>
+                          <span style={{ fontSize: '10.5px', fontWeight: 800, color: timerInfo.color }}>
+                            {timerInfo.text}
+                          </span>
+                        </div>
+                        {auction.schedule?.endsAt && (
+                          <small style={{ fontSize: '9.5px', color: '#64748b', display: 'block', marginTop: '2px' }}>
+                            Ends: {new Date(auction.schedule.endsAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}, {new Date(auction.schedule.endsAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} ({auction.schedule?.durationMinutes || 120}m)
+                          </small>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Actions */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end', width: '100%' }}>
                   <a
                     href="/dealer-auctions"
                     target="_blank"
@@ -513,6 +726,69 @@ export function AuctionManager({ role }: { role: 'superadmin' | 'manager' | 'adm
                   >
                     View on Live Auction Page <ExternalLink size={12} />
                   </a>
+
+                  {/* Extend Duration Box */}
+                  {(role === 'superadmin' || role === 'manager' || role === 'admin') && (
+                    <div style={{ width: '100%', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '10.5px', fontWeight: 800, color: '#c2410c', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Clock3 size={12} color="#ea580c" /> Extend Duration
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExtendingAuction(auction);
+                            setCustomExtendMinutes('30');
+                            setExtendDateTimeInput('');
+                            setExtendTab('preset');
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            fontSize: '10.5px',
+                            fontWeight: 750,
+                            color: '#ea580c',
+                            cursor: 'pointer',
+                            padding: 0,
+                            textDecoration: 'underline'
+                          }}
+                          title="Open custom duration / date-time picker"
+                        >
+                          Custom…
+                        </button>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
+                        {[
+                          { label: '+15m', mins: 15 },
+                          { label: '+30m', mins: 30 },
+                          { label: '+1h', mins: 60 },
+                          { label: '+2h', mins: 120 },
+                        ].map(preset => (
+                          <button
+                            key={preset.label}
+                            type="button"
+                            disabled={saving}
+                            onClick={() => handleQuickExtend(auction, preset.mins)}
+                            title={`Add +${preset.mins} minutes immediately`}
+                            style={{
+                              padding: '5px 0',
+                              fontSize: '10.5px',
+                              fontWeight: 800,
+                              background: '#ffffff',
+                              border: '1px solid #fdba74',
+                              borderRadius: '5px',
+                              color: '#c2410c',
+                              cursor: saving ? 'wait' : 'pointer',
+                              textAlign: 'center',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {isLive && (role === 'superadmin' || role === 'manager' || role === 'admin') && (
                     <button
@@ -614,6 +890,70 @@ export function AuctionManager({ role }: { role: 'superadmin' | 'manager' | 'adm
             </div>
 
             <form onSubmit={handleCreateAuction} style={{ display: 'grid', gap: '16px' }}>
+              {/* Quick Auto-Fill Vehicle Selector */}
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                  <b style={{ fontSize: '12px', color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Sparkles size={15} color="#16a34a" />
+                    Quick Import Vehicle from Inventory or Sell Requests
+                  </b>
+                  <small style={{ color: '#15803d', fontSize: '11px' }}>
+                    {loadingOptions ? 'Fetching vehicles…' : 'Optional · Auto-fills all vehicle fields'}
+                  </small>
+                </div>
+                <select
+                  value={selectedVehicleOption}
+                  onChange={handleSelectVehicleOption}
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #86efac',
+                    background: '#ffffff',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: '#1e293b',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="">-- Choose vehicle to auto-populate (or type manually below) --</option>
+                  {inventoryOptions.length > 0 && (
+                    <optgroup label="Marketplace Inventory (cars collection)">
+                      {inventoryOptions.map((item: any) => (
+                        <option key={`inv-${item.id}`} value={`inv:${item.id}`}>
+                          🚗 {item.year} {item.make} {item.model} {item.variant ? `(${item.variant})` : ''} · ₹{Math.round(item.price || 0).toLocaleString('en-IN')}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {inquiryOptions.length > 0 && (
+                    <optgroup label="Sell Car Inquiries (sellInquiries collection)">
+                      {inquiryOptions.map((item: any) => (
+                        <option key={`inq-${item.id}`} value={`inq:${item.id}`}>
+                          📋 {item.vehicle?.year || item.year} {item.vehicle?.make || item.make} {item.vehicle?.model || item.model} [{item.inquiryNumber}] · Expected ₹{Math.round(item.expectedPrice || item.estimatedLow || 0).toLocaleString('en-IN')}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+                {(linkedCarId || linkedInquiryId) && (
+                  <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#15803d' }}>
+                    <CheckCircle2 size={13} />
+                    <span>
+                      Vehicle linked to <b>{linkedCarId ? `Inventory Car #${linkedCarId}` : `Sell Request #${linkedInquiryId}`}</b>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleClearVehicleLink}
+                      style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}
+                    >
+                      Clear link
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {/* Auction Type Selector */}
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
@@ -980,6 +1320,252 @@ export function AuctionManager({ role }: { role: 'superadmin' | 'manager' | 'adm
                   }}
                 >
                   {saving ? 'Publishing Lot...' : 'Organize & Publish Auction'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Extend Duration Modal */}
+      {extendingAuction && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'grid',
+            placeItems: 'center',
+            zIndex: 9999,
+            padding: '20px',
+            overflowY: 'auto'
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '20px',
+              maxWidth: '540px',
+              width: '100%',
+              padding: '24px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div>
+                <span style={{ fontSize: '11px', fontWeight: 800, color: '#ea580c', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Clock3 size={13} color="#ea580c" /> AUCTION LOT DURATION CONTROLS
+                </span>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, margin: '2px 0 0', color: '#0f172a' }}>
+                  Extend Auction Duration
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExtendingAuction(null)}
+                style={{ width: '30px', height: '30px', borderRadius: '50%', border: '1px solid #e2e8f0', background: '#f8fafc', cursor: 'pointer', fontSize: '14px' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Vehicle & Schedule Info Box */}
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <b style={{ fontSize: '13px', color: '#0f172a' }}>
+                  {extendingAuction.vehicle.year} {extendingAuction.vehicle.make} {extendingAuction.vehicle.model}
+                </b>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#2563eb', background: '#eff6ff', padding: '2px 6px', borderRadius: '4px' }}>
+                  {extendingAuction.auctionNumber}
+                </span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '11px', color: '#475569', marginTop: '8px' }}>
+                <div>
+                  <small style={{ color: '#94a3b8', display: 'block' }}>Current Status</small>
+                  <b style={{ textTransform: 'uppercase', color: extendingAuction.status === 'live' ? '#16a34a' : '#64748b' }}>
+                    {extendingAuction.status}
+                  </b>
+                </div>
+                <div>
+                  <small style={{ color: '#94a3b8', display: 'block' }}>Current End Time</small>
+                  <b>
+                    {new Date(extendingAuction.schedule.endsAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}, {new Date(extendingAuction.schedule.endsAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                  </b>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleApplyCustomExtension} style={{ display: 'grid', gap: '14px' }}>
+              {/* Tab Selector: Minutes Preset vs Specific Datetime */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: '#f1f5f9', padding: '4px', borderRadius: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setExtendTab('preset')}
+                  style={{
+                    padding: '8px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: extendTab === 'preset' ? '#ffffff' : 'transparent',
+                    color: extendTab === 'preset' ? '#0f172a' : '#64748b',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: extendTab === 'preset' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                  }}
+                >
+                  Add Minutes / Hours
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExtendTab('datetime')}
+                  style={{
+                    padding: '8px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: extendTab === 'datetime' ? '#ffffff' : 'transparent',
+                    color: extendTab === 'datetime' ? '#0f172a' : '#64748b',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: extendTab === 'datetime' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                  }}
+                >
+                  Pick Specific Date & Time
+                </button>
+              </div>
+
+              {extendTab === 'preset' ? (
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: '#334155' }}>
+                    Select Duration Extension Preset
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                    {[
+                      { label: '+15 Mins', mins: 15 },
+                      { label: '+30 Mins', mins: 30 },
+                      { label: '+45 Mins', mins: 45 },
+                      { label: '+1 Hour', mins: 60 },
+                      { label: '+2 Hours', mins: 120 },
+                      { label: '+4 Hours', mins: 240 },
+                      { label: '+12 Hours', mins: 720 },
+                      { label: '+24 Hours', mins: 1440 },
+                    ].map(p => {
+                      const isSelected = Number(customExtendMinutes) === p.mins;
+                      return (
+                        <button
+                          key={p.label}
+                          type="button"
+                          onClick={() => setCustomExtendMinutes(String(p.mins))}
+                          style={{
+                            padding: '8px 4px',
+                            borderRadius: '8px',
+                            border: isSelected ? '2px solid #ea580c' : '1px solid #e2e8f0',
+                            background: isSelected ? '#fff7ed' : '#f8fafc',
+                            color: isSelected ? '#c2410c' : '#334155',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            textAlign: 'center'
+                          }}
+                        >
+                          {p.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div style={{ marginTop: '4px' }}>
+                    <label style={{ fontSize: '11px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                      Or Type Custom Minutes
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="10080"
+                      value={customExtendMinutes}
+                      onChange={e => setCustomExtendMinutes(e.target.value)}
+                      placeholder="e.g. 45"
+                      style={{
+                        width: '100%',
+                        height: '38px',
+                        padding: '0 10px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '13px',
+                        fontWeight: 600
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: '#334155', display: 'block', marginBottom: '4px' }}>
+                    New Auction End Date & Time
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={extendDateTimeInput}
+                    onChange={e => setExtendDateTimeInput(e.target.value)}
+                    required={extendTab === 'datetime'}
+                    style={{
+                      width: '100%',
+                      height: '40px',
+                      padding: '0 10px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '13px',
+                      fontWeight: 600
+                    }}
+                  />
+                  <small style={{ color: '#64748b', fontSize: '11px', display: 'block', marginTop: '4px' }}>
+                    Select when the hammer should drop and bidding officially concludes.
+                  </small>
+                </div>
+              )}
+
+              {/* Submit / Cancel Actions */}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setExtendingAuction(null)}
+                  style={{
+                    flex: 1,
+                    height: '40px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    background: '#ffffff',
+                    color: '#475569',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={extendingInFlight}
+                  style={{
+                    flex: 2,
+                    height: '40px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #ea580c, #c2410c)',
+                    color: '#ffffff',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: extendingInFlight ? 'wait' : 'pointer',
+                    boxShadow: '0 4px 12px rgba(234, 88, 12, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Check size={15} />
+                  {extendingInFlight ? 'Extending Duration…' : 'Confirm & Extend Duration'}
                 </button>
               </div>
             </form>

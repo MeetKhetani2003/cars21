@@ -38,8 +38,45 @@ export async function PATCH(request: NextRequest, context: Context) {
     const body = await request.json().catch(() => ({}));
     const updateFields: Record<string, any> = { updatedAt: new Date().toISOString() };
 
+    const db = await getDb();
+    const existing = await db.collection('auctions').findOne({ id });
+    if (!existing) {
+      return NextResponse.json({ error: 'Auction not found.' }, { status: 404 });
+    }
+
     if (body.status) {
       updateFields.status = body.status;
+    }
+
+    if (body.vehicle) {
+      updateFields.vehicle = body.vehicle;
+    }
+
+    if (body.title) {
+      updateFields.title = String(body.title).trim();
+    }
+
+    if (body.auctionType) {
+      updateFields.auctionType = body.auctionType;
+    }
+
+    if (body.venue) {
+      updateFields.venue = body.venue;
+    }
+
+    // Extend auction duration support
+    if (typeof body.extendMinutes === 'number' && body.extendMinutes > 0) {
+      const currentEndsAtMs = existing.schedule?.endsAt ? new Date(existing.schedule.endsAt).getTime() : Date.now();
+      const baseMs = Math.max(Date.now(), currentEndsAtMs);
+      const newEndsAt = new Date(baseMs + body.extendMinutes * 60 * 1000).toISOString();
+      updateFields['schedule.endsAt'] = newEndsAt;
+      const prevDuration = Number(existing.schedule?.durationMinutes) || 0;
+      updateFields['schedule.durationMinutes'] = prevDuration + body.extendMinutes;
+
+      // If it was completed or cancelled, reactivate to live
+      if (existing.status === 'completed' || existing.status === 'cancelled') {
+        updateFields.status = 'live';
+      }
     }
 
     // Declare winner explicitly
@@ -61,9 +98,10 @@ export async function PATCH(request: NextRequest, context: Context) {
 
     if (body.schedule) {
       if (body.schedule.endsAt) updateFields['schedule.endsAt'] = new Date(body.schedule.endsAt).toISOString();
+      if (body.schedule.durationMinutes !== undefined) updateFields['schedule.durationMinutes'] = Number(body.schedule.durationMinutes);
+      if (body.schedule.startsAt) updateFields['schedule.startsAt'] = new Date(body.schedule.startsAt).toISOString();
     }
 
-    const db = await getDb();
     const result = await db.collection('auctions').updateOne(
       { id },
       { $set: updateFields }
@@ -75,10 +113,45 @@ export async function PATCH(request: NextRequest, context: Context) {
 
     const updated = await db.collection('auctions').findOne({ id });
     const { _id, ...rest } = updated!;
+    const auctionDoc: any = { ...rest, id: (rest as any).id || _id.toString() };
+
+    // Link car in cars collection if linked with carId
+    const targetCarId = body.vehicle?.carId || existing.vehicle?.carId;
+    if (targetCarId) {
+      await db.collection('cars').updateOne(
+        { id: targetCarId },
+        {
+          $set: {
+            auctionId: id,
+            auctionNumber: auctionDoc.auctionNumber,
+            inAuction: auctionDoc.status === 'live' || auctionDoc.status === 'upcoming',
+            auctionStatus: auctionDoc.status,
+            updatedAt: new Date()
+          }
+        }
+      );
+    }
+
+    // Link sell inquiry in sellInquiries collection if linked with inquiryId
+    const targetInquiryId = body.vehicle?.inquiryId || existing.vehicle?.inquiryId;
+    if (targetInquiryId) {
+      await db.collection('sellInquiries').updateOne(
+        { id: targetInquiryId },
+        {
+          $set: {
+            auctionId: id,
+            auctionNumber: auctionDoc.auctionNumber,
+            inAuction: auctionDoc.status === 'live' || auctionDoc.status === 'upcoming',
+            auctionStatus: auctionDoc.status,
+            updatedAt: new Date().toISOString()
+          }
+        }
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      auction: { ...rest, id: rest.id || _id.toString() },
+      auction: auctionDoc,
       message: 'Auction updated successfully.',
     });
   } catch (err) {
