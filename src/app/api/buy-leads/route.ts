@@ -14,6 +14,7 @@ const leadSchema = z.object({
   city: z.string().trim().min(2, 'Please enter or select your city').max(80),
   carId: z.string().trim().max(100).optional(),
   source: z.string().trim().max(100).optional().default('buy_car_modal'),
+  visitorId: z.string().trim().max(120).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -29,6 +30,9 @@ export async function POST(request: NextRequest) {
     const db = await getDb();
 
     const id = `buy-lead-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const isGoogle = session?.role === 'buyer' && Boolean(session.sub);
+    const actionUserId = isGoogle ? session.sub : `lead_${parsed.data.phone}`;
+
     const doc = {
       id,
       name: parsed.data.name,
@@ -36,7 +40,8 @@ export async function POST(request: NextRequest) {
       city: parsed.data.city,
       carId: parsed.data.carId || null,
       source: parsed.data.source,
-      userId: session?.role === 'buyer' ? session.sub : null,
+      userId: actionUserId,
+      isGoogleUser: isGoogle,
       status: 'new' as const,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -44,22 +49,37 @@ export async function POST(request: NextRequest) {
 
     await db.collection('buyLeads').insertOne(doc);
 
-    // Also record user action if user is logged in
-    if (session?.role === 'buyer') {
-      await db.collection('user_actions').insertOne({
-        userId: session.sub,
-        clientName: parsed.data.name,
-        clientEmail: session.email || '',
-        action: 'buy_lead_captured',
-        targetType: 'lead',
-        targetLabel: `${parsed.data.name} (${parsed.data.city})`,
-        phone: parsed.data.phone,
-        city: parsed.data.city,
-        createdAt: new Date()
-      }).catch(() => null);
+    // Record lead capture action into user_actions telemetry
+    await db.collection('user_actions').insertOne({
+      userId: actionUserId,
+      clientName: parsed.data.name,
+      clientEmail: isGoogle ? (session.email || '') : `${parsed.data.phone}@lead.cars21.com`,
+      phone: parsed.data.phone,
+      city: parsed.data.city,
+      isLeadSession: !isGoogle,
+      action: 'buy_lead_captured',
+      targetType: 'lead',
+      targetLabel: `Lead Form Submitted: ${parsed.data.name} (${parsed.data.phone}, ${parsed.data.city})`,
+      createdAt: new Date()
+    }).catch(() => null);
+
+    // Connect previous guest actions to this lead session
+    if (parsed.data.visitorId) {
+      await db.collection('user_actions').updateMany(
+        { userId: parsed.data.visitorId },
+        { 
+          $set: { 
+            userId: actionUserId, 
+            clientName: parsed.data.name, 
+            phone: parsed.data.phone, 
+            city: parsed.data.city,
+            isLeadSession: true
+          } 
+        }
+      ).catch(() => null);
     }
 
-    return NextResponse.json({ ok: true, leadId: id });
+    return NextResponse.json({ ok: true, leadId: id, actionUserId });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unable to record lead. Please try again.' },

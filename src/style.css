@@ -673,8 +673,8 @@ button:disabled{cursor:not-allowed;opacity:.55}
 /* Enhanced Modern Car Card */
 .car-card{border:1px solid #e2e8f0;border-radius:18px;background:#ffffff;box-shadow:0 6px 20px rgba(15,23,42,0.03);overflow:hidden;transition:all 0.25s}
 .car-card:hover{transform:translateY(-4px);box-shadow:0 20px 42px rgba(15,23,42,0.08);border-color:#cbd5e1}
-.car-photo{height:185px;position:relative;background:#f1f5f9;overflow:hidden}
-.car-photo img{width:100%;height:100%;object-fit:cover;transition:transform 0.5s cubic-bezier(0.16,1,0.3,1)}
+.car-photo{height:185px;position:relative;background:#f1f5f9;overflow:hidden;display:block}
+.car-photo img{width:100%;height:100%;object-fit:cover;object-position:center 72%;transition:transform 0.5s cubic-bezier(0.16,1,0.3,1)}
 .car-card:hover .car-photo img{transform:scale(1.05)}
 .photo-badge{background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.18);color:#ffffff;padding:5px 9px;border-radius:8px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;gap:5px;position:absolute;top:12px;left:12px}
 .photo-badge svg{color:#34d399}
@@ -910,6 +910,8 @@ button:disabled{cursor:not-allowed;opacity:.55}
   position:relative!important;
   overflow:hidden!important;
   background:#f1f5f9!important;
+  padding:0!important;
+  box-sizing:border-box!important;
 }
 .car-photo-link{
   display:block;
@@ -920,7 +922,7 @@ button:disabled{cursor:not-allowed;opacity:.55}
   width:100%!important;
   height:100%!important;
   object-fit:cover!important;
-  object-position:center 58%!important;
+  object-position:center 72%!important;
   transition:transform 0.5s cubic-bezier(0.16,1,0.3,1)!important;
 }
 .car-card:hover .car-photo img{
@@ -2322,6 +2324,8 @@ button:disabled{cursor:not-allowed;opacity:.55}
   aspect-ratio: 16 / 10 !important;
   overflow: hidden !important;
   background: #f1f5f9 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
 }
 
 .car-photo img,
@@ -2329,6 +2333,7 @@ button:disabled{cursor:not-allowed;opacity:.55}
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
+  object-position: center 72% !important;
   transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
@@ -3049,15 +3054,23 @@ button:disabled{cursor:not-allowed;opacity:.55}
 }
 .gallery-photo-main{
   position:relative;
-  aspect-ratio:16/9.5;
+  min-height:500px !important;
+  height:540px !important;
+  aspect-ratio:16/10;
   border-radius:14px;
   overflow:hidden;
-  background:#f1f5f9;
+  background:#0f172a;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:8px !important;
+  box-sizing:border-box !important;
 }
 .stage-main-img{
   width:100%;
   height:100%;
-  object-fit:cover;
+  object-fit:contain !important;
+  object-position:center center !important;
 }
 .stage-floating-badges{
   position:absolute;
@@ -6251,8 +6264,22 @@ body {
   }
 
   .gallery-photo-main {
-    aspect-ratio: 16/10 !important;
-    border-radius: 8px !important;
+    min-height: 290px !important;
+    height: 310px !important;
+    aspect-ratio: 4/3 !important;
+    border-radius: 10px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 6px !important;
+    box-sizing: border-box !important;
+  }
+
+  .stage-main-img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+    object-position: center center !important;
   }
 
   .stage-badge-assured {
@@ -10790,16 +10817,17 @@ html, body {
   border-color: #cbd5e1 !important;
 }
 
-/* Card Photo Stage */
+/* Card Photo Stage - Edge-to-Edge Full Width Vehicle Framing (Spinny & Cars24 Standard) */
 .car-card .car-photo {
   position: relative !important;
   width: 100% !important;
   max-width: 100% !important;
   min-width: 0 !important;
   aspect-ratio: 16 / 10 !important;
-  height: auto !important;
+  min-height: 180px !important;
   overflow: hidden !important;
   background: #f1f5f9 !important;
+  padding: 0 !important;
   box-sizing: border-box !important;
 }
 
@@ -10810,6 +10838,7 @@ html, body {
   min-width: 0 !important;
   height: 100% !important;
   object-fit: cover !important;
+  object-position: center 72% !important;
   display: block !important;
   box-sizing: border-box !important;
   transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
@@ -10977,7 +11006,20 @@ html, body {
   transform: translateX(3px) !important;
 }
 
+@media (max-width: 768px) {
+  .car-card .car-photo {
+    aspect-ratio: 16 / 10.5 !important;
+    min-height: 125px !important;
+    padding: 0 !important;
+  }
+}
+
 @media (max-width: 480px) {
+  .car-card .car-photo {
+    aspect-ratio: 16 / 11 !important;
+    min-height: 110px !important;
+    padding: 0 !important;
+  }
   .car-card .car-card-body {
     padding: 6px 7px 8px !important;
     gap: 2px !important;

@@ -3,34 +3,42 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { ArrowRight, Check, CheckCircle2, MapPin, MessageSquareText, ShieldCheck, Sparkles, User, X } from 'lucide-react';
 
-const POPULAR_METROS = [
-  'Bengaluru',
+const DEFAULT_POPULAR_METROS = [
+  'Junagadh',
+  'Rajkot',
+  'Ahmedabad',
+  'Surat',
+  'Vadodara',
   'Mumbai',
   'Delhi NCR',
-  'Hyderabad',
+  'Bengaluru',
   'Pune',
-  'Ahmedabad',
-  'Chennai',
-  'Kolkata'
+  'Hyderabad'
 ];
 
-const ALL_CITIES = [
-  'Bengaluru',
+const DEFAULT_ALL_CITIES = [
+  'Junagadh',
+  'Rajkot',
+  'Ahmedabad',
+  'Surat',
+  'Vadodara',
+  'Jamnagar',
+  'Bhavnagar',
+  'Gandhinagar',
+  'Gondal',
+  'Jetpur',
+  'Morbi',
+  'Porbandar',
+  'Amreli',
+  'Veraval',
   'Mumbai',
   'Delhi NCR',
-  'Hyderabad',
+  'Bengaluru',
   'Pune',
-  'Ahmedabad',
-  'Chennai',
-  'Kolkata',
+  'Hyderabad',
   'Jaipur',
-  'Surat',
-  'Chandigarh',
-  'Kochi',
   'Indore',
-  'Lucknow',
-  'Nagpur',
-  'Coimbatore'
+  'Other'
 ];
 
 export function BuyCarLeadModal({
@@ -44,14 +52,16 @@ export function BuyCarLeadModal({
 }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [city, setCity] = useState('Bengaluru');
+  const [city, setCity] = useState('Junagadh');
   const [customCity, setCustomCity] = useState('');
+  const [allCities, setAllCities] = useState<string[]>(DEFAULT_ALL_CITIES);
+  const [popularMetros, setPopularMetros] = useState<string[]>(DEFAULT_POPULAR_METROS);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const dialogRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
-  // Prepopulate city from localStorage or active setting
+  // Prepopulate city from localStorage or active setting, and load registered cities
   useEffect(() => {
     try {
       const savedCity = localStorage.getItem('cars21_city');
@@ -59,6 +69,20 @@ export function BuyCarLeadModal({
         setCity(savedCity);
       }
     } catch {}
+
+    fetch('/api/admin/cities')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data.cities) && data.cities.length > 0) {
+          const names = data.cities.filter((c: any) => c.status !== 'inactive').map((c: any) => c.name);
+          setAllCities(prev => [...new Set([...names, ...prev])]);
+          const pop = data.cities.filter((c: any) => c.popular && c.status !== 'inactive').map((c: any) => c.name);
+          if (pop.length > 0) {
+            setPopularMetros(prev => [...new Set([...pop, ...prev])]);
+          }
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const cleanDigits = phone.replace(/\D/g, '').slice(0, 10);
@@ -105,7 +129,7 @@ export function BuyCarLeadModal({
     setLoading(false);
   }, [open]);
 
-  const activeCity = customCity.trim() ? customCity.trim() : city;
+  const activeCity = city === 'Other' ? (customCity.trim() || '') : (customCity.trim() ? customCity.trim() : city);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -118,7 +142,7 @@ export function BuyCarLeadModal({
       return;
     }
     if (!activeCity) {
-      setError('Please select or specify your city.');
+      setError(city === 'Other' ? 'Please type your city or town name.' : 'Please select or specify your city.');
       return;
     }
 
@@ -126,11 +150,19 @@ export function BuyCarLeadModal({
     setError('');
 
     try {
+      let visitorId = '';
+      try {
+        visitorId = localStorage.getItem('cars21_visitor_id') || sessionStorage.getItem('cars21_visitor_id') || '';
+        localStorage.setItem('cars21_city', activeCity);
+        window.dispatchEvent(new CustomEvent('cars21:city-change', { detail: { city: activeCity } }));
+      } catch {}
+
       const payload = {
         name: name.trim(),
         phone: cleanDigits,
         city: activeCity,
-        source: 'entrance_or_buy_modal'
+        source: 'entrance_or_buy_modal',
+        visitorId: visitorId || undefined
       };
 
       const response = await fetch('/api/buy-leads', {
@@ -288,21 +320,37 @@ export function BuyCarLeadModal({
                   value={city}
                   onChange={e => {
                     setCity(e.target.value);
-                    setCustomCity('');
+                    if (e.target.value !== 'Other') setCustomCity('');
                   }}
                   className="lead-input-element"
                   style={{ cursor: 'pointer', appearance: 'auto' }}
                 >
-                  {ALL_CITIES.map(c => (
+                  {allCities.map(c => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
               </div>
 
+              {/* Other Custom City Input Box */}
+              {city === 'Other' && (
+                <div className="lead-input-box" style={{ marginTop: '8px' }}>
+                  <span className="lead-input-icon"><MapPin size={17} /></span>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Type your town or city name"
+                    value={customCity}
+                    onChange={e => setCustomCity(e.target.value)}
+                    className="lead-input-element"
+                    autoFocus
+                  />
+                </div>
+              )}
+
               {/* Quick 1-Click Metro Chips */}
               <div className="lead-city-chips-label">Popular Hubs (Tap to Select):</div>
               <div className="lead-city-chips-wrap">
-                {POPULAR_METROS.map(m => {
+                {popularMetros.slice(0, 10).map(m => {
                   const isSelected = activeCity.toLowerCase() === m.toLowerCase();
                   return (
                     <button

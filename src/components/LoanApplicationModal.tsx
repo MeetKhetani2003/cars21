@@ -192,6 +192,25 @@ export function LoanApplicationModal({
         throw new Error(data.error || 'Failed to submit loan application.');
       }
 
+      // Record telemetry in user_actions under lead / session
+      void fetch('/api/user/actions', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'emi_calculate',
+          carPrice: car.price,
+          loanAmount,
+          tenureMonths,
+          interestRate,
+          monthlyEmi,
+          leadPhone: cleanMobile,
+          leadName: name.trim(),
+          leadCity: city.trim(),
+          label: `Applied Car Loan: ₹${loanAmount.toLocaleString('en-IN')} (₹${monthlyEmi.toLocaleString('en-IN')}/mo) on ${car.year} ${car.make} ${car.model}`
+        })
+      }).catch(() => null);
+
       setSuccessResult({
         applicationNumber: data.applicationNumber,
         id: data.id,

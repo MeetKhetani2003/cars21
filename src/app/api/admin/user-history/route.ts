@@ -29,14 +29,20 @@ export async function GET(request: NextRequest) {
         { $match: { userId: { $exists: true, $ne: '' } } },
         { $sort: { createdAt: -1 } },
         { $group: {
-          _id: '$userId', name: { $first: '$clientName' }, email: { $first: '$clientEmail' }, lastSeen: { $max: '$createdAt' },
+          _id: '$userId', 
+          name: { $first: '$clientName' }, 
+          email: { $first: '$clientEmail' },
+          phone: { $first: '$phone' },
+          city: { $first: '$city' },
+          isLeadSession: { $first: '$isLeadSession' },
+          lastSeen: { $max: '$createdAt' },
           recentCount: { $sum: { $cond: [{ $gte: ['$createdAt', cutoff] }, 1, 0] } },
           historyCount: { $sum: { $cond: [{ $lt: ['$createdAt', cutoff] }, 1, 0] } },
           totalCount: { $sum: 1 },
         } },
         ...(bucket === 'recent' ? [{ $match: { recentCount: { $gt: 0 } } }] : bucket === 'history' ? [{ $match: { historyCount: { $gt: 0 } } }] : []),
         { $sort: { lastSeen: -1 } }, { $limit: 1000 },
-        { $project: { _id: 0, userId: '$_id', name: 1, email: 1, lastSeen: 1, recentCount: 1, historyCount: 1, totalCount: 1 } },
+        { $project: { _id: 0, userId: '$_id', name: 1, email: 1, phone: 1, city: 1, isLeadSession: 1, lastSeen: 1, recentCount: 1, historyCount: 1, totalCount: 1 } },
       ]).toArray();
       return NextResponse.json({ clients, bucket, cutoff });
     }
@@ -60,15 +66,61 @@ export async function GET(request: NextRequest) {
     if (dateConditions.length === 1) filter.createdAt = dateConditions[0];
     else if (dateConditions.length > 1) filter.$and = dateConditions.map(createdAt => ({ createdAt }));
     const targetType = searchParams.get('targetType');
-    if (targetType && ['car', 'vendor', 'search'].includes(targetType)) filter.targetType = targetType;
+    if (targetType && ['car', 'vendor', 'search', 'lead', 'inspection', 'dealer', 'general', 'emi'].includes(targetType)) filter.targetType = targetType;
     const carId = searchParams.get('carId')?.slice(0, 100);
     const vendorId = searchParams.get('vendorId')?.slice(0, 100);
     if (carId) filter.carId = carId;
     if (vendorId) filter.vendorId = vendorId;
-    const [events, client] = await Promise.all([
+
+    const rawPhone = userId.startsWith('lead_') ? userId.replace('lead_', '') : '';
+    const [events, client, lead] = await Promise.all([
       collection.find(filter).sort({ createdAt: -1 }).limit(2000).toArray(),
-      db.collection<Record<string, unknown>>('buyers').findOne({ id: userId }, { projection: { name: 1, email: 1 } }),
+      db.collection<Record<string, unknown>>('buyers').findOne({ id: userId }, { projection: { name: 1, email: 1, phone: 1, city: 1 } }),
+      rawPhone ? db.collection<Record<string, unknown>>('buyLeads').findOne({ phone: rawPhone }, { projection: { name: 1, phone: 1, city: 1 } }) : null
     ]);
-    return NextResponse.json({ client: client ? { name: client.name, email: client.email } : null, events: events.map(event => ({ id: String(event._id), action: event.action, targetType: event.targetType, targetLabel: event.targetLabel, carId: event.carId, carLabel: event.carLabel, vendorId: event.vendorId, vendorName: event.vendorName, createdAt: event.createdAt })) });
+
+    const firstEvent = events[0] || {};
+    const clientInfo = client
+      ? { 
+          name: String(client.name || 'Cars21 Member'), 
+          email: String(client.email || ''), 
+          phone: String(client.phone || firstEvent.phone || ''), 
+          city: String(client.city || firstEvent.city || ''),
+          isLeadSession: false 
+        }
+      : lead
+        ? {
+            name: String(lead.name || 'Cars21 Lead'),
+            email: `${lead.phone}@lead.cars21.com`,
+            phone: String(lead.phone || ''),
+            city: String(lead.city || ''),
+            isLeadSession: true
+          }
+        : {
+            name: String(firstEvent.clientName || (rawPhone ? `Lead (${rawPhone})` : 'Visitor Session')),
+            email: String(firstEvent.clientEmail || (rawPhone ? `${rawPhone}@lead.cars21.com` : '')),
+            phone: String(firstEvent.phone || rawPhone),
+            city: String(firstEvent.city || ''),
+            isLeadSession: Boolean(firstEvent.isLeadSession || userId.startsWith('lead_') || userId.startsWith('guest_'))
+          };
+
+    return NextResponse.json({ 
+      client: clientInfo, 
+      events: events.map(event => ({ 
+        id: String(event._id), 
+        action: event.action, 
+        targetType: event.targetType, 
+        targetLabel: event.targetLabel, 
+        buttonName: event.buttonName,
+        details: event.details,
+        carId: event.carId, 
+        carLabel: event.carLabel, 
+        vendorId: event.vendorId, 
+        vendorName: event.vendorName,
+        phone: event.phone,
+        city: event.city,
+        createdAt: event.createdAt 
+      })) 
+    });
   } catch { return NextResponse.json({ error: 'User history is temporarily unavailable.' }, { status: 503 }); }
 }

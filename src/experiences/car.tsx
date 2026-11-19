@@ -36,7 +36,18 @@ function InspectionScoreBar({ label, score, status = 'Passed' }: { label: string
 }
 
 function InspectionReport({ car }: { car: Car }) {
-  const { buyer, openLoginModal } = useBuyerExperience();
+  const { buyer, isLeadCaptured, openBuyCarLeadModal, recordAction } = useBuyerExperience();
+  const isUnlocked = Boolean(buyer || isLeadCaptured);
+
+  useEffect(() => {
+    if (isUnlocked && car?.id) {
+      void recordAction({
+        action: 'inspection_view',
+        carId: car.id,
+        details: `Viewed 140-point diagnostics for ${car.year} ${car.make} ${car.model}`
+      });
+    }
+  }, [isUnlocked, car?.id, car?.year, car?.make, car?.model, recordAction]);
 
   if (car.inspectionReviewStatus && car.inspectionReviewStatus !== 'approved') {
     return (
@@ -87,7 +98,7 @@ function InspectionReport({ car }: { car: Car }) {
         ))}
       </div>
 
-      {!buyer ? (
+      {!isUnlocked ? (
         <div style={{
           background: '#fff7ed',
           border: '1px solid #fed7aa',
@@ -109,18 +120,18 @@ function InspectionReport({ car }: { car: Car }) {
             <Lock size={26} />
           </div>
           <h3 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
-            Sign In to Unlock Full 140-Point Diagnostic Report
+            Unlock Full 140-Point Diagnostic Report
           </h3>
           <p style={{ margin: '0 auto 18px', maxWidth: '480px', fontSize: '13px', color: '#64748b', lineHeight: 1.6 }}>
-            OBD-II scanner readouts, engine compression values, brake wear analysis, and high-resolution technician evidence photos are exclusive to signed-in members.
+            OBD-II scanner readouts, engine compression values, brake wear analysis, and high-resolution technician evidence photos. Enter your details once to unlock all reports.
           </p>
           <button
             type="button"
             className="button button-orange"
-            onClick={() => openLoginModal()}
+            onClick={() => openBuyCarLeadModal()}
             style={{ fontWeight: 750, minHeight: '44px', padding: '0 24px' }}
           >
-            Continue with Google to Unlock <ArrowRight size={15} />
+            Unlock Free Diagnostic Report <ArrowRight size={15} />
           </button>
         </div>
       ) : (
@@ -174,13 +185,14 @@ export function CarPage() {
   const [car, setCar] = useState<Car>(() => cars.find(item => item.id === carId) || cars[0]);
   const [selectedImage, setSelectedImage] = useState(car.image);
   const [tab, setTab] = useState<'overview' | 'inspection' | 'assurance' | 'specs'>('overview');
-  const { buyer: contextBuyer, wishlistIds, toggleWishlist, loadingBuyer, openLoginModal } = useBuyerExperience();
+  const { buyer: contextBuyer, wishlistIds, toggleWishlist, loadingBuyer, isLeadCaptured, leadInfo, openBuyCarLeadModal, recordAction } = useBuyerExperience();
   const saved = wishlistIds.includes(car.id);
   const listingPhotos = [...new Set([car.image, ...(car.photos || [])].filter(Boolean))];
   const [enquiryState, setEnquiryState] = useState<EnquiryState>('idle');
   const [formMessage, setFormMessage] = useState('');
   const [buyer, setBuyer] = useState<{ name: string; email?: string } | null>(null);
   const effectiveBuyer = contextBuyer || buyer;
+  const hasBookingAccess = Boolean(effectiveBuyer || isLeadCaptured);
   const [loanModalOpen, setLoanModalOpen] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const lastTrackedCar = useRef('');
@@ -206,18 +218,13 @@ export function CarPage() {
           setSelectedImage((payload.car as Car).image); 
           if (lastTrackedCar.current !== carId) { 
             lastTrackedCar.current = carId; 
-            void fetch('/api/user/actions', { 
-              method: 'POST', 
-              credentials: 'same-origin', 
-              headers: { 'Content-Type': 'application/json' }, 
-              body: JSON.stringify({ action: 'car_view', carId }) 
-            }).catch(() => null); 
+            void recordAction({ action: 'car_view', carId });
           } 
         } 
       })
       .catch(() => {});
     return () => controller.abort();
-  }, [carId]);
+  }, [carId, recordAction]);
 
   async function submitEnquiry(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -233,6 +240,12 @@ export function CarPage() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'We could not save your request. Please try again.');
+      void recordAction({
+        action: 'button_click',
+        buttonName: 'Confirmed Test Drive Visit on WhatsApp',
+        carId: car.id,
+        details: `Booked test drive visit for ${car.year} ${car.make} ${car.model}`
+      });
       setEnquiryState('saved');
       setFormMessage('Your request is confirmed! Redirecting to WhatsApp for instant seller connection...');
       if (result.whatsappUrl) {
@@ -470,17 +483,33 @@ export function CarPage() {
 
             {/* Primary Action Buttons */}
             <div className="hub-actions-cluster">
-              <a href="#booking-form" className="button button-orange button-full cta-book-btn">
+              <a 
+                href="#booking-form" 
+                className="button button-orange button-full cta-book-btn"
+                onClick={(e) => {
+                  if (!hasBookingAccess) {
+                    e.preventDefault();
+                    openBuyCarLeadModal(() => {
+                      const el = document.getElementById('booking-form');
+                      el?.scrollIntoView({ behavior: 'smooth' });
+                    });
+                  }
+                }}
+              >
                 Book Free Test Drive / Visit <ArrowRight size={16} />
               </a>
               <button 
                 type="button" 
                 className="button button-loan button-full cta-loan-btn"
                 onClick={() => {
-                  if (!effectiveBuyer) {
-                    openLoginModal();
+                  if (!hasBookingAccess) {
+                    openBuyCarLeadModal(() => {
+                      void recordAction({ action: 'button_click', buttonName: 'Apply for Car Loan', carId: car.id });
+                      setLoanModalOpen(true);
+                    });
                     return;
                   }
+                  void recordAction({ action: 'button_click', buttonName: 'Apply for Car Loan', carId: car.id });
                   setLoanModalOpen(true);
                 }}
               >
@@ -489,7 +518,15 @@ export function CarPage() {
               <button 
                 type="button" 
                 className={`button button-outline button-full cta-save-btn ${saved ? 'is-saved' : ''}`}
-                onClick={() => void toggleWishlist(car.id)}
+                onClick={() => {
+                  if (!hasBookingAccess) {
+                    openBuyCarLeadModal(() => {
+                      void toggleWishlist(car.id);
+                    });
+                    return;
+                  }
+                  void toggleWishlist(car.id);
+                }}
                 disabled={loadingBuyer}
               >
                 <Heart size={16} fill={saved ? 'currentColor' : 'none'} />
@@ -499,7 +536,7 @@ export function CarPage() {
 
             {/* Direct Booking / Enquiry Form */}
             <div id="booking-form" className="hub-enquiry-container">
-              {buyer ? (
+              {hasBookingAccess ? (
                 <form className="hub-enquiry-form" onSubmit={submitEnquiry}>
                   <div className="enquiry-form-title">
                     <Calendar size={16} />
@@ -508,11 +545,25 @@ export function CarPage() {
                   <div className="form-fields-stack">
                     <label className="field-group-label">
                       <span>Full Name</span>
-                      <input name="name" required defaultValue={buyer.name} placeholder="Your full name" className="hub-input" />
+                      <input 
+                        name="name" 
+                        required 
+                        defaultValue={leadInfo?.name || effectiveBuyer?.name || ''} 
+                        placeholder="Your full name" 
+                        className="hub-input" 
+                      />
                     </label>
                     <label className="field-group-label">
                       <span>Phone Number (for WhatsApp update)</span>
-                      <input name="phone" type="tel" required pattern="\\+?[\\d\\s()-]{10,18}" placeholder="+91 98765 43210" className="hub-input" />
+                      <input 
+                        name="phone" 
+                        type="tel" 
+                        required 
+                        pattern="\\+?[\\d\\s()-]{10,18}" 
+                        defaultValue={leadInfo?.phone || ''}
+                        placeholder="+91 98765 43210" 
+                        className="hub-input" 
+                      />
                     </label>
                     <div className="fields-split-row">
                       <label className="field-group-label">
@@ -521,7 +572,7 @@ export function CarPage() {
                       </label>
                       <label className="field-group-label">
                         <span>City</span>
-                        <input name="city" required defaultValue={car.city} className="hub-input" />
+                        <input name="city" required defaultValue={leadInfo?.city || car.city} className="hub-input" />
                       </label>
                     </div>
                   </div>
@@ -540,13 +591,15 @@ export function CarPage() {
                 <div className="hub-login-prompt">
                   <div className="prompt-icon"><Shield size={20} /></div>
                   <h4>Schedule Test Drive Online</h4>
-                  <p>Sign in with your Google account for instantaneous slot booking and direct seller connection.</p>
-                  <Link 
-                    to={`/login?returnTo=${encodeURIComponent(`/car/${car.id}#booking-form`)}`} 
-                    className="button button-primary button-full"
+                  <p>Enter your contact details to schedule a free doorstep test drive or experience center visit.</p>
+                  <button 
+                    type="button"
+                    onClick={() => openBuyCarLeadModal()} 
+                    className="button button-orange button-full"
+                    style={{ fontWeight: 750 }}
                   >
-                    Continue with Google <ArrowRight size={15} />
-                  </Link>
+                    Enter Details to Book Test Drive <ArrowRight size={15} />
+                  </button>
                 </div>
               )}
             </div>
@@ -677,7 +730,7 @@ export function CarPage() {
             vendorId: car.vendorId,
             vendorName: car.vendorName,
           }}
-          initialBuyer={buyer}
+          initialBuyer={effectiveBuyer || (leadInfo ? { name: leadInfo.name, email: `${leadInfo.phone}@lead.cars21.com`, phone: leadInfo.phone } : null)}
           onClose={() => setLoanModalOpen(false)}
         />
       )}

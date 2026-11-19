@@ -926,7 +926,7 @@ export function ManagementPanel({ role: expectedRole }: { role: Role }) {
         ...(hasPermission('subscriptions') ? [{ id: 'subscriptions' as Section, label: 'Vendor subscriptions', Icon: BadgeCheck }] : []),
         ...(hasPermission('seo') ? [{ id: 'seo' as Section, label: 'SEO & Search Console', Icon: Globe2 }] : []),
         ...(hasPermission('photos') ? [{ id: 'photos' as Section, label: 'Photos', Icon: ImagePlus }] : []),
-        ...(hasPermission('history') ? [{ id: 'history' as Section, label: 'User history', Icon: HistoryIcon }] : []),
+        ...(hasPermission('history') ? [{ id: 'history' as Section, label: 'User sessions & leads', Icon: HistoryIcon }] : []),
         ...(hasPermission('wishlists') ? [{ id: 'wishlists' as Section, label: 'Wishlist demand', Icon: Heart }] : []),
       ]
     : [
@@ -943,7 +943,7 @@ export function ManagementPanel({ role: expectedRole }: { role: Role }) {
         { id: 'seo' as Section, label: 'SEO & Search Console', Icon: Globe2 },
         { id: 'vendors', label: 'Vendors', Icon: Store },
         { id: 'inquiries', label: 'Buyer enquiries', Icon: MessageSquareText },
-        { id: 'history', label: 'User history', Icon: HistoryIcon },
+        { id: 'history', label: 'User sessions & leads', Icon: HistoryIcon },
         { id: 'wishlists', label: 'Wishlist demand', Icon: Heart },
         { id: 'submissions', label: 'Website submissions', Icon: FilePlus2 },
         ...(expectedRole === 'superadmin' ? [

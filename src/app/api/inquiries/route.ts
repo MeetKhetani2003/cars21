@@ -76,14 +76,22 @@ function vehicleSnapshot(car: Record<string, unknown>, requestUrl: string) {
 
 export async function POST(request: NextRequest) {
   const session = getSession(request);
-  if (session?.role !== 'buyer') return NextResponse.json({ error: 'Sign in with Google before sending a car enquiry.' }, { status: 401 });
   const parsed = inquirySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: 'Check the required contact details and try again.' }, { status: 400 });
 
   try {
     const db = await getDb();
-    const buyer = await db.collection<Record<string, unknown>>('buyers').findOne({ id: session.sub, trackingConsentAt: { $exists: true } }, { projection: { name: 1, email: 1 } });
-    if (!buyer) return NextResponse.json({ error: 'Sign in with Google before sending a car enquiry.' }, { status: 401 });
+    const isGoogle = session?.role === 'buyer' && Boolean(session.sub);
+    let buyer: Record<string, unknown> | null = null;
+    if (isGoogle) {
+      buyer = await db.collection<Record<string, unknown>>('buyers').findOne({ id: session.sub }, { projection: { name: 1, email: 1, phone: 1, city: 1 } });
+    }
+
+    const cleanPhone = parsed.data.phone.replace(/\D/g, '');
+    const userId = isGoogle ? session.sub : `lead_${cleanPhone}`;
+    const clientName = isGoogle ? String(buyer?.name || session.name || parsed.data.name) : parsed.data.name;
+    const clientEmail = isGoogle ? String(buyer?.email || session.email || parsed.data.email || '') : (parsed.data.email || `${cleanPhone}@lead.cars21.com`);
+
     let car = await db.collection('cars').findOne({ id: parsed.data.carId }) as Record<string, unknown> | null;
     if (!car && process.env.NODE_ENV !== 'production') {
       car = (demoCars.find(item => item.id === parsed.data.carId) as unknown as Record<string, unknown> | undefined) ?? null;
@@ -97,10 +105,11 @@ export async function POST(request: NextRequest) {
       if (entitlements.subscription && !entitlements.features.buyerInquiries) return NextResponse.json({ error: 'This dealer is not currently accepting online enquiries.' }, { status: 403 });
     }
     const detailUrl = new URL(`/car/${encodeURIComponent(vehicle.id)}`, request.url).toString();
-    const client = { ...parsed.data, name: String(buyer.name || session.name), email: String(buyer.email || session.email || parsed.data.email || '') };
+    const client = { ...parsed.data, name: clientName, email: clientEmail };
     const inquiry = {
       carId: vehicle.id,
-      userId: session.sub,
+      userId,
+      isLeadSession: !isGoogle,
       vehicle,
       client: { name: client.name, phone: client.phone, email: client.email, city: client.city, message: client.message, preferredDate: client.preferredDate, preferredTime: client.preferredTime },
       detailUrl,
@@ -111,7 +120,22 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     };
     const result = await db.collection('inquiries').insertOne(inquiry);
-    await db.collection('user_actions').insertOne({ userId: session.sub, clientName: client.name, clientEmail: client.email, action: 'inquiry', targetType: 'car', targetLabel: `${vehicle.year} ${vehicle.make} ${vehicle.model}`.trim(), carId: vehicle.id, carLabel: `${vehicle.year} ${vehicle.make} ${vehicle.model}`.trim(), vendorId: vehicle.vendorId || '', vendorName: '', createdAt: new Date() }).catch(() => null);
+    await db.collection('user_actions').insertOne({
+      userId,
+      clientName: client.name,
+      clientEmail: client.email,
+      phone: client.phone,
+      city: client.city,
+      isLeadSession: !isGoogle,
+      action: 'inquiry',
+      targetType: 'car',
+      targetLabel: `Sent Inquiry: ${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+      carId: vehicle.id,
+      carLabel: `${vehicle.year} ${vehicle.make} ${vehicle.model}`.trim(),
+      vendorId: vehicle.vendorId || '',
+      vendorName: String(vendor?.businessName ?? ''),
+      createdAt: new Date()
+    }).catch(() => null);
 
     const targetNumber = normalizedWhatsAppNumber(String(vendor?.inquiryWhatsApp || vendor?.phone || vehicle.sellerWhatsApp || vehicle.sellerPhone || process.env.WHATSAPP_ADMIN_NUMBER || ''));
     const price = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(vehicle.price);

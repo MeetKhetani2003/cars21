@@ -23,7 +23,7 @@ type ActiveModal =
   | null;
 
 export function FeaturedCarsSection({ cars: initialCars }: FeaturedCarsSectionProps) {
-  const { buyer, openLoginModal, wishlistIds, toggleWishlist, loadingBuyer, isLeadCaptured, openBuyCarLeadModal } = useBuyerExperience();
+  const { buyer, wishlistIds, toggleWishlist, loadingBuyer, isLeadCaptured, leadInfo, openBuyCarLeadModal, recordAction } = useBuyerExperience();
   const nav = useNavigate();
 
   // Inventory Filter State
@@ -124,43 +124,24 @@ export function FeaturedCarsSection({ cars: initialCars }: FeaturedCarsSectionPr
     phone?: string;
     notes?: string;
   }) => {
-    if (!buyer) return false;
-    try {
-      const response = await fetch('/api/user/actions', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
+    return await recordAction(payload as any);
   };
 
   // Handle Car Details View
   const handleViewDetails = async (car: Car, e?: React.MouseEvent) => {
     if (e) e.preventDefault();
-    if (!isLeadCaptured) {
+    if (!isLeadCaptured && !buyer) {
       openBuyCarLeadModal(() => {
-        if (!buyer) {
-          showActionToast('🔒 Login Required', 'Please sign in to unlock full 140-point diagnostics & history.');
-          openLoginModal(`/car/${car.id}`);
-        } else {
-          nav(`/car/${car.id}`);
-        }
+        showActionToast('📌 Action Captured', `Viewing verified diagnostics for ${car.year} ${car.make} ${car.model}.`);
+        void recordAction({ action: 'car_view', carId: car.id });
+        nav(`/car/${car.id}`);
       });
-      return;
-    }
-    if (!buyer) {
-      showActionToast('🔒 Login Required', 'Please sign in to unlock full 140-point diagnostics & history.');
-      openLoginModal(`/car/${car.id}`);
       return;
     }
 
     // Log the user action
     showActionToast('📌 Action Captured', `Viewing verified diagnostics for ${car.year} ${car.make} ${car.model}.`);
-    void captureUserAction({ action: 'car_view', carId: car.id });
+    void recordAction({ action: 'car_view', carId: car.id });
 
     // Navigate smoothly
     nav(`/car/${car.id}`);
@@ -168,15 +149,22 @@ export function FeaturedCarsSection({ cars: initialCars }: FeaturedCarsSectionPr
 
   // Handle Book Test Drive Click
   const handleTestDriveClick = (car: Car) => {
-    if (!buyer) {
-      showActionToast('🔒 Login Required', 'Sign in with Google to schedule a free doorstep test drive.');
-      openLoginModal();
+    if (!isLeadCaptured && !buyer) {
+      openBuyCarLeadModal((lead) => {
+        setTdDate('Tomorrow');
+        setTdSlot('01:00 PM – 03:00 PM');
+        setTdLocation('doorstep');
+        setTdPhone(lead?.phone || '');
+        setTdNotes('');
+        setTdConfirmed(false);
+        setActiveModal({ type: 'test_drive', car });
+      });
       return;
     }
     setTdDate('Tomorrow');
     setTdSlot('01:00 PM – 03:00 PM');
     setTdLocation('doorstep');
-    setTdPhone(buyer.phone || '');
+    setTdPhone(leadInfo?.phone || (buyer as any)?.phone || '');
     setTdNotes('');
     setTdConfirmed(false);
     setActiveModal({ type: 'test_drive', car });
@@ -189,13 +177,16 @@ export function FeaturedCarsSection({ cars: initialCars }: FeaturedCarsSectionPr
     setTdSubmitting(true);
 
     const car = activeModal.car;
-    const ok = await captureUserAction({
+    const clientPhone = tdPhone || leadInfo?.phone || (buyer as any)?.phone || '9876543210';
+    const clientName = leadInfo?.name || (buyer as any)?.name || 'Cars21 Client';
+
+    await captureUserAction({
       action: 'test_drive',
       carId: car.id,
       preferredDate: tdDate,
       preferredSlot: tdSlot,
       locationType: tdLocation,
-      phone: tdPhone,
+      phone: clientPhone,
       notes: tdNotes
     });
 
@@ -207,10 +198,10 @@ export function FeaturedCarsSection({ cars: initialCars }: FeaturedCarsSectionPr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           carId: car.id,
-          name: buyer?.name || 'Cars21 Member',
-          phone: tdPhone || '9876543210',
-          email: buyer?.email || '',
-          city: car.city || 'Bengaluru',
+          name: clientName,
+          phone: clientPhone,
+          email: buyer?.email || `${clientPhone.replace(/\D/g, '')}@lead.cars21.com`,
+          city: car.city || 'Junagadh',
           message: `Booked test drive: ${tdLocation === 'doorstep' ? 'Doorstep Delivery' : 'Cars21 Hub'}, Slot: ${tdDate} ${tdSlot}. Notes: ${tdNotes || 'None'}`
         })
       });
@@ -223,9 +214,13 @@ export function FeaturedCarsSection({ cars: initialCars }: FeaturedCarsSectionPr
 
   // Handle Make Offer Click
   const handleOfferClick = (car: Car) => {
-    if (!buyer) {
-      showActionToast('🔒 Login Required', 'Sign in with Google to make an offer or reserve this car.');
-      openLoginModal();
+    if (!isLeadCaptured && !buyer) {
+      openBuyCarLeadModal(() => {
+        setOfferAmount(Math.round(car.price * 0.96)); // suggest 4% below asking
+        setOfferNotes('');
+        setOfferConfirmed(false);
+        setActiveModal({ type: 'offer', car });
+      });
       return;
     }
     setOfferAmount(Math.round(car.price * 0.96)); // suggest 4% below asking
@@ -241,18 +236,19 @@ export function FeaturedCarsSection({ cars: initialCars }: FeaturedCarsSectionPr
     setOfferSubmitting(true);
 
     const car = activeModal.car;
+    const clientPhone = leadInfo?.phone || (buyer as any)?.phone || '';
     await captureUserAction({
       action: 'express_interest',
       carId: car.id,
       interestType: 'offer',
       offerAmount: offerAmount,
-      phone: buyer?.phone || '',
+      phone: clientPhone,
       notes: offerNotes
     });
 
     setOfferSubmitting(false);
     setOfferConfirmed(true);
-    showActionToast('💼 Offer Logged', `Your offer of ${formatINR(offerAmount)} has been recorded in your account.`);
+    showActionToast('💼 Offer Logged', `Your offer of ${formatINR(offerAmount)} has been recorded in your session.`);
   };
 
   // Filter and Sort inventory

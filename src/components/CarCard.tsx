@@ -8,7 +8,7 @@ import { formatINR } from '../data';
 import { useBuyerExperience } from './BuyerExperienceProvider';
 
 export function CarCard({ car, compact = false }: { car: Car; compact?: boolean }) {
-  const { buyer, wishlistIds, toggleWishlist, loadingBuyer, isLeadCaptured, openBuyCarLeadModal, openLoginModal } = useBuyerExperience();
+  const { buyer, wishlistIds, toggleWishlist, loadingBuyer, isLeadCaptured, openBuyCarLeadModal, recordAction } = useBuyerExperience();
   const saved = wishlistIds.includes(car.id);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState('');
@@ -18,8 +18,28 @@ export function CarCard({ car, compact = false }: { car: Car; compact?: boolean 
     e.preventDefault();
     e.stopPropagation();
     if (saving || loadingBuyer) return;
+
+    if (!isLeadCaptured && !buyer) {
+      openBuyCarLeadModal(() => {
+        void toggleWishlist(car.id);
+        void recordAction({
+          action: 'button_click',
+          buttonName: 'Wishlist Favorite',
+          carId: car.id,
+          details: `Favorited ${car.year} ${car.make} ${car.model}`
+        });
+      });
+      return;
+    }
+
     setSaving(true);
     setFeedback('');
+    void recordAction({
+      action: 'button_click',
+      buttonName: saved ? 'Wishlist Remove' : 'Wishlist Add',
+      carId: car.id,
+      details: `${saved ? 'Removed' : 'Added'} ${car.year} ${car.make} ${car.model}`
+    });
     const result = await toggleWishlist(car.id);
     if (result === 'error') setFeedback('Could not update wishlist.');
     setSaving(false);
@@ -30,24 +50,26 @@ export function CarCard({ car, compact = false }: { car: Car; compact?: boolean 
     e.stopPropagation();
 
     // 1. If lead is not captured yet, collect lead (name, number, city) first
-    if (!isLeadCaptured) {
+    if (!isLeadCaptured && !buyer) {
       openBuyCarLeadModal(() => {
-        if (!buyer) {
-          openLoginModal(`/car/${car.id}`);
-        } else {
-          nav(`/car/${car.id}`);
-        }
+        void recordAction({
+          action: 'button_click',
+          buttonName: 'View Car Card',
+          carId: car.id,
+          details: `Opened ${car.year} ${car.make} ${car.model} (${car.city}) after lead capture`
+        });
+        nav(`/car/${car.id}`);
       });
       return;
     }
 
-    // 2. Lead is captured, but detailed vehicle info & diagnostics require login
-    if (!buyer) {
-      openLoginModal(`/car/${car.id}`);
-      return;
-    }
-
-    // 3. User is logged in & lead captured -> go to car details
+    // 2. Lead is captured -> log click action and navigate directly (NO Google login required)
+    void recordAction({
+      action: 'button_click',
+      buttonName: 'View Car Card',
+      carId: car.id,
+      details: `Opened ${car.year} ${car.make} ${car.model} (${car.city})`
+    });
     nav(`/car/${car.id}`);
   };
 

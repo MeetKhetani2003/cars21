@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import type { Car } from '../data';
 import { LoginModal } from './LoginModal';
@@ -9,6 +9,30 @@ import { BuyCarLeadModal } from './BuyCarLeadModal';
 export type BuyerProfile = { name: string; email: string; picture?: string; phone?: string; city?: string };
 export type SavedVendor = { id: string; slug: string; name: string; businessName: string; city: string; listingCount: number };
 export type LeadInfo = { name: string; phone: string; city: string };
+export type UserActionPayload = {
+  action: 'search' | 'car_view' | 'vendor_view' | 'emi_calculate' | 'test_drive' | 'express_interest' | 'button_click' | 'inspection_view' | 'report_download' | 'contact_dealer' | 'reveal_phone' | 'buy_lead_captured' | 'wishlist_add' | 'wishlist_remove';
+  buttonName?: string;
+  carId?: string;
+  vendorSlug?: string;
+  details?: string;
+  label?: string;
+  targetType?: string;
+  carPrice?: number;
+  downPayment?: number;
+  loanAmount?: number;
+  tenureMonths?: number;
+  interestRate?: number;
+  monthlyEmi?: number;
+  preferredDate?: string;
+  preferredSlot?: string;
+  locationType?: 'doorstep' | 'hub';
+  interestType?: 'offer' | 'reserve' | 'callback' | 'inspection' | 'general';
+  offerAmount?: number;
+  phone?: string;
+  notes?: string;
+  channel?: 'whatsapp' | 'call';
+};
+
 type WishlistResult = 'saved' | 'removed' | 'login' | 'error';
 type BuyerExperience = {
   buyer: BuyerProfile | null;
@@ -29,6 +53,7 @@ type BuyerExperience = {
   openBuyCarLeadModal: (onSuccessAction?: (lead?: LeadInfo) => void) => void;
   closeBuyCarLeadModal: () => void;
   saveLeadInfo: (info: LeadInfo) => void;
+  recordAction: (payload: UserActionPayload) => Promise<boolean>;
 };
 const Context = createContext<BuyerExperience | null>(null);
 function currentPath() { return typeof window === 'undefined' ? '/' : `${window.location.pathname}${window.location.search}${window.location.hash}`; }
@@ -43,16 +68,31 @@ export function BuyerExperienceProvider({ children }: { children: ReactNode }) {
   const [leadModalOpen, setLeadModalOpen] = useState(false);
   const [leadOnSuccess, setLeadOnSuccess] = useState<((lead?: LeadInfo) => void) | null>(null);
   const [leadInfo, setLeadInfo] = useState<LeadInfo | null>(null);
+  const leadInfoRef = useRef<LeadInfo | null>(null);
+  const visitorIdRef = useRef<string>('');
 
-  // Hydrate lead capture state from localStorage / sessionStorage
+  // Hydrate lead capture state and persistent visitorId from storage
   useEffect(() => {
     try {
       const stored = localStorage.getItem('cars21_lead_info') || sessionStorage.getItem('cars21:lead_info');
       if (stored) {
-        setLeadInfo(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        setLeadInfo(parsed);
+        leadInfoRef.current = parsed;
       }
+      let vid = localStorage.getItem('cars21_visitor_id') || sessionStorage.getItem('cars21_visitor_id');
+      if (!vid) {
+        vid = `guest_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+        localStorage.setItem('cars21_visitor_id', vid);
+        sessionStorage.setItem('cars21_visitor_id', vid);
+      }
+      visitorIdRef.current = vid;
     } catch {}
   }, []);
+
+  useEffect(() => {
+    leadInfoRef.current = leadInfo;
+  }, [leadInfo]);
 
   const isLeadCaptured = Boolean(buyer || leadInfo);
 
@@ -90,6 +130,36 @@ export function BuyerExperienceProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(timer);
   }, [buyer, isLeadCaptured, loadingBuyer]);
 
+  const recordAction = useCallback(async (payload: UserActionPayload): Promise<boolean> => {
+    try {
+      const currentLead = leadInfoRef.current;
+      const cleanPhone = (currentLead?.phone || buyer?.phone || '').replace(/\D/g, '');
+      const leadUserId = cleanPhone ? `lead_${cleanPhone}` : (visitorIdRef.current || undefined);
+      const leadName = currentLead?.name || (buyer?.name ? buyer.name : undefined);
+      const leadPhone = currentLead?.phone || buyer?.phone || undefined;
+      const leadCity = currentLead?.city || buyer?.city || undefined;
+
+      const body = {
+        ...payload,
+        leadUserId,
+        leadName,
+        leadPhone,
+        leadCity,
+        visitorId: visitorIdRef.current,
+      };
+
+      const res = await fetch('/api/user/actions', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }, [buyer]);
+
   const openBuyCarLeadModal = useCallback((onSuccessAction?: (lead?: LeadInfo) => void) => {
     setLeadOnSuccess(() => onSuccessAction || null);
     setLeadModalOpen(true);
@@ -105,13 +175,21 @@ export function BuyerExperienceProvider({ children }: { children: ReactNode }) {
 
   const saveLeadInfo = useCallback((info: LeadInfo) => {
     setLeadInfo(info);
+    leadInfoRef.current = info;
     try {
       localStorage.setItem('cars21_lead_captured', 'true');
       localStorage.setItem('cars21_lead_info', JSON.stringify(info));
       sessionStorage.setItem('cars21_lead_captured', 'true');
       sessionStorage.setItem('cars21:lead_info', JSON.stringify(info));
     } catch {}
-  }, []);
+
+    // Record telemetry event in database
+    void recordAction({
+      action: 'buy_lead_captured',
+      phone: info.phone,
+      details: `Lead Form Submitted: ${info.name} from ${info.city} (${info.phone})`
+    });
+  }, [recordAction]);
   const refreshBuyer = useCallback(async () => {
     try {
       const response = await fetch('/api/auth/session', { credentials: 'same-origin', cache: 'no-store' });
@@ -200,7 +278,8 @@ export function BuyerExperienceProvider({ children }: { children: ReactNode }) {
     leadInfo,
     openBuyCarLeadModal,
     closeBuyCarLeadModal,
-    saveLeadInfo
+    saveLeadInfo,
+    recordAction
   }), [
     buyer,
     wishlistIds,
@@ -218,7 +297,8 @@ export function BuyerExperienceProvider({ children }: { children: ReactNode }) {
     leadInfo,
     openBuyCarLeadModal,
     closeBuyCarLeadModal,
-    saveLeadInfo
+    saveLeadInfo,
+    recordAction
   ]);
 
   return (
