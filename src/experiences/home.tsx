@@ -8,7 +8,7 @@ import {
   Fuel, Shield, ArrowUpRight, Award, Users, CheckCircle
 } from 'lucide-react';
 import type { Car } from '../data';
-import { formatShort, formatINR, cars } from '../data';
+import { formatShort, formatINR } from '../data';
 import { CarCard } from '../components/CarCard';
 import { SectionTitle, TrustStrip } from '../components/shared';
 import { HomeEmiCalculator } from '../components/HomeEmiCalculator';
@@ -48,30 +48,43 @@ export function HomePage() {
   const [inventoryTab, setInventoryTab] = useState('All');
 
   const [filters, setFilters] = useState<HomeFilters>({ cities: [], makes: [], minPrice: 0, maxPrice: 0 });
-  const [featuredCars, setFeaturedCars] = useState<Car[]>(cars);
+  const [featuredCars, setFeaturedCars] = useState<Car[]>([]);
+  const [carsLoading, setCarsLoading] = useState(true);
   const nav = useNavigate();
 
   useEffect(() => {
     const controller = new AbortController();
-    Promise.all([
-      fetch('/api/cars/filters', { signal: controller.signal, cache: 'no-store' }),
-      fetch('/api/cars?sort=recommended', { signal: controller.signal, cache: 'no-store' })
-    ]).then(async ([filterResponse, carsResponse]) => {
-      if (!filterResponse.ok || !carsResponse.ok) throw new Error('Inventory unavailable');
-      const filterData = await filterResponse.json();
-      const carData = await carsResponse.json();
-      if (controller.signal.aborted) return;
-      setFilters({
-        cities: filterData.cities || [],
-        makes: filterData.makes || [],
-        popularCities: filterData.popularCities || [],
-        popularMakes: filterData.popularMakes || [],
-        minPrice: filterData.minPrice || 0,
-        maxPrice: filterData.maxPrice || 0
+    setCarsLoading(true);
+
+    // Fetch filters & live inventory concurrently without failing all if one is slow
+    const fetchFilters = fetch('/api/cars/filters', { signal: controller.signal, cache: 'no-store' })
+      .then(res => res.ok ? res.json() : null)
+      .then(filterData => {
+        if (!filterData || controller.signal.aborted) return;
+        setFilters({
+          cities: filterData.cities || [],
+          makes: filterData.makes || [],
+          popularCities: filterData.popularCities || [],
+          popularMakes: filterData.popularMakes || [],
+          minPrice: filterData.minPrice || 0,
+          maxPrice: filterData.maxPrice || 0
+        });
+        setCity(current => current || filterData.cities?.[0] || '');
+      })
+      .catch(() => {});
+
+    const fetchCars = fetch('/api/cars?sort=recommended', { signal: controller.signal, cache: 'no-store' })
+      .then(res => res.ok ? res.json() : null)
+      .then(carData => {
+        if (!carData || controller.signal.aborted) return;
+        setFeaturedCars(Array.isArray(carData.cars) ? carData.cars : []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!controller.signal.aborted) setCarsLoading(false);
       });
-      setCity(current => current || filterData.cities?.[0] || '');
-      setFeaturedCars(carData.cars || []);
-    }).catch(() => { });
+
+    Promise.allSettled([fetchFilters, fetchCars]);
     return () => controller.abort();
   }, []);
 
@@ -333,7 +346,7 @@ export function HomePage() {
       </div>
     </section>
     {/* FEATURED CERTIFIED CAR SHOWCASE (WITH MEMBER LOGIN LOCK & ACTION TRACKING) */}
-    <FeaturedCarsSection cars={featuredCars} />
+    <FeaturedCarsSection cars={featuredCars} loading={carsLoading} />
 
     {/* SMART CAR LOAN EMI CALCULATOR (GATED WITH RECORDED ACTIVITY) */}
     <HomeEmiCalculator />

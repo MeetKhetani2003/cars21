@@ -15,6 +15,7 @@ import { CarCard } from './CarCard';
 
 type FeaturedCarsSectionProps = {
   cars: Car[];
+  loading?: boolean;
 };
 
 type ActiveModal =
@@ -22,7 +23,7 @@ type ActiveModal =
   | { type: 'offer'; car: Car }
   | null;
 
-export function FeaturedCarsSection({ cars: initialCars }: FeaturedCarsSectionProps) {
+export function FeaturedCarsSection({ cars: initialCars, loading = false }: FeaturedCarsSectionProps) {
   const { buyer, wishlistIds, toggleWishlist, loadingBuyer, isLeadCaptured, leadInfo, openBuyCarLeadModal, recordAction } = useBuyerExperience();
   const nav = useNavigate();
 
@@ -423,42 +424,42 @@ export function FeaturedCarsSection({ cars: initialCars }: FeaturedCarsSectionPr
               className={`feat-pill ${activeTab === 'all' ? 'active' : ''}`}
               onClick={() => setActiveTab('all')}
             >
-              <CarFront size={14} /> All Featured <span className="feat-pill-count">{tabCounts.all}</span>
+              <CarFront size={14} /> All Featured {!loading && <span className="feat-pill-count">{tabCounts.all}</span>}
             </button>
             <button
               type="button"
               className={`feat-pill ${activeTab === 'suv' ? 'active' : ''}`}
               onClick={() => setActiveTab('suv')}
             >
-              🚙 SUVs <span className="feat-pill-count">{tabCounts.suv}</span>
+              🚙 SUVs {!loading && <span className="feat-pill-count">{tabCounts.suv}</span>}
             </button>
             <button
               type="button"
               className={`feat-pill ${activeTab === 'sedan' ? 'active' : ''}`}
               onClick={() => setActiveTab('sedan')}
             >
-              🏎️ Sedans <span className="feat-pill-count">{tabCounts.sedan}</span>
+              🏎️ Sedans {!loading && <span className="feat-pill-count">{tabCounts.sedan}</span>}
             </button>
             <button
               type="button"
               className={`feat-pill ${activeTab === 'ev' ? 'active' : ''}`}
               onClick={() => setActiveTab('ev')}
             >
-              ⚡ EVs &amp; Hybrids <span className="feat-pill-count">{tabCounts.ev}</span>
+              ⚡ EVs &amp; Hybrids {!loading && <span className="feat-pill-count">{tabCounts.ev}</span>}
             </button>
             <button
               type="button"
               className={`feat-pill ${activeTab === 'budget' ? 'active' : ''}`}
               onClick={() => setActiveTab('budget')}
             >
-              💰 Under ₹10L <span className="feat-pill-count">{tabCounts.budget}</span>
+              💰 Under ₹10L {!loading && <span className="feat-pill-count">{tabCounts.budget}</span>}
             </button>
             <button
               type="button"
               className={`feat-pill ${activeTab === 'score' ? 'active' : ''}`}
               onClick={() => setActiveTab('score')}
             >
-              ⭐ Score 95+ <span className="feat-pill-count">{tabCounts.score}</span>
+              ⭐ Score 95+ {!loading && <span className="feat-pill-count">{tabCounts.score}</span>}
             </button>
           </div>
 
@@ -502,7 +503,20 @@ export function FeaturedCarsSection({ cars: initialCars }: FeaturedCarsSectionPr
         </div>
 
         {/* CARDS GRID */}
-        {filteredCars.length > 0 ? (
+        {loading ? (
+          <div className="featured-cards-grid car-grid">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+              <div key={i} className="car-card-skeleton">
+                <div className="skeleton-photo shimmer" />
+                <div className="skeleton-body">
+                  <div className="skeleton-line shimmer title" />
+                  <div className="skeleton-line shimmer price" />
+                  <div className="skeleton-line shimmer btn" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredCars.length > 0 ? (
           <div className="featured-cards-grid car-grid">
             {filteredCars.map(car => (
               <CarCard key={car.id} car={car} />

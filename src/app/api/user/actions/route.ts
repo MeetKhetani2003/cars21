@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { vendorSlug } from '../../../../lib/vendor-slug';
 import { getSession } from '../../../../server/auth';
 import { getDb } from '../../../../server/mongodb';
-import { cars as demoCars } from '../../../../data';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -158,9 +157,6 @@ export async function POST(request: NextRequest) {
     } else if (data.action === 'car_view') {
       const carId = data.carId;
       let car: any = await db.collection('cars').findOne({ id: carId, $or: [{ status: 'active' }, { status: { $exists: false } }] });
-      if (!car) {
-        car = demoCars.find(c => c.id === carId) || null;
-      }
       if (!car) return NextResponse.json({ ok: true, tracked: false });
       const vendorId = String(car.vendorId ?? '');
       const vendor = vendorId ? await db.collection<Record<string, unknown>>('vendors').findOne({ id: vendorId, status: 'active' }, { projection: { name: 1, businessName: 1 } }) : null;
@@ -179,7 +175,7 @@ export async function POST(request: NextRequest) {
       const carId = data.carId;
       let carLabel = '';
       if (carId) {
-        const car: any = await db.collection('cars').findOne({ id: carId }) || demoCars.find(c => c.id === carId);
+        const car: any = await db.collection('cars').findOne({ id: carId });
         if (car) carLabel = `${car.year || ''} ${car.make || ''} ${car.model || ''}`.trim();
       }
       const label = data.details || (carLabel ? `${data.buttonName} on ${carLabel}` : data.buttonName);
@@ -195,7 +191,7 @@ export async function POST(request: NextRequest) {
       };
     } else if (data.action === 'inspection_view') {
       const carId = data.carId;
-      let car: any = await db.collection('cars').findOne({ id: carId }) || demoCars.find(c => c.id === carId);
+      let car: any = await db.collection('cars').findOne({ id: carId });
       const carLabel = car ? `${car.year || ''} ${car.make || ''} ${car.model || ''}`.trim() : carId;
       action = {
         ...common,
@@ -208,7 +204,7 @@ export async function POST(request: NextRequest) {
       };
     } else if (data.action === 'report_download') {
       const carId = data.carId;
-      let car: any = await db.collection('cars').findOne({ id: carId }) || demoCars.find(c => c.id === carId);
+      let car: any = await db.collection('cars').findOne({ id: carId });
       const carLabel = car ? `${car.year || ''} ${car.make || ''} ${car.model || ''}`.trim() : carId;
       action = {
         ...common,
@@ -247,7 +243,7 @@ export async function POST(request: NextRequest) {
       };
     } else if (data.action === 'wishlist_add' || data.action === 'wishlist_remove') {
       const carId = data.carId;
-      const car: any = await db.collection('cars').findOne({ id: carId }) || demoCars.find(c => c.id === carId);
+      const car: any = await db.collection('cars').findOne({ id: carId });
       const carLabel = car ? `${car.year || ''} ${car.make || ''} ${car.model || ''}`.trim() : carId;
       action = {
         ...common,
@@ -260,9 +256,6 @@ export async function POST(request: NextRequest) {
     } else if (data.action === 'test_drive') {
       const carId = data.carId;
       let car: any = await db.collection('cars').findOne({ id: carId, $or: [{ status: 'active' }, { status: { $exists: false } }] });
-      if (!car) {
-        car = demoCars.find(c => c.id === carId) || null;
-      }
       if (!car) return NextResponse.json({ ok: true, tracked: false });
       const vendorId = String(car.vendorId ?? '');
       const vendor = vendorId ? await db.collection<Record<string, unknown>>('vendors').findOne({ id: vendorId, status: 'active' }, { projection: { name: 1, businessName: 1 } }) : null;
@@ -289,9 +282,6 @@ export async function POST(request: NextRequest) {
     } else if (data.action === 'express_interest') {
       const carId = data.carId;
       let car: any = await db.collection('cars').findOne({ id: carId, $or: [{ status: 'active' }, { status: { $exists: false } }] });
-      if (!car) {
-        car = demoCars.find(c => c.id === carId) || null;
-      }
       if (!car) return NextResponse.json({ ok: true, tracked: false });
       const vendorId = String(car.vendorId ?? '');
       const vendor = vendorId ? await db.collection<Record<string, unknown>>('vendors').findOne({ id: vendorId, status: 'active' }, { projection: { name: 1, businessName: 1 } }) : null;

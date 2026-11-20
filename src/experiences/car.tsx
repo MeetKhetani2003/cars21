@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useParams } from '../lib/navigation';
 import {
-  ArrowRight, Check, ChevronRight, Fuel, Gauge, Heart, MapPin,
+  ArrowRight, Check, ChevronRight, ChevronLeft, Fuel, Gauge, Heart, MapPin,
   ShieldCheck, UserRound, Calendar, Award, Sparkles, Phone,
   MessageSquare, FileText, CheckCircle2, RotateCcw, Wrench,
   Clock, Shield, CarFront, Settings2, Download, Landmark, Lock
 } from 'lucide-react';
-import { cars, calcEmi, formatINR, type Car } from '../data';
+import { calcEmi, formatINR, type Car } from '../data';
 import { CarCard } from '../components/CarCard';
 import { RevealPhoneButton } from '../components/RevealPhoneButton';
 import { SectionTitle } from '../components/shared';
@@ -182,12 +182,173 @@ function InspectionReport({ car }: { car: Car }) {
 
 export function CarPage() {
   const { carId } = useParams();
-  const [car, setCar] = useState<Car>(() => cars.find(item => item.id === carId) || cars[0]);
-  const [selectedImage, setSelectedImage] = useState(car.image);
+  const [car, setCar] = useState<Car | null>(null);
+  const [carLoading, setCarLoading] = useState(true);
+  const [carNotFound, setCarNotFound] = useState(false);
+  const [similarCars, setSimilarCars] = useState<Car[]>([]);
+  const [selectedImage, setSelectedImage] = useState<string>('');
   const [tab, setTab] = useState<'overview' | 'inspection' | 'assurance' | 'specs'>('overview');
   const { buyer: contextBuyer, wishlistIds, toggleWishlist, loadingBuyer, isLeadCaptured, leadInfo, openBuyCarLeadModal, recordAction } = useBuyerExperience();
-  const saved = wishlistIds.includes(car.id);
-  const listingPhotos = [...new Set([car.image, ...(car.photos || [])].filter(Boolean))];
+  const saved = car ? wishlistIds.includes(car.id) : false;
+
+  // High-resolution multi-angle perspectives fallback if car has only 1 image
+  const defaultPerspectivePhotos = useMemo(() => [
+    car?.image || '',
+    'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1583121274602-3e2820c69888?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?auto=format&fit=crop&w=1200&q=80',
+  ].filter(Boolean), [car?.image]);
+
+  const listingPhotos = useMemo(() => {
+    if (!car) return [];
+    const raw = [car.image, ...(car.photos || [])].filter(Boolean);
+    const unique = [...new Set(raw)];
+    if (unique.length > 0) return unique;
+    return defaultPerspectivePhotos;
+  }, [car, defaultPerspectivePhotos]);
+
+  const currentIndex = Math.max(0, listingPhotos.indexOf(selectedImage));
+
+  // Horizontal scroll helpers for thumbnails
+  const thumbStripRef = useRef<HTMLDivElement | null>(null);
+  const isThumbDragging = useRef(false);
+  const thumbStartX = useRef(0);
+  const thumbScrollStart = useRef(0);
+  const thumbMoved = useRef(false);
+
+  const onThumbMouseDown = (e: React.MouseEvent) => {
+    if (!thumbStripRef.current) return;
+    isThumbDragging.current = true;
+    thumbMoved.current = false;
+    thumbStartX.current = e.pageX - thumbStripRef.current.offsetLeft;
+    thumbScrollStart.current = thumbStripRef.current.scrollLeft;
+  };
+
+  const onThumbMouseMove = (e: React.MouseEvent) => {
+    if (!isThumbDragging.current || !thumbStripRef.current) return;
+    const x = e.pageX - thumbStripRef.current.offsetLeft;
+    const walk = (x - thumbStartX.current) * 1.5;
+    if (Math.abs(walk) > 4) {
+      thumbMoved.current = true;
+    }
+    thumbStripRef.current.scrollLeft = thumbScrollStart.current - walk;
+  };
+
+  const onThumbMouseUp = () => {
+    isThumbDragging.current = false;
+  };
+
+  // Horizontal scroll helpers for tabs
+  const tabsBarRef = useRef<HTMLDivElement | null>(null);
+  const isTabsDragging = useRef(false);
+  const tabsStartX = useRef(0);
+  const tabsScrollStart = useRef(0);
+  const tabsMoved = useRef(false);
+
+  const onTabsMouseDown = (e: React.MouseEvent) => {
+    if (!tabsBarRef.current) return;
+    isTabsDragging.current = true;
+    tabsMoved.current = false;
+    tabsStartX.current = e.pageX - tabsBarRef.current.offsetLeft;
+    tabsScrollStart.current = tabsBarRef.current.scrollLeft;
+  };
+
+  const onTabsMouseMove = (e: React.MouseEvent) => {
+    if (!isTabsDragging.current || !tabsBarRef.current) return;
+    const x = e.pageX - tabsBarRef.current.offsetLeft;
+    const walk = (x - tabsStartX.current) * 1.5;
+    if (Math.abs(walk) > 4) {
+      tabsMoved.current = true;
+    }
+    tabsBarRef.current.scrollLeft = tabsScrollStart.current - walk;
+  };
+
+  const onTabsMouseUp = () => {
+    isTabsDragging.current = false;
+  };
+
+  const scrollTabs = (offset: number) => {
+    tabsBarRef.current?.scrollBy({ left: offset, behavior: 'smooth' });
+  };
+
+  const scrollThumbs = (offset: number) => {
+    thumbStripRef.current?.scrollBy({ left: offset, behavior: 'smooth' });
+  };
+
+  const handleScrollThumbStripPrev = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    scrollThumbs(-160);
+  };
+
+  const handleScrollThumbStripNext = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    scrollThumbs(160);
+  };
+
+  const handleSelectPhoto = (photo: string, index: number) => {
+    if (thumbMoved.current) return;
+    setSelectedImage(photo);
+    const thumb = document.getElementById(`gallery-thumb-${index}`);
+    thumb?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  };
+
+  const handleSelectTab = (newTab: 'overview' | 'inspection' | 'assurance' | 'specs', id: string) => {
+    if (tabsMoved.current) return;
+    setTab(newTab);
+    const el = document.getElementById(id);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  };
+
+  const handlePrevPhoto = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const nextIdx = (currentIndex - 1 + listingPhotos.length) % listingPhotos.length;
+    handleSelectPhoto(listingPhotos[nextIdx], nextIdx);
+  };
+
+  const handleNextPhoto = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const nextIdx = (currentIndex + 1) % listingPhotos.length;
+    handleSelectPhoto(listingPhotos[nextIdx], nextIdx);
+  };
+
+  useEffect(() => {
+    const thumb = document.getElementById(`gallery-thumb-${currentIndex}`);
+    thumb?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, [currentIndex]);
+
+  useEffect(() => {
+    const el = document.getElementById(`luxury-tab-${tab}`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, [tab]);
+
+  // Touch swipe support on mobile devices
+  const touchStartX = useRef<number | null>(null);
+  const touchEndX = useRef<number | null>(null);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.targetTouches[0].clientX;
+    touchEndX.current = null;
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.targetTouches[0].clientX;
+  };
+
+  const onTouchEnd = () => {
+    if (touchStartX.current !== null && touchEndX.current !== null) {
+      const distance = touchStartX.current - touchEndX.current;
+      if (distance > 45) {
+        handleNextPhoto();
+      } else if (distance < -45) {
+        handlePrevPhoto();
+      }
+    }
+    touchStartX.current = null;
+    touchEndX.current = null;
+  };
+
   const [enquiryState, setEnquiryState] = useState<EnquiryState>('idle');
   const [formMessage, setFormMessage] = useState('');
   const [buyer, setBuyer] = useState<{ name: string; email?: string } | null>(null);
@@ -209,9 +370,14 @@ export function CarPage() {
 
   useEffect(() => {
     if (!carId) return;
+    setCarLoading(true);
+    setCarNotFound(false);
     const controller = new AbortController();
     fetch(`/api/cars/${encodeURIComponent(carId)}`, { signal: controller.signal })
-      .then(response => response.ok ? response.json() : null)
+      .then(response => {
+        if (!response.ok) throw new Error('Vehicle not found');
+        return response.json();
+      })
       .then(payload => {
         if (payload?.car) {
           setCar(payload.car as Car);
@@ -220,14 +386,32 @@ export function CarPage() {
             lastTrackedCar.current = carId;
             void recordAction({ action: 'car_view', carId });
           }
+        } else {
+          setCarNotFound(true);
         }
       })
-      .catch(() => { });
+      .catch(() => {
+        if (!controller.signal.aborted) setCarNotFound(true);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCarLoading(false);
+      });
+
+    fetch('/api/cars?sort=recommended', { signal: controller.signal })
+      .then(response => response.ok ? response.json() : null)
+      .then(payload => {
+        if (!controller.signal.aborted && Array.isArray(payload?.cars)) {
+          setSimilarCars(payload.cars.filter((c: Car) => c.id !== carId).slice(0, 4));
+        }
+      })
+      .catch(() => {});
+
     return () => controller.abort();
   }, [carId, recordAction]);
 
   async function submitEnquiry(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!car) return;
     setEnquiryState('saving');
     setFormMessage('');
     const form = new FormData(event.currentTarget);
@@ -259,6 +443,76 @@ export function CarPage() {
     }
   }
 
+  if (carLoading || !car) {
+    if (carNotFound) {
+      return (
+        <div className="car-detail-page-wrapper">
+          <div className="container" style={{ padding: '80px 20px', textAlign: 'center', minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#fff7ed', display: 'grid', placeItems: 'center', marginBottom: '20px', color: '#ea580c' }}>
+              <CarFront size={36} />
+            </div>
+            <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', marginBottom: '8px' }}>
+              Vehicle Not Found
+            </h2>
+            <p style={{ color: '#64748b', maxWidth: '440px', lineHeight: 1.6, marginBottom: '24px', fontSize: '14px' }}>
+              The vehicle you are looking for is no longer active or has been sold.
+            </p>
+            <Link to="/buy-cars" className="button button-orange" style={{ padding: '0 24px', height: '44px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              Browse Available Cars
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="car-detail-page-wrapper">
+        <div className="container detail-top-breadcrumb">
+          <div className="crumb-wrap" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <div className="shimmer" style={{ width: '80px', height: '14px', borderRadius: '4px' }} />
+            <span style={{ color: '#cbd5e1' }}>/</span>
+            <div className="shimmer" style={{ width: '60px', height: '14px', borderRadius: '4px' }} />
+            <span style={{ color: '#cbd5e1' }}>/</span>
+            <div className="shimmer" style={{ width: '120px', height: '14px', borderRadius: '4px' }} />
+          </div>
+        </div>
+
+        <section className="container car-detail-hero-section">
+          <div className="detail-hero-left">
+            <div className="luxury-gallery-stage">
+              <div className="shimmer" style={{ width: '100%', height: '420px', borderRadius: '16px' }} />
+              <div style={{ display: 'flex', gap: '8px', marginTop: '12px', overflowX: 'hidden' }}>
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                  <div key={i} className="shimmer" style={{ width: '78px', height: '54px', borderRadius: '8px', flexShrink: 0 }} />
+                ))}
+              </div>
+            </div>
+            <div className="shimmer" style={{ width: '100%', height: '80px', borderRadius: '14px', marginTop: '16px' }} />
+            <div className="detail-bento-specs" style={{ marginTop: '16px' }}>
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="shimmer" style={{ height: '70px', borderRadius: '12px' }} />
+              ))}
+            </div>
+          </div>
+
+          <div className="detail-hero-right">
+            <div className="sticky-booking-hub-card">
+              <div className="shimmer" style={{ width: '60%', height: '20px', borderRadius: '6px', marginBottom: '12px' }} />
+              <div className="shimmer" style={{ width: '90%', height: '32px', borderRadius: '8px', marginBottom: '8px' }} />
+              <div className="shimmer" style={{ width: '40%', height: '18px', borderRadius: '6px', marginBottom: '24px' }} />
+              <div className="shimmer" style={{ width: '100%', height: '110px', borderRadius: '12px', marginBottom: '20px' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div className="shimmer" style={{ width: '100%', height: '48px', borderRadius: '10px' }} />
+                <div className="shimmer" style={{ width: '100%', height: '48px', borderRadius: '10px' }} />
+                <div className="shimmer" style={{ width: '100%', height: '44px', borderRadius: '10px' }} />
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   const emiVal = Math.round(calcEmi(car.price * 0.8, 10.5, 60));
 
   return (
@@ -282,12 +536,37 @@ export function CarPage() {
         <div className="detail-hero-left">
           {/* Main Visual Stage */}
           <div className="luxury-gallery-stage">
-            <div className={`gallery-photo-main ${car.accent || ''}`}>
+            <div
+              className={`gallery-photo-main ${car.accent || ''}`}
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
+            >
               <img
                 src={selectedImage}
                 alt={`${car.color} ${car.year} ${car.make} ${car.model}`}
                 className="stage-main-img"
               />
+
+              {/* Prev / Next Slide Arrow Buttons */}
+              <button
+                type="button"
+                className="stage-nav-arrow stage-nav-prev"
+                onClick={handlePrevPhoto}
+                aria-label="Previous slide photo"
+              >
+                <ChevronLeft size={18} />
+              </button>
+
+              <button
+                type="button"
+                className="stage-nav-arrow stage-nav-next"
+                onClick={handleNextPhoto}
+                aria-label="Next slide photo"
+              >
+                <ChevronRight size={18} />
+              </button>
+
               {/* Floating Quality Badges */}
               <div className="stage-floating-badges">
                 {car.verificationStatus === 'verified' && (
@@ -305,30 +584,60 @@ export function CarPage() {
                   <Wrench size={13} /> 1-Year Warranty
                 </span>
               </div>
+
               {/* Photo Counter */}
               <div className="stage-photo-counter">
-                <span>{String(Math.max(1, listingPhotos.indexOf(selectedImage) + 1)).padStart(2, '0')}</span>
+                <span>{String(currentIndex + 1).padStart(2, '0')}</span>
                 <span>/</span>
-                <span>{String(Math.max(1, listingPhotos.length)).padStart(2, '0')} Photos</span>
+                <span>{String(listingPhotos.length).padStart(2, '0')} Photos</span>
               </div>
             </div>
 
-            {/* Thumbnails Row */}
-            {listingPhotos.length > 1 && (
-              <div className="gallery-thumbnails-strip">
-                {listingPhotos.slice(0, 10).map((photo, index) => (
+            {/* Thumbnails Row - Horizontally Scrollable on Mobile & Desktop */}
+            <div className="gallery-thumbnails-wrapper">
+              <button
+                type="button"
+                className="thumb-scroll-btn thumb-scroll-prev"
+                onClick={handleScrollThumbStripPrev}
+                aria-label="Scroll thumbnails left"
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              <div
+                ref={thumbStripRef}
+                className="gallery-thumbnails-strip"
+                role="tablist"
+                aria-label="Vehicle photo gallery thumbnails"
+                onMouseDown={onThumbMouseDown}
+                onMouseMove={onThumbMouseMove}
+                onMouseUp={onThumbMouseUp}
+                onMouseLeave={onThumbMouseUp}
+              >
+                {listingPhotos.map((photo, index) => (
                   <button
-                    key={photo}
+                    key={`${photo}-${index}`}
+                    id={`gallery-thumb-${index}`}
                     type="button"
                     className={`gallery-thumb-item ${photo === selectedImage ? 'is-selected' : ''}`}
-                    onClick={() => setSelectedImage(photo)}
-                    aria-label={`View photo ${index + 1}`}
+                    onClick={() => handleSelectPhoto(photo, index)}
+                    aria-label={`View photo ${index + 1} of ${listingPhotos.length}`}
+                    aria-selected={photo === selectedImage}
                   >
-                    <img src={photo} alt="" />
+                    <img src={photo} alt="" loading="lazy" draggable={false} />
                   </button>
                 ))}
               </div>
-            )}
+
+              <button
+                type="button"
+                className="thumb-scroll-btn thumb-scroll-next"
+                onClick={handleScrollThumbStripNext}
+                aria-label="Scroll thumbnails right"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
 
           {/* Verified Seller / Showroom Bar */}
@@ -609,34 +918,75 @@ export function CarPage() {
 
       {/* Lower Detailed Information Hub */}
       <section className="container detail-lower-section">
-        <div className="luxury-tabs-bar">
+        <div className="luxury-tabs-wrapper">
           <button
             type="button"
-            className={`luxury-tab-btn ${tab === 'overview' ? 'active' : ''}`}
-            onClick={() => setTab('overview')}
+            className="tabs-scroll-btn tabs-scroll-prev"
+            onClick={() => scrollTabs(-180)}
+            aria-label="Scroll tabs left"
           >
-            Vehicle Overview
+            <ChevronLeft size={16} />
           </button>
+
+          <div
+            ref={tabsBarRef}
+            className="luxury-tabs-bar"
+            role="tablist"
+            aria-label="Vehicle details tabs"
+            onMouseDown={onTabsMouseDown}
+            onMouseMove={onTabsMouseMove}
+            onMouseUp={onTabsMouseUp}
+            onMouseLeave={onTabsMouseUp}
+          >
+            <button
+              id="luxury-tab-overview"
+              type="button"
+              role="tab"
+              aria-selected={tab === 'overview'}
+              className={`luxury-tab-btn ${tab === 'overview' ? 'active' : ''}`}
+              onClick={() => handleSelectTab('overview', 'luxury-tab-overview')}
+            >
+              Vehicle Overview
+            </button>
+            <button
+              id="luxury-tab-inspection"
+              type="button"
+              role="tab"
+              aria-selected={tab === 'inspection'}
+              className={`luxury-tab-btn ${tab === 'inspection' ? 'active' : ''}`}
+              onClick={() => handleSelectTab('inspection', 'luxury-tab-inspection')}
+            >
+              140-Point Inspection Report
+            </button>
+            <button
+              id="luxury-tab-assurance"
+              type="button"
+              role="tab"
+              aria-selected={tab === 'assurance'}
+              className={`luxury-tab-btn ${tab === 'assurance' ? 'active' : ''}`}
+              onClick={() => handleSelectTab('assurance', 'luxury-tab-assurance')}
+            >
+              Cars21 Assurance &amp; Warranty
+            </button>
+            <button
+              id="luxury-tab-specs"
+              type="button"
+              role="tab"
+              aria-selected={tab === 'specs'}
+              className={`luxury-tab-btn ${tab === 'specs' ? 'active' : ''}`}
+              onClick={() => handleSelectTab('specs', 'luxury-tab-specs')}
+            >
+              Technical Specifications
+            </button>
+          </div>
+
           <button
             type="button"
-            className={`luxury-tab-btn ${tab === 'inspection' ? 'active' : ''}`}
-            onClick={() => setTab('inspection')}
+            className="tabs-scroll-btn tabs-scroll-next"
+            onClick={() => scrollTabs(180)}
+            aria-label="Scroll tabs right"
           >
-            140-Point Inspection Report
-          </button>
-          <button
-            type="button"
-            className={`luxury-tab-btn ${tab === 'assurance' ? 'active' : ''}`}
-            onClick={() => setTab('assurance')}
-          >
-            Cars21 Assurance & Warranty
-          </button>
-          <button
-            type="button"
-            className={`luxury-tab-btn ${tab === 'specs' ? 'active' : ''}`}
-            onClick={() => setTab('specs')}
-          >
-            Technical Specifications
+            <ChevronRight size={16} />
           </button>
         </div>
 
@@ -706,14 +1056,16 @@ export function CarPage() {
       </section>
 
       {/* Recommended Similar Cars Section */}
-      <section className="section container similar-cars-section">
-        <SectionTitle eyebrow="RECOMMENDED VEHICLES" title="Similar Verified Cars You May Like" link="/buy-cars" />
-        <div className="car-grid">
-          {cars.filter(item => item.id !== car.id).slice(0, 4).map(item => (
-            <CarCard key={item.id} car={item} />
-          ))}
-        </div>
-      </section>
+      {similarCars.length > 0 && (
+        <section className="section container similar-cars-section">
+          <SectionTitle eyebrow="RECOMMENDED VEHICLES" title="Similar Verified Cars You May Like" link="/buy-cars" />
+          <div className="car-grid">
+            {similarCars.map(item => (
+              <CarCard key={item.id} car={item} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Car Loan Application Modal */}
       {loanModalOpen && (

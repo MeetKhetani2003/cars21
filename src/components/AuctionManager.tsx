@@ -21,9 +21,11 @@ import {
   ExternalLink,
   ShieldCheck,
   Check,
-  Sparkles
+  Sparkles,
+  Crop
 } from 'lucide-react';
 import type { AuctionRecord } from '@/app/api/auctions/route';
+import { VehicleImageAdjuster, type VehicleCropResult } from './VehicleImageAdjuster';
 
 function formatINR(val: number): string {
   if (typeof val !== 'number' || isNaN(val)) return '₹0';
@@ -108,6 +110,14 @@ export function AuctionManager({ role }: { role: 'superadmin' | 'manager' | 'adm
   const [extendDateTimeInput, setExtendDateTimeInput] = useState<string>('');
   const [extendTab, setExtendTab] = useState<'preset' | 'datetime'>('preset');
   const [extendingInFlight, setExtendingInFlight] = useState(false);
+
+  // Vehicle image framing & website preview adjuster state:
+  const [adjustingAuctionPhoto, setAdjustingAuctionPhoto] = useState<boolean>(false);
+
+  const handleApplyAuctionCrop = (result: VehicleCropResult) => {
+    setImageUrl(result.dataUrl);
+    setAdjustingAuctionPhoto(false);
+  };
 
   // Live countdown tick
   const [, setNowTick] = useState(Date.now());
@@ -503,8 +513,8 @@ export function AuctionManager({ role }: { role: 'superadmin' | 'manager' | 'adm
         </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+      {/* Filter Tabs - Horizontal Touch Scroller on Mobile */}
+      <div className="auction-filter-tabs-scroller">
         {[
           { id: 'all', label: `All Lots (${auctions.length})` },
           { id: 'live', label: `Live Now (${liveCount})` },
@@ -526,6 +536,8 @@ export function AuctionManager({ role }: { role: 'superadmin' | 'manager' | 'adm
               background: filterType === tab.id ? '#eff6ff' : '#ffffff',
               color: filterType === tab.id ? '#1d4ed8' : '#475569',
               cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
               transition: 'all 0.15s ease'
             }}
           >
@@ -552,15 +564,12 @@ export function AuctionManager({ role }: { role: 'superadmin' | 'manager' | 'adm
             return (
               <div
                 key={auction.id}
+                className="auction-manager-lot-card"
                 style={{
                   background: '#ffffff',
                   border: isLive ? '2px solid #3b82f6' : '1px solid #e2e8f0',
                   borderRadius: '16px',
                   padding: '18px 20px',
-                  display: 'grid',
-                  gridTemplateColumns: '140px minmax(240px, 1.8fr) minmax(200px, 1.2fr) minmax(180px, 1fr)',
-                  gap: '18px',
-                  alignItems: 'center',
                   boxShadow: isLive ? '0 8px 24px rgba(59, 130, 246, 0.08)' : '0 2px 6px rgba(0,0,0,0.02)'
                 }}
               >
@@ -1224,6 +1233,34 @@ export function AuctionManager({ role }: { role: 'superadmin' | 'manager' | 'adm
                     onChange={e => setImageUrl(e.target.value)}
                     style={{ width: '100%', height: '38px', padding: '0 10px', borderRadius: '8px', border: '1px solid #cbd5e1', marginTop: '4px', fontSize: '12px' }}
                   />
+                  {imageUrl && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px' }}>
+                      <img
+                        src={imageUrl}
+                        alt="Vehicle preview"
+                        style={{ width: '56px', height: '38px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setAdjustingAuctionPhoto(true)}
+                        style={{
+                          padding: '5px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #2563eb',
+                          background: '#eff6ff',
+                          color: '#1d4ed8',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <Crop size={13} /> Preview on Website &amp; Adjust Framing
+                      </button>
+                    </div>
+                  )}
                 </label>
               </div>
 
@@ -1571,6 +1608,25 @@ export function AuctionManager({ role }: { role: 'superadmin' | 'manager' | 'adm
             </form>
           </div>
         </div>
+      )}
+
+      {/* Website Preview & Framing Adjuster for Auction Vehicle */}
+      {adjustingAuctionPhoto && imageUrl && (
+        <VehicleImageAdjuster
+          isModal
+          imageUrl={imageUrl}
+          carInfo={{
+            make,
+            model,
+            variant,
+            year,
+            price: startingPrice,
+            city: venueCity,
+            badge: 'Live Auction'
+          }}
+          onApply={handleApplyAuctionCrop}
+          onClose={() => setAdjustingAuctionPhoto(false)}
+        />
       )}
     </div>
   );

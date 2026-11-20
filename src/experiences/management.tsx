@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { Activity, ArrowDownToLine, ArrowLeft, ArrowUpRight, BadgeCheck, Building2, CarFront, Check, CheckCircle2, ChevronDown, CircleDollarSign, ClipboardCheck, ClipboardList, CreditCard, Download, ExternalLink, Eye, EyeOff, FilePlus2, FileText, Gauge, Gavel, Globe2, Heart, History as HistoryIcon, Image as ImageIcon, ImagePlus, Key, Landmark, LayoutDashboard, LogOut, Mail, MapPin, Menu, MessageSquareText, Pencil, Phone, Plus, RefreshCw, Search, ShieldAlert, ShieldCheck, Star, Store, Trash2, UserCheck, UserRound, Users, X, XCircle } from 'lucide-react';
+import { Activity, ArrowDownToLine, ArrowLeft, ArrowUpRight, BadgeCheck, Building2, CarFront, Check, CheckCircle2, ChevronDown, CircleDollarSign, ClipboardCheck, ClipboardList, CreditCard, Crop, Download, ExternalLink, Eye, EyeOff, FilePlus2, FileText, Gauge, Gavel, Globe2, Heart, History as HistoryIcon, Image as ImageIcon, ImagePlus, Key, Landmark, LayoutDashboard, LogOut, Mail, MapPin, Menu, MessageSquareText, Pencil, Phone, Plus, RefreshCw, Search, ShieldAlert, ShieldCheck, Star, Store, Trash2, UserCheck, UserRound, Users, X, XCircle } from 'lucide-react';
 import { formatINR } from '../data';
 import { UserHistoryPanel } from '../components/UserHistoryPanel';
 import { WishlistInsights } from '../components/WishlistInsights';
@@ -17,6 +17,7 @@ import { SellInquiryManager } from '../components/SellInquiryManager';
 import { AuctionManager } from '../components/AuctionManager';
 import { IndexingManager } from '../components/IndexingManager';
 import { ListInAuctionModal, type AuctionVehicleInput } from '../components/ListInAuctionModal';
+import { VehicleImageAdjuster, type VehicleCropResult } from '../components/VehicleImageAdjuster';
 
 type Role = 'superadmin' | 'manager' | 'admin' | 'vendor';
 export type ManagerPermissions = {
@@ -1491,6 +1492,15 @@ function CarEditor({
   const [newSelectedFiles, setNewSelectedFiles] = useState<{ file: File; url: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Vehicle image framing & website preview adjuster state:
+  const [adjustingPhoto, setAdjustingPhoto] = useState<{
+    url: string;
+    file?: File | null;
+    isStagedIndex?: number;
+    photoId?: string;
+    isExternal?: boolean;
+  } | null>(null);
+
   // Evidence photos state for vendors:
   const initialEvidenceIds = useMemo(() => {
     return Array.isArray(inspection.evidencePhotoIds) ? (inspection.evidencePhotoIds as string[]) : [];
@@ -1516,11 +1526,53 @@ function CarEditor({
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     const added = files.map(file => ({ file, url: URL.createObjectURL(file) }));
+    const startIndex = newSelectedFiles.length;
     setNewSelectedFiles(prev => {
       const combined = [...prev, ...added];
       syncFiles(combined);
       return combined;
     });
+    // Automatically open adjuster for the first added photo so user immediately sees how it looks on the website and can drag to adjust framing
+    if (added[0]) {
+      setAdjustingPhoto({
+        url: added[0].url,
+        file: added[0].file,
+        isStagedIndex: startIndex
+      });
+    }
+  };
+
+  const handleApplyCrop = (result: VehicleCropResult) => {
+    if (!adjustingPhoto) return;
+
+    if (adjustingPhoto.isStagedIndex !== undefined) {
+      const idx = adjustingPhoto.isStagedIndex;
+      setNewSelectedFiles(prev => {
+        const next = [...prev];
+        if (next[idx]) {
+          URL.revokeObjectURL(next[idx].url);
+          next[idx] = { file: result.file, url: result.dataUrl };
+        }
+        syncFiles(next);
+        return next;
+      });
+    } else if (adjustingPhoto.photoId) {
+      // Replaces an existing uploaded photo with the newly cropped file
+      const oldId = adjustingPhoto.photoId;
+      setActivePhotoIds(prev => prev.filter(id => id !== oldId));
+      setNewSelectedFiles(prev => {
+        const next = [...prev, { file: result.file, url: result.dataUrl }];
+        syncFiles(next);
+        return next;
+      });
+      if (primaryImageId === oldId) {
+        setPrimaryImageId('');
+      }
+    } else if (adjustingPhoto.isExternal) {
+      setImageUrl(result.dataUrl);
+    }
+
+    setAdjustingPhoto(null);
   };
 
   const handleRemoveStagedFile = (idx: number) => {
@@ -1845,19 +1897,32 @@ function CarEditor({
                   <div key={id} className={`management-photo-manage-card ${isPrimary ? 'primary-cover' : ''}`}>
                     <img src={`/api/photos/${encodeURIComponent(id)}`} alt={`Listing photo ${index + 1}`} />
                     
-                    {/* Primary Badge or Set Cover Button */}
-                    {isPrimary ? (
+                    {/* Primary Badge */}
+                    {isPrimary && (
                       <span className="photo-card-badge primary">★ Cover Photo</span>
-                    ) : (
+                    )}
+
+                    {/* Actions row: Adjust Framing & Set Cover */}
+                    <div className="photo-card-actions-row">
                       <button
                         type="button"
-                        className="photo-card-set-cover-btn"
-                        onClick={() => setPrimaryImageId(id)}
-                        title="Set this photo as the main listing cover"
+                        className="photo-card-crop-btn"
+                        onClick={() => setAdjustingPhoto({ url: `/api/photos/${encodeURIComponent(id)}`, photoId: id })}
+                        title="Preview on website & drag to adjust framing"
                       >
-                        Set as Cover
+                        <Crop size={11} /> Adjust
                       </button>
-                    )}
+                      {!isPrimary && (
+                        <button
+                          type="button"
+                          className="photo-card-set-cover-btn"
+                          onClick={() => setPrimaryImageId(id)}
+                          title="Set this photo as the main listing cover"
+                        >
+                          Cover
+                        </button>
+                      )}
+                    </div>
 
                     {/* Delete Photo Button */}
                     <button
@@ -1877,6 +1942,16 @@ function CarEditor({
                 <div key={item.url} className="management-photo-manage-card staged">
                   <img src={item.url} alt={`New upload preview ${idx + 1}`} />
                   <span className="photo-card-badge new">New Upload</span>
+                  <div className="photo-card-actions-row">
+                    <button
+                      type="button"
+                      className="photo-card-crop-btn"
+                      onClick={() => setAdjustingPhoto({ url: item.url, file: item.file, isStagedIndex: idx })}
+                      title="Preview on website & drag to adjust framing"
+                    >
+                      <Crop size={11} /> Adjust Framing
+                    </button>
+                  </div>
                   <button
                     type="button"
                     className="photo-card-delete-btn"
@@ -1910,15 +1985,26 @@ function CarEditor({
                   style={{ flex: 1 }}
                 />
                 {imageUrl && (
-                  <button
-                    type="button"
-                    className="management-secondary compact"
-                    style={{ color: '#ef4444' }}
-                    onClick={() => setImageUrl('')}
-                    title="Clear image URL"
-                  >
-                    <Trash2 size={13} /> Clear
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="management-secondary compact"
+                      style={{ color: '#2563eb' }}
+                      onClick={() => setAdjustingPhoto({ url: imageUrl, isExternal: true })}
+                      title="Preview on website & drag to adjust framing"
+                    >
+                      <Crop size={13} /> Adjust Framing
+                    </button>
+                    <button
+                      type="button"
+                      className="management-secondary compact"
+                      style={{ color: '#ef4444' }}
+                      onClick={() => setImageUrl('')}
+                      title="Clear image URL"
+                    >
+                      <Trash2 size={13} /> Clear
+                    </button>
+                  </>
                 )}
               </div>
             </label>
@@ -2026,6 +2112,25 @@ function CarEditor({
           </button>
         </div>
       </form>
+
+      {/* Interactive Website Card Preview & Image Framing Studio */}
+      {adjustingPhoto && (
+        <VehicleImageAdjuster
+          isModal
+          imageUrl={adjustingPhoto.url}
+          originalFile={adjustingPhoto.file}
+          carInfo={{
+            make: selectedMake,
+            model: modelInput,
+            variant: String(value.variant || ''),
+            year: selectedYear,
+            price: Number(value.price || 850000),
+            city: String(value.city || (cities[0]?.name || 'Junagadh'))
+          }}
+          onApply={handleApplyCrop}
+          onClose={() => setAdjustingPhoto(null)}
+        />
+      )}
     </Modal>
   );
 }

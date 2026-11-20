@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { cars as demoCars } from '../../../data';
 import { getSession, isAdminRequest, isVendorSession } from '../../../server/auth';
 import { getDb } from '../../../server/mongodb';
 import { getVendorEntitlements } from '../../../server/vendor-subscription';
@@ -93,9 +92,6 @@ export async function POST(request: NextRequest) {
     const clientEmail = isGoogle ? String(buyer?.email || session.email || parsed.data.email || '') : (parsed.data.email || `${cleanPhone}@lead.cars21.com`);
 
     let car = await db.collection('cars').findOne({ id: parsed.data.carId }) as Record<string, unknown> | null;
-    if (!car && process.env.NODE_ENV !== 'production') {
-      car = (demoCars.find(item => item.id === parsed.data.carId) as unknown as Record<string, unknown> | undefined) ?? null;
-    }
     if (!car) return NextResponse.json({ error: 'This car is no longer available.' }, { status: 404 });
 
     const vehicle = vehicleSnapshot(car, request.url);

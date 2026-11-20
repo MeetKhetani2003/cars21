@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { cars as demoCars } from '../../../../data';
 import { getDb } from '../../../../server/mongodb';
 
 export const runtime = 'nodejs';
@@ -52,19 +51,17 @@ export async function GET() {
       country: String(m.country || '')
     }));
 
-    if (cars.length || managedCities.length || managedMakes.length || process.env.NODE_ENV === 'production') {
-      return NextResponse.json({
-        ...base,
-        cities: allCities.length ? allCities : base.cities,
-        makes: allMakes.length ? allMakes : base.makes,
-        models: allModels.length ? allModels : base.models,
-        popularCities,
-        popularMakes,
-        source: 'mongodb'
-      });
-    }
-  } catch {
-    if (process.env.NODE_ENV === 'production') return NextResponse.json({ error: 'Inventory filters are temporarily unavailable.' }, { status: 503 });
+    return NextResponse.json({
+      ...base,
+      cities: allCities.length ? allCities : base.cities,
+      makes: allMakes.length ? allMakes : base.makes,
+      models: allModels.length ? allModels : base.models,
+      popularCities,
+      popularMakes,
+      source: 'mongodb'
+    });
+  } catch (error: any) {
+    console.error('API /cars/filters database error:', error?.message || error);
+    return NextResponse.json({ cities: [], makes: [], models: [], fuels: [], bodyTypes: [], transmissions: [], minPrice: 0, maxPrice: 0, source: 'mongodb' });
   }
-  return NextResponse.json({ ...buildOptions(demoCars as unknown as Record<string, unknown>[]), source: 'demo' });
 }

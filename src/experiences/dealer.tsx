@@ -412,8 +412,8 @@ export function AuctionPage() {
 
         {/* CONTROLS BAR: CATEGORY TABS, SEARCH & SORT */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '24px' }}>
-          {/* CATEGORY TABS */}
-          <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+          {/* CATEGORY TABS - Horizontal Touch Scroller on Mobile */}
+          <div className="auction-category-tabs-scroller" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
             <button
               type="button"
               onClick={() => setActiveTab('all')}

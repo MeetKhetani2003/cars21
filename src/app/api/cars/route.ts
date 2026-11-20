@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { type Filter, type Sort } from 'mongodb';
 import { z } from 'zod';
-import { cars as demoCars, type Car } from '../../../data';
+import type { Car } from '../../../data';
 import { vendorSlug as makeVendorSlug } from '../../../lib/vendor-slug';
 import { getSession, isAdminRequest, isVendorSession } from '../../../server/auth';
 import { getDb, getPhotoBucket } from '../../../server/mongodb';
@@ -136,28 +136,11 @@ export async function GET(request: NextRequest) {
     const collection = db.collection<Record<string, unknown>>('cars');
     const documents = await collection.find(filter).sort(sort).limit(100).toArray();
     const cars = await attachVendorProfiles(db, documents);
-    if (cars.length || process.env.NODE_ENV === 'production') return NextResponse.json({ cars, count: cars.length, source: 'mongodb' });
-  } catch {
-    if (process.env.NODE_ENV === 'production') return NextResponse.json({ error: 'Inventory is temporarily unavailable.' }, { status: 503 });
+    return NextResponse.json({ cars, count: cars.length, source: 'mongodb' });
+  } catch (error: any) {
+    console.error('API /cars database query error:', error?.message || error);
+    return NextResponse.json({ cars: [], count: 0, error: 'Inventory is temporarily unavailable.' }, { status: 500 });
   }
-
-  const term = q.toLowerCase();
-  let fallback = demoCars.filter(car => !term || `${car.make} ${car.model} ${car.variant} ${car.city}`.toLowerCase().includes(term));
-  if (make) fallback = fallback.filter(car => car.make.toLowerCase().includes(make.toLowerCase()));
-  if (model) fallback = fallback.filter(car => car.model.toLowerCase() === model.toLowerCase());
-  if (city) fallback = fallback.filter(car => car.city.toLowerCase().includes(city.toLowerCase()));
-  if (fuel) fallback = fallback.filter(car => car.fuel.toLowerCase() === fuel.toLowerCase());
-  if (transmission) fallback = fallback.filter(car => car.transmission.toLowerCase() === transmission.toLowerCase());
-  if (body === 'Automatic') fallback = fallback.filter(car => car.transmission === 'Automatic');
-  else if (body === 'Electric') fallback = fallback.filter(car => car.body === 'Electric' || car.fuel === 'Electric');
-  else if (body === 'Luxury') fallback = fallback.filter(car => car.price > 1_500_000);
-  else if (body) fallback = fallback.filter(car => car.body.toLowerCase() === body.toLowerCase());
-  if (minPrice > 0) fallback = fallback.filter(car => car.price >= minPrice);
-  if (maxPrice > 0) fallback = fallback.filter(car => car.price <= maxPrice);
-  if (sortKey === 'price-asc') fallback.sort((a,b)=>a.price-b.price);
-  if (sortKey === 'price-desc') fallback.sort((a,b)=>b.price-a.price);
-  if (sortKey === 'newest') fallback.sort((a,b)=>b.year-a.year);
-  return NextResponse.json({ cars: fallback, count: fallback.length, source: 'demo' });
 }
 
 export async function POST(request: NextRequest) {

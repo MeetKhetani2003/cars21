@@ -122,11 +122,59 @@ export function SiteHeader(){
         </div>
       </header>
 
-      {/* Mobile Drawer (placed outside header so it never gets clipped by header backdrop-filter/height) */}
+            {/* Mobile Drawer (placed outside header so it never gets clipped by header backdrop-filter/height) */}
       {open && (
         <div className="mobile-drawer-portal">
           <div className="nav-backdrop" onClick={close} aria-hidden="true" />
           <aside className="mobile-drawer-panel" aria-label="Mobile site navigation">
+            {/* Drawer Header with Brand Logo, Close Button and Status */}
+            <div className="mobile-drawer-header">
+              <Link href="/" className="wordmark" onClick={close}>
+                <span className="logo-mark" style={{ background: '#0f172a', color: '#ff5c00', border: '1px solid rgba(255, 92, 0, 0.35)', width: '30px', height: '30px', borderRadius: '8px' }}>
+                  <CarFront size={17}/>
+                </span>
+                <span className="wordmark-text" style={{ color: '#0f172a', fontWeight: 900, fontSize: '17px' }}>
+                  CARS<span className="logo-accent" style={{ color: '#ff5c00', fontWeight: 900 }}>21</span>
+                </span>
+              </Link>
+              <button 
+                type="button" 
+                className="mobile-drawer-close-btn" 
+                onClick={close} 
+                aria-label="Close navigation"
+              >
+                <X size={20}/>
+              </button>
+            </div>
+
+            {/* Quick Horizontal Jump Categories */}
+            <div className="mobile-drawer-quick-tabs-bar">
+              <Link href="/buy-cars" onClick={close} className="mobile-quick-tab">
+                <span>🚗</span> Buy Cars
+              </Link>
+              <Link href="/sell-car" onClick={close} className="mobile-quick-tab orange">
+                <span>💰</span> Sell Car
+              </Link>
+              <Link href="/dealer-auctions" onClick={close} className="mobile-quick-tab red">
+                <span>⚡</span> Auctions
+              </Link>
+              <Link href="/loans24" onClick={close} className="mobile-quick-tab green">
+                <span>🏦</span> Loans &amp; EMI
+              </Link>
+              <Link href="/dealers" onClick={close} className="mobile-quick-tab">
+                <span>🏢</span> Showrooms
+              </Link>
+              <Link href="/inspection" onClick={close} className="mobile-quick-tab">
+                <span>🔍</span> Diagnostics
+              </Link>
+              <Link href="/vendor" onClick={close} className="mobile-quick-tab">
+                <span>⚙️</span> Dealer CRM
+              </Link>
+              <Link href="/admin" onClick={close} className="mobile-quick-tab">
+                <span>🛡️</span> Admin
+              </Link>
+            </div>
+
             <div className="mobile-drawer-top">
               {buyer ? (
                 <Link href="/account" onClick={close} className="mobile-user-card">
@@ -183,7 +231,7 @@ export function SiteHeader(){
             <div className="mobile-drawer-sections">
               {/* SECTION: BUY & EXPLORE */}
               <div className="mobile-nav-group">
-                <span className="mobile-group-title">BUY &amp; EXPLORE</span>
+                <span className="mobile-group-title">BUY &amp; EXPLORE CARS</span>
                 <Link 
                   href="/buy-cars" 
                   onClick={(e) => {
@@ -213,8 +261,8 @@ export function SiteHeader(){
                 <Link href="/vehicle-history" onClick={close} className="mobile-menu-item">
                   <span className="mobile-menu-icon" style={{ background: '#f5f3ff', color: '#7c3aed' }}><History size={18}/></span>
                   <div className="mobile-menu-text">
-                    <strong>Vehicle History Check</strong>
-                    <small>RTO records, challans &amp; accident history</small>
+                    <strong>Vehicle History &amp; Challans</strong>
+                    <small>RTO records, blacklist &amp; accident history</small>
                   </div>
                   <ChevronRight size={16} className="mobile-chevron-muted" />
                 </Link>
@@ -226,7 +274,7 @@ export function SiteHeader(){
                 <Link href="/sell-car" onClick={close} className="mobile-menu-item">
                   <span className="mobile-menu-icon" style={{ background: '#fff7ed', color: '#ea580c' }}><HandCoins size={18}/></span>
                   <div className="mobile-menu-text">
-                    <strong>Instant Cash Offer</strong>
+                    <strong>Instant Cash Offer &amp; Doorstep</strong>
                     <small>Doorstep inspection &amp; 30-min instant payout</small>
                   </div>
                   <span className="mobile-badge-orange">INSTANT</span>
@@ -236,6 +284,35 @@ export function SiteHeader(){
                   <div className="mobile-menu-text">
                     <strong>AI Valuation Engine</strong>
                     <small>Market price calculation in under 10 seconds</small>
+                  </div>
+                  <ChevronRight size={16} className="mobile-chevron-muted" />
+                </Link>
+              </div>
+
+              {/* SECTION: AUCTIONS & B2B WHOLESALE */}
+              <div className="mobile-nav-group">
+                <span className="mobile-group-title">AUCTIONS &amp; B2B EXCHANGE</span>
+                <Link href="/dealer-auctions" onClick={close} className="mobile-menu-item">
+                  <span className="mobile-menu-icon" style={{ background: '#fef2f2', color: '#dc2626' }}><Gavel size={18}/></span>
+                  <div className="mobile-menu-text">
+                    <strong>Live Wholesale Auctions</strong>
+                    <small>Yard lots in Junagadh &amp; digital live bidding</small>
+                  </div>
+                  <span className="mobile-badge-red">LIVE</span>
+                </Link>
+                <Link href="/dealers" onClick={close} className="mobile-menu-item">
+                  <span className="mobile-menu-icon" style={{ background: '#f8fafc', color: '#1e293b' }}><Building2 size={18}/></span>
+                  <div className="mobile-menu-text">
+                    <strong>Dealer Showrooms Directory</strong>
+                    <small>Verified dealerships across 12+ metro areas</small>
+                  </div>
+                  <ChevronRight size={16} className="mobile-chevron-muted" />
+                </Link>
+                <Link href="/become-a-dealer" onClick={close} className="mobile-menu-item">
+                  <span className="mobile-menu-icon" style={{ background: '#eef2ff', color: '#4f46e5' }}><Briefcase size={18}/></span>
+                  <div className="mobile-menu-text">
+                    <strong>Join Dealer Partner Network</strong>
+                    <small>Floor plan credit &amp; daily auction lots</small>
                   </div>
                   <ChevronRight size={16} className="mobile-chevron-muted" />
                 </Link>
@@ -270,38 +347,30 @@ export function SiteHeader(){
                 </Link>
               </div>
 
-              {/* SECTION: DEALERS & ENTERPRISE */}
+              {/* SECTION: PORTALS & MANAGEMENT */}
               <div className="mobile-nav-group">
-                <span className="mobile-group-title">DEALERS &amp; BUSINESS</span>
-                <Link href="/dealers" onClick={close} className="mobile-menu-item">
-                  <span className="mobile-menu-icon" style={{ background: '#f8fafc', color: '#1e293b' }}><Building2 size={18}/></span>
-                  <div className="mobile-menu-text">
-                    <strong>Dealer Showrooms Directory</strong>
-                    <small>Verified dealerships across 12+ metro areas</small>
-                  </div>
-                  <ChevronRight size={16} className="mobile-chevron-muted" />
-                </Link>
-                <Link href="/dealer-auctions" onClick={close} className="mobile-menu-item">
-                  <span className="mobile-menu-icon" style={{ background: '#fef2f2', color: '#dc2626' }}><Gavel size={18}/></span>
-                  <div className="mobile-menu-text">
-                    <strong>Live Wholesale Auctions</strong>
-                    <small>Exclusive B2B inventory for certified dealers</small>
-                  </div>
-                  <span className="mobile-badge-red">LIVE</span>
-                </Link>
-                <Link href="/become-a-dealer" onClick={close} className="mobile-menu-item">
-                  <span className="mobile-menu-icon" style={{ background: '#eef2ff', color: '#4f46e5' }}><Briefcase size={18}/></span>
-                  <div className="mobile-menu-text">
-                    <strong>Join Dealer Partner Network</strong>
-                    <small>Get floor plan financing &amp; daily auction access</small>
-                  </div>
-                  <ChevronRight size={16} className="mobile-chevron-muted" />
-                </Link>
+                <span className="mobile-group-title">PORTALS &amp; ADMINISTRATION</span>
                 <Link href="/vendor" onClick={close} className="mobile-menu-item">
-                  <span className="mobile-menu-icon" style={{ background: '#f8fafc', color: '#64748b' }}><Building2 size={18}/></span>
+                  <span className="mobile-menu-icon" style={{ background: '#fffbeb', color: '#d97706' }}><Building2 size={18}/></span>
                   <div className="mobile-menu-text">
-                    <strong>Dealer CRM Portal</strong>
+                    <strong>Dealer CRM / Vendor Workspace</strong>
                     <small>Manage stock, inspect cars &amp; track bids</small>
+                  </div>
+                  <ChevronRight size={16} className="mobile-chevron-muted" />
+                </Link>
+                <Link href="/admin" onClick={close} className="mobile-menu-item">
+                  <span className="mobile-menu-icon" style={{ background: '#eff6ff', color: '#2563eb' }}><ShieldCheck size={18}/></span>
+                  <div className="mobile-menu-text">
+                    <strong>Operations &amp; Admin Console</strong>
+                    <small>Review listings, RC verification &amp; leads</small>
+                  </div>
+                  <ChevronRight size={16} className="mobile-chevron-muted" />
+                </Link>
+                <Link href="/superadmin" onClick={close} className="mobile-menu-item">
+                  <span className="mobile-menu-icon" style={{ background: '#fdf2f8', color: '#db2777' }}><Sparkles size={18}/></span>
+                  <div className="mobile-menu-text">
+                    <strong>Superadmin Console</strong>
+                    <small>Master administration, roles &amp; indexing</small>
                   </div>
                   <ChevronRight size={16} className="mobile-chevron-muted" />
                 </Link>
@@ -401,6 +470,16 @@ export function SiteFooter(){
 
 export function MobileBottomNav(){
   const pathname=usePathname();
+  // Do not show buyer bottom navigation on management/admin/vendor console pages
+  if (
+    pathname === '/superadmin' || pathname.startsWith('/superadmin/') ||
+    pathname === '/manager' || pathname.startsWith('/manager/') ||
+    pathname === '/admin' || pathname.startsWith('/admin/') ||
+    pathname === '/vendor' || pathname.startsWith('/vendor/') ||
+    pathname === '/operations' || pathname === '/inspector'
+  ) {
+    return null;
+  }
   const items=[
     {to:'/',label:'Home',Icon:Home},
     {to:'/buy-cars',label:'Search',Icon:Search},

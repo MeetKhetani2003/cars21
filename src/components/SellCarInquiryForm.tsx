@@ -4,9 +4,10 @@ import { useState, useEffect, useRef } from 'react';
 import {
   CarFront, Camera, FileText, CheckCircle2, AlertCircle,
   Upload, X, ArrowRight, ShieldCheck, DollarSign, Calendar,
-  User, Phone, Mail, MapPin, Sparkles, HelpCircle, Check
+  User, Phone, Mail, MapPin, Sparkles, HelpCircle, Check, Crop
 } from 'lucide-react';
 import { formatINR } from '../data';
+import { VehicleImageAdjuster, type VehicleCropResult } from './VehicleImageAdjuster';
 
 type MakeItem = {
   id: string;
@@ -98,10 +99,52 @@ export function SellCarInquiryForm({ onSuccess }: { onSuccess?: (inquiryNumber: 
   const currentMakeObj = makes.find(m => m.name.toLowerCase() === selectedMake.toLowerCase());
   const availableModels = currentMakeObj?.models || [];
 
+  // Vehicle image framing & website preview adjuster state:
+  const [adjustingTarget, setAdjustingTarget] = useState<'front' | 'back' | 'left' | 'right' | 'interior' | null>(null);
+
+  const getAdjustingPhotoInfo = () => {
+    switch (adjustingTarget) {
+      case 'front': return { url: previewFront, file: photoFront, label: 'Front Angle' };
+      case 'back': return { url: previewBack, file: photoBack, label: 'Back / Rear' };
+      case 'left': return { url: previewLeft, file: photoLeftSide, label: 'Left Side' };
+      case 'right': return { url: previewRight, file: photoRightSide, label: 'Right Side' };
+      case 'interior': return { url: previewInterior, file: photoInterior, label: 'Cabin Interior' };
+      default: return null;
+    }
+  };
+
+  const handleApplySellCarCrop = (result: VehicleCropResult) => {
+    if (!adjustingTarget) return;
+    switch (adjustingTarget) {
+      case 'front':
+        setPhotoFront(result.file);
+        setPreviewFront(result.dataUrl);
+        break;
+      case 'back':
+        setPhotoBack(result.file);
+        setPreviewBack(result.dataUrl);
+        break;
+      case 'left':
+        setPhotoLeftSide(result.file);
+        setPreviewLeft(result.dataUrl);
+        break;
+      case 'right':
+        setPhotoRightSide(result.file);
+        setPreviewRight(result.dataUrl);
+        break;
+      case 'interior':
+        setPhotoInterior(result.file);
+        setPreviewInterior(result.dataUrl);
+        break;
+    }
+    setAdjustingTarget(null);
+  };
+
   function handleFileChange(
     e: React.ChangeEvent<HTMLInputElement>,
     setter: (f: File | null) => void,
-    previewSetter?: (s: string) => void
+    previewSetter?: (s: string) => void,
+    targetKey?: 'front' | 'back' | 'left' | 'right' | 'interior'
   ) {
     const file = e.target.files?.[0];
     if (file) {
@@ -113,6 +156,9 @@ export function SellCarInquiryForm({ onSuccess }: { onSuccess?: (inquiryNumber: 
       if (previewSetter) {
         const url = URL.createObjectURL(file);
         previewSetter(url);
+      }
+      if (targetKey) {
+        setAdjustingTarget(targetKey);
       }
     }
   }
@@ -451,15 +497,24 @@ export function SellCarInquiryForm({ onSuccess }: { onSuccess?: (inquiryNumber: 
                   type="button"
                   onClick={() => { setPhotoFront(null); setPreviewFront(''); }}
                   style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 0, borderRadius: '50%', width: '22px', height: '22px', display: 'grid', placeItems: 'center' }}
+                  title="Remove photo"
                 >
                   <X size={12} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdjustingTarget('front')}
+                  style={{ position: 'absolute', bottom: '4px', left: '4px', right: '4px', background: 'rgba(37,99,235,0.92)', color: '#fff', border: 0, borderRadius: '4px', padding: '3px 6px', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', cursor: 'pointer' }}
+                  title="Preview on website & drag to adjust framing"
+                >
+                  <Crop size={11} /> Adjust Framing
                 </button>
               </div>
             ) : (
               <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '16px 8px' }}>
                 <Camera size={24} style={{ color: '#2563eb' }} />
                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#2563eb' }}>Upload Front</span>
-                <input type="file" accept="image/*" onChange={e => handleFileChange(e, setPhotoFront, setPreviewFront)} style={{ display: 'none' }} />
+                <input type="file" accept="image/*" onChange={e => handleFileChange(e, setPhotoFront, setPreviewFront, 'front')} style={{ display: 'none' }} />
               </label>
             )}
           </div>
@@ -476,15 +531,24 @@ export function SellCarInquiryForm({ onSuccess }: { onSuccess?: (inquiryNumber: 
                   type="button"
                   onClick={() => { setPhotoBack(null); setPreviewBack(''); }}
                   style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 0, borderRadius: '50%', width: '22px', height: '22px', display: 'grid', placeItems: 'center' }}
+                  title="Remove photo"
                 >
                   <X size={12} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdjustingTarget('back')}
+                  style={{ position: 'absolute', bottom: '4px', left: '4px', right: '4px', background: 'rgba(37,99,235,0.92)', color: '#fff', border: 0, borderRadius: '4px', padding: '3px 6px', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', cursor: 'pointer' }}
+                  title="Preview on website & drag to adjust framing"
+                >
+                  <Crop size={11} /> Adjust Framing
                 </button>
               </div>
             ) : (
               <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '16px 8px' }}>
                 <Camera size={24} style={{ color: '#2563eb' }} />
                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#2563eb' }}>Upload Back</span>
-                <input type="file" accept="image/*" onChange={e => handleFileChange(e, setPhotoBack, setPreviewBack)} style={{ display: 'none' }} />
+                <input type="file" accept="image/*" onChange={e => handleFileChange(e, setPhotoBack, setPreviewBack, 'back')} style={{ display: 'none' }} />
               </label>
             )}
           </div>
@@ -501,15 +565,24 @@ export function SellCarInquiryForm({ onSuccess }: { onSuccess?: (inquiryNumber: 
                   type="button"
                   onClick={() => { setPhotoLeftSide(null); setPreviewLeft(''); }}
                   style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 0, borderRadius: '50%', width: '22px', height: '22px', display: 'grid', placeItems: 'center' }}
+                  title="Remove photo"
                 >
                   <X size={12} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdjustingTarget('left')}
+                  style={{ position: 'absolute', bottom: '4px', left: '4px', right: '4px', background: 'rgba(37,99,235,0.92)', color: '#fff', border: 0, borderRadius: '4px', padding: '3px 6px', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', cursor: 'pointer' }}
+                  title="Preview on website & drag to adjust framing"
+                >
+                  <Crop size={11} /> Adjust Framing
                 </button>
               </div>
             ) : (
               <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '16px 8px' }}>
                 <Camera size={24} style={{ color: '#2563eb' }} />
                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#2563eb' }}>Upload Left Side</span>
-                <input type="file" accept="image/*" onChange={e => handleFileChange(e, setPhotoLeftSide, setPreviewLeft)} style={{ display: 'none' }} />
+                <input type="file" accept="image/*" onChange={e => handleFileChange(e, setPhotoLeftSide, setPreviewLeft, 'left')} style={{ display: 'none' }} />
               </label>
             )}
           </div>
@@ -526,15 +599,24 @@ export function SellCarInquiryForm({ onSuccess }: { onSuccess?: (inquiryNumber: 
                   type="button"
                   onClick={() => { setPhotoRightSide(null); setPreviewRight(''); }}
                   style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 0, borderRadius: '50%', width: '22px', height: '22px', display: 'grid', placeItems: 'center' }}
+                  title="Remove photo"
                 >
                   <X size={12} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdjustingTarget('right')}
+                  style={{ position: 'absolute', bottom: '4px', left: '4px', right: '4px', background: 'rgba(37,99,235,0.92)', color: '#fff', border: 0, borderRadius: '4px', padding: '3px 6px', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', cursor: 'pointer' }}
+                  title="Preview on website & drag to adjust framing"
+                >
+                  <Crop size={11} /> Adjust Framing
                 </button>
               </div>
             ) : (
               <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '16px 8px' }}>
                 <Camera size={24} style={{ color: '#2563eb' }} />
                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#2563eb' }}>Upload Right Side</span>
-                <input type="file" accept="image/*" onChange={e => handleFileChange(e, setPhotoRightSide, setPreviewRight)} style={{ display: 'none' }} />
+                <input type="file" accept="image/*" onChange={e => handleFileChange(e, setPhotoRightSide, setPreviewRight, 'right')} style={{ display: 'none' }} />
               </label>
             )}
           </div>
@@ -551,15 +633,24 @@ export function SellCarInquiryForm({ onSuccess }: { onSuccess?: (inquiryNumber: 
                   type="button"
                   onClick={() => { setPhotoInterior(null); setPreviewInterior(''); }}
                   style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 0, borderRadius: '50%', width: '22px', height: '22px', display: 'grid', placeItems: 'center' }}
+                  title="Remove photo"
                 >
                   <X size={12} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdjustingTarget('interior')}
+                  style={{ position: 'absolute', bottom: '4px', left: '4px', right: '4px', background: 'rgba(37,99,235,0.92)', color: '#fff', border: 0, borderRadius: '4px', padding: '3px 6px', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', cursor: 'pointer' }}
+                  title="Preview on website & drag to adjust framing"
+                >
+                  <Crop size={11} /> Adjust Framing
                 </button>
               </div>
             ) : (
               <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '16px 8px' }}>
                 <Camera size={24} style={{ color: '#2563eb' }} />
                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#2563eb' }}>Upload Interior</span>
-                <input type="file" accept="image/*" onChange={e => handleFileChange(e, setPhotoInterior, setPreviewInterior)} style={{ display: 'none' }} />
+                <input type="file" accept="image/*" onChange={e => handleFileChange(e, setPhotoInterior, setPreviewInterior, 'interior')} style={{ display: 'none' }} />
               </label>
             )}
           </div>
@@ -710,6 +801,25 @@ export function SellCarInquiryForm({ onSuccess }: { onSuccess?: (inquiryNumber: 
           {submitting ? 'Uploading Documents & Submitting…' : 'Submit Sell Inquiry'} <ArrowRight size={16} />
         </button>
       </div>
+
+      {/* Interactive Website Preview & Image Framing Studio */}
+      {adjustingTarget && getAdjustingPhotoInfo()?.url && (
+        <VehicleImageAdjuster
+          isModal
+          imageUrl={getAdjustingPhotoInfo()!.url}
+          originalFile={getAdjustingPhotoInfo()!.file}
+          carInfo={{
+            make: selectedMake,
+            model: modelInput,
+            variant: variant || 'Verified Seller',
+            year: mfgYear || purchaseYear || 2023,
+            price: Number(expectedPrice) || 500000,
+            city: city || 'Junagadh'
+          }}
+          onApply={handleApplySellCarCrop}
+          onClose={() => setAdjustingTarget(null)}
+        />
+      )}
     </form>
   );
 }

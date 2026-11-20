@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cars as demoCars } from '../../../../data';
 import { vendorSlug as makeVendorSlug } from '../../../../lib/vendor-slug';
 import { isAdminRequest, isVendorSession } from '../../../../server/auth';
 import { getDb } from '../../../../server/mongodb';
@@ -26,10 +25,6 @@ export async function GET(_request: NextRequest, context: Context) {
     }
   } catch {
     if (process.env.NODE_ENV === 'production') return NextResponse.json({ error: 'Inventory is temporarily unavailable.' }, { status: 503 });
-  }
-  if (process.env.NODE_ENV !== 'production') {
-    const sample = demoCars.find(car => car.id === id);
-    if (sample) return NextResponse.json({ car: sample, source: 'demo' });
   }
   return NextResponse.json({ error: 'Car not found.' }, { status: 404 });
 }

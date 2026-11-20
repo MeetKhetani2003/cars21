@@ -5469,25 +5469,30 @@ body {
   }
 
   .mobile-drawer-panel {
-    position: absolute !important;
-    top: 62px !important;
+    position: fixed !important;
+    top: 0 !important;
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
     background: #ffffff !important;
-    z-index: 2 !important;
+    z-index: 10000 !important;
     display: flex !important;
     flex-direction: column !important;
     overflow-y: auto !important;
+    overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch !important;
     box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25) !important;
-    animation: mobileDrawerSlideIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    animation: mobileDrawerSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }
 
   @keyframes mobileDrawerSlideIn {
     from {
       opacity: 0;
-      transform: translateY(-8px);
+      transform: translateY(-10px);
     }
     to {
       opacity: 1;
@@ -5495,10 +5500,103 @@ body {
     }
   }
 
-  .mobile-drawer-top {
-    padding: 14px 16px !important;
+  .mobile-drawer-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 12px 16px !important;
+    background: #ffffff !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 20 !important;
+    flex-shrink: 0 !important;
+  }
+
+  .mobile-drawer-close-btn {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    border: 1px solid #e2e8f0 !important;
+    background: #f8fafc !important;
+    display: grid !important;
+    place-items: center !important;
+    cursor: pointer !important;
+    color: #475569 !important;
+    transition: all 0.15s ease !important;
+    padding: 0 !important;
+  }
+
+  .mobile-drawer-close-btn:hover {
+    background: #eff6ff !important;
+    color: #1d4ed8 !important;
+    border-color: #bfdbfe !important;
+  }
+
+  .mobile-drawer-quick-tabs-bar {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 10px 16px !important;
     background: #f8fafc !important;
     border-bottom: 1px solid #e2e8f0 !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    touch-action: pan-x !important;
+    flex-shrink: 0 !important;
+  }
+
+  .mobile-drawer-quick-tabs-bar::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .mobile-quick-tab {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    padding: 6px 12px !important;
+    border-radius: 100px !important;
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    font-size: 11.5px !important;
+    font-weight: 750 !important;
+    color: #1e293b !important;
+    text-decoration: none !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    transition: all 0.15s ease !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+  }
+
+  .mobile-quick-tab:hover {
+    border-color: #2563eb !important;
+    color: #2563eb !important;
+  }
+
+  .mobile-quick-tab.orange {
+    border-color: #fed7aa !important;
+    background: #fff7ed !important;
+    color: #ea580c !important;
+  }
+
+  .mobile-quick-tab.red {
+    border-color: #fecaca !important;
+    background: #fef2f2 !important;
+    color: #dc2626 !important;
+  }
+
+  .mobile-quick-tab.green {
+    border-color: #bbf7d0 !important;
+    background: #f0fdf4 !important;
+    color: #16a34a !important;
+  }
+
+  .mobile-drawer-top {
+    padding: 14px 16px !important;
+    background: #ffffff !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    flex-shrink: 0 !important;
   }
 
   .mobile-drawer-auth-row {
@@ -5739,7 +5837,7 @@ body {
   }
 
   .luminous-search-row {
-    grid-template-columns: 1fr 1fr !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 10px !important;
   }
 
@@ -11639,7 +11737,7 @@ html, body {
   width: 100% !important;
   max-width: 100% !important;
   box-sizing: border-box !important;
-  overflow: hidden !important;
+  overflow-x: hidden !important;
 }
 
 .minimal-hero-container {
@@ -11652,6 +11750,7 @@ html, body {
   width: 100% !important;
   padding: 0 16px !important;
   box-sizing: border-box !important;
+  min-width: 0 !important;
 }
 
 .minimal-hero-header {
@@ -11662,6 +11761,7 @@ html, body {
   margin-bottom: 22px !important;
   max-width: 760px !important;
   width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 .minimal-hero-header .hero-trust-badge {
@@ -11688,6 +11788,7 @@ html, body {
 .minimal-search-card {
   width: 100% !important;
   max-width: 960px !important;
+  min-width: 0 !important;
   background: #ffffff !important;
   border: 1.5px solid #e2e8f0 !important;
   border-radius: 18px !important;
@@ -11695,15 +11796,17 @@ html, body {
   box-shadow: 0 12px 35px -8px rgba(15, 23, 42, 0.07) !important;
   box-sizing: border-box !important;
   text-align: left !important;
+  overflow: hidden !important;
 }
 
 /* Hero Features Bar (Visible in Hero) */
 .hero-features-bar {
   display: grid !important;
-  grid-template-columns: repeat(4, 1fr) !important;
-  gap: 14px !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 12px !important;
   width: 100% !important;
   max-width: 960px !important;
+  min-width: 0 !important;
   margin-top: 22px !important;
   box-sizing: border-box !important;
 }
@@ -11712,14 +11815,16 @@ html, body {
   background: #ffffff !important;
   border: 1px solid #e2e8f0 !important;
   border-radius: 14px !important;
-  padding: 13px 15px !important;
+  padding: 12px 14px !important;
   display: flex !important;
   align-items: center !important;
-  gap: 12px !important;
+  gap: 10px !important;
   text-align: left !important;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03) !important;
   transition: all 0.18s ease !important;
   box-sizing: border-box !important;
+  min-width: 0 !important;
+  width: 100% !important;
 }
 
 .hero-feature-card:hover {
@@ -11729,8 +11834,8 @@ html, body {
 }
 
 .hero-feature-icon {
-  width: 38px !important;
-  height: 38px !important;
+  width: 36px !important;
+  height: 36px !important;
   border-radius: 10px !important;
   display: grid !important;
   place-items: center !important;
@@ -11762,6 +11867,7 @@ html, body {
   flex-direction: column !important;
   gap: 2px !important;
   min-width: 0 !important;
+  flex: 1 1 0% !important;
   overflow: hidden !important;
 }
 
@@ -11770,6 +11876,7 @@ html, body {
   font-size: 13px !important;
   font-weight: 750 !important;
   color: #0f172a !important;
+  line-height: 1.25 !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
@@ -11780,7 +11887,7 @@ html, body {
   font-size: 11px !important;
   color: #64748b !important;
   font-weight: 500 !important;
-  line-height: 1.3 !important;
+  line-height: 1.25 !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
@@ -11788,54 +11895,177 @@ html, body {
 
 @media (max-width: 860px) {
   .hero-features-bar {
-    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .hero-feature-card {
+    padding: 10px 12px !important;
+  }
+
+  .hero-feature-text strong {
+    font-size: 12px !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+
+  .hero-feature-text span {
+    font-size: 10.5px !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   .minimal-hero {
-    padding: 24px 0 20px !important;
+    padding: 22px 0 18px !important;
   }
+
+  .minimal-hero-container {
+    padding: 0 12px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
   .minimal-hero-header {
-    margin-bottom: 14px !important;
+    margin-bottom: 12px !important;
   }
+
   .minimal-hero-header .luminous-hero-title {
-    font-size: 23px !important;
+    font-size: clamp(22px, 6vw, 28px) !important;
     line-height: 1.2 !important;
   }
+
   .minimal-hero-header .luminous-hero-desc {
-    font-size: 12.5px !important;
+    font-size: 12px !important;
     line-height: 1.5 !important;
   }
+
   .minimal-search-card {
-    padding: 14px 12px !important;
+    padding: 12px 10px !important;
     border-radius: 14px !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
-  .hero-features-bar {
-    grid-template-columns: repeat(2, 1fr) !important;
+
+  .luminous-search-row {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
     gap: 8px !important;
-    margin-top: 14px !important;
   }
+
+  .luminous-input-group,
+  .luminous-select-group,
+  .luminous-submit-btn {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    height: 44px !important;
+  }
+
+  .luminous-submit-btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  .luminous-quick-tags {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 5px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    margin-top: 10px !important;
+  }
+
+  .luminous-chip {
+    font-size: 10.5px !important;
+    padding: 4px 8px !important;
+    border-radius: 6px !important;
+    max-width: 100% !important;
+  }
+
+  .plate-search-box {
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    gap: 8px !important;
+    padding: 8px !important;
+  }
+
+  .plate-input {
+    width: 100% !important;
+    text-align: center !important;
+    height: 40px !important;
+  }
+
+  .plate-submit-btn {
+    width: 100% !important;
+    height: 42px !important;
+    justify-content: center !important;
+  }
+
+  .hero-features-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin-top: 12px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
   .hero-feature-card {
-    padding: 9px 10px !important;
+    padding: 8px 8px !important;
     gap: 8px !important;
     border-radius: 10px !important;
+    min-width: 0 !important;
+    width: 100% !important;
   }
+
   .hero-feature-icon {
-    width: 32px !important;
-    height: 32px !important;
-    border-radius: 8px !important;
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 7px !important;
+    flex-shrink: 0 !important;
   }
+
   .hero-feature-icon svg {
-    width: 16px !important;
-    height: 16px !important;
+    width: 14px !important;
+    height: 14px !important;
   }
+
   .hero-feature-text strong {
-    font-size: 11.5px !important;
+    font-size: 11px !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    line-height: 1.2 !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
   }
+
   .hero-feature-text span {
-    font-size: 10px !important;
+    font-size: 9.5px !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    line-height: 1.2 !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .hero-features-bar {
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
   }
 }
 
@@ -11969,10 +12199,6 @@ html, body {
 }
 
 .photo-card-set-cover-btn {
-  position: absolute !important;
-  bottom: 6px !important;
-  left: 6px !important;
-  right: 6px !important;
   padding: 4px 6px !important;
   background: rgba(15, 23, 42, 0.88) !important;
   color: #ffffff !important;
@@ -11988,6 +12214,54 @@ html, body {
 
 .photo-card-set-cover-btn:hover {
   background: #f97316 !important;
+}
+
+.photo-card-crop-btn {
+  padding: 4px 6px !important;
+  background: rgba(37, 99, 235, 0.92) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 6px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  z-index: 2 !important;
+  transition: all 0.15s ease !important;
+  backdrop-filter: blur(4px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 3px !important;
+}
+
+.photo-card-crop-btn:hover {
+  background: #1d4ed8 !important;
+  transform: translateY(-1px) !important;
+}
+
+.photo-card-actions-row {
+  position: absolute !important;
+  bottom: 6px !important;
+  left: 6px !important;
+  right: 6px !important;
+  display: flex !important;
+  gap: 4px !important;
+  z-index: 2 !important;
+}
+
+.photo-card-actions-row button {
+  flex: 1 !important;
+  padding: 4px 2px !important;
+  font-size: 9.5px !important;
+  font-weight: 700 !important;
+  border: none !important;
+  border-radius: 5px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 3px !important;
+  transition: all 0.15s ease !important;
 }
 
 .management-photo-empty-dropzone {
@@ -12485,4 +12759,533 @@ html, body {
   flex-direction: column !important;
   gap: 16px !important;
 }
+
+/* ==========================================================================
+   CAR DETAIL PAGE: GALLERY SLIDES, SCROLLABLE THUMBNAILS & TABS BAR
+   ========================================================================== */
+
+/* Main Stage Nav Arrows (Prev / Next) */
+.stage-nav-arrow {
+  position: absolute !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 50% !important;
+  background: rgba(15, 23, 42, 0.75) !important;
+  backdrop-filter: blur(8px) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  display: grid !important;
+  place-items: center !important;
+  cursor: pointer !important;
+  z-index: 5 !important;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  padding: 0 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+}
+
+.stage-nav-arrow:hover {
+  background: rgba(15, 23, 42, 0.95) !important;
+  transform: translateY(-50%) scale(1.08) !important;
+}
+
+.stage-nav-prev {
+  left: 12px !important;
+}
+
+.stage-nav-next {
+  right: 12px !important;
+}
+
+/* Gallery Thumbnails & Tabs Outer Wrappers */
+.gallery-thumbnails-wrapper,
+.luxury-tabs-wrapper {
+  position: relative !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  box-sizing: border-box !important;
+}
+
+.gallery-thumbnails-wrapper {
+  margin-top: 12px !important;
+}
+
+.luxury-tabs-wrapper {
+  margin-bottom: 24px !important;
+}
+
+/* Scroll Arrow Controls for Thumbnails and Tabs */
+.thumb-scroll-btn,
+.tabs-scroll-btn {
+  width: 32px !important;
+  height: 48px !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #334155 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+  transition: all 0.15s ease !important;
+  z-index: 3 !important;
+  padding: 0 !important;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08) !important;
+}
+
+.tabs-scroll-btn {
+  height: 42px !important;
+  border-radius: 8px !important;
+}
+
+.thumb-scroll-btn:hover,
+.tabs-scroll-btn:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #94a3b8 !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.14) !important;
+}
+
+.thumb-scroll-btn:active,
+.tabs-scroll-btn:active {
+  transform: scale(0.96) !important;
+}
+
+/* Horizontally Scrollable Strips (Touch Swipe + Mouse Drag Support) */
+.gallery-thumbnails-strip,
+.luxury-tabs-bar {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x pinch-zoom !important;
+  overscroll-behavior-x: contain !important;
+  scroll-behavior: smooth !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: #94a3b8 #f1f5f9 !important;
+  cursor: grab !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.gallery-thumbnails-strip {
+  gap: 8px !important;
+  padding: 4px 2px 10px !important;
+}
+
+.luxury-tabs-bar {
+  gap: 8px !important;
+  border-bottom: 2px solid #e2e8f0 !important;
+  padding-bottom: 6px !important;
+}
+
+.gallery-thumbnails-strip:active,
+.luxury-tabs-bar:active {
+  cursor: grabbing !important;
+}
+
+/* Custom Scrollbars to make scrollability obvious */
+.gallery-thumbnails-strip::-webkit-scrollbar,
+.luxury-tabs-bar::-webkit-scrollbar {
+  height: 6px !important;
+  display: block !important;
+}
+
+.gallery-thumbnails-strip::-webkit-scrollbar-track,
+.luxury-tabs-bar::-webkit-scrollbar-track {
+  background: #f1f5f9 !important;
+  border-radius: 999px !important;
+}
+
+.gallery-thumbnails-strip::-webkit-scrollbar-thumb,
+.luxury-tabs-bar::-webkit-scrollbar-thumb {
+  background: #94a3b8 !important;
+  border-radius: 999px !important;
+}
+
+.gallery-thumbnails-strip::-webkit-scrollbar-thumb:hover,
+.luxury-tabs-bar::-webkit-scrollbar-thumb:hover {
+  background: #64748b !important;
+}
+
+/* Individual Thumbnail Items */
+.gallery-thumb-item {
+  flex: 0 0 auto !important;
+  width: 78px !important;
+  height: 54px !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  border: 2px solid #e2e8f0 !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+  padding: 0 !important;
+  background: #f1f5f9 !important;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-sizing: border-box !important;
+  touch-action: pan-x !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.gallery-thumb-item:hover {
+  border-color: #94a3b8 !important;
+  transform: translateY(-2px) !important;
+}
+
+.gallery-thumb-item.is-selected {
+  border-color: #ff5c00 !important;
+  box-shadow: 0 0 0 2px rgba(255, 92, 0, 0.35) !important;
+  transform: scale(1.04) !important;
+}
+
+.gallery-thumb-item img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  -webkit-user-drag: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+/* Individual Luxury Tab Buttons */
+.luxury-tab-btn {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 3px solid transparent !important;
+  padding: 11px 18px !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  color: #64748b !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  flex: 0 0 auto !important;
+  transition: all 0.18s ease !important;
+  touch-action: pan-x !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.luxury-tab-btn:hover {
+  color: #0f172a !important;
+  border-bottom-color: #cbd5e1 !important;
+}
+
+.luxury-tab-btn.active {
+  color: #2563eb !important;
+  border-bottom-color: #2563eb !important;
+}
+
+/* Responsive & Mobile Hardening */
+@media (max-width: 640px) {
+  .stage-nav-arrow {
+    width: 32px !important;
+    height: 32px !important;
+  }
+  .stage-nav-prev {
+    left: 8px !important;
+  }
+  .stage-nav-next {
+    right: 8px !important;
+  }
+
+  .gallery-thumbnails-wrapper,
+  .luxury-tabs-wrapper {
+    gap: 6px !important;
+  }
+
+  .gallery-thumbnails-wrapper {
+    margin-top: 8px !important;
+  }
+
+  .luxury-tabs-wrapper {
+    margin-bottom: 18px !important;
+  }
+
+  .thumb-scroll-btn {
+    width: 26px !important;
+    height: 44px !important;
+  }
+
+  .tabs-scroll-btn {
+    width: 26px !important;
+    height: 38px !important;
+  }
+
+  .gallery-thumb-item {
+    width: 66px !important;
+    height: 46px !important;
+  }
+
+  .luxury-tab-btn {
+    padding: 9px 12px !important;
+    font-size: 12.5px !important;
+  }
+
+  .car-detail-page-wrapper {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+  }
+
+  .car-detail-hero-section {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .detail-hero-left,
+  .detail-hero-right,
+  .detail-lower-section {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .sticky-booking-hub-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    padding: 16px 14px !important;
+  }
+
+  .hub-actions-cluster {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    gap: 8px !important;
+  }
+
+  .cta-book-btn,
+  .cta-loan-btn,
+  .cta-save-btn,
+  .hub-submit-btn {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    white-space: normal !important;
+    text-align: center !important;
+    line-height: 1.25 !important;
+    min-height: 44px !important;
+    height: auto !important;
+    padding: 10px 12px !important;
+    font-size: 13px !important;
+    overflow: hidden !important;
+    word-break: break-word !important;
+  }
+
+  .hub-price-box {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 14px 12px !important;
+  }
+
+  .price-main-row {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .hub-emi-strip {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .verified-seller-strip-card {
+    padding: 14px 12px !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+  }
+
+  .seller-actions-right {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+
+  .seller-actions-right .reveal-contact,
+  .seller-actions-right .button,
+  .seller-actions-right .reveal-phone-button {
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    flex: none !important;
+  }
+
+  .seller-actions-right .reveal-contact button {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    justify-content: center !important;
+  }
+}
+
+/* ==========================================================================
+   MOBILE UX HARDENING: HORIZONTAL SCROLL FOR TABS, CHIPS, THUMBS & BUTTONS
+   ========================================================================== */
+
+/* Universal Touch Scroller Behavior for Tab Bars & Filter Strips */
+.auction-filter-tabs-scroller,
+.auction-category-tabs-scroller,
+.history-tabs,
+.management-account-tabs,
+.active-chips-wrap {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x pinch-zoom !important;
+  scrollbar-width: none !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.auction-filter-tabs-scroller::-webkit-scrollbar,
+.auction-category-tabs-scroller::-webkit-scrollbar,
+.history-tabs::-webkit-scrollbar,
+.management-account-tabs::-webkit-scrollbar,
+.active-chips-wrap::-webkit-scrollbar {
+  display: none !important;
+}
+
+.auction-filter-tabs-scroller button,
+.auction-category-tabs-scroller button,
+.history-tabs button,
+.management-account-tabs button,
+.active-chips-wrap button {
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+}
+
+/* Management Action Buttons Fix (Guaranteed Text Visibility & No Squashing) */
+.management-row-actions button.management-publish-btn,
+.management-row-actions button.management-auction-action-btn,
+.management-row-actions button.management-view-car-btn,
+.management-row-actions button.quick-verify-btn,
+.management-row-actions .management-publish-btn,
+.management-row-actions .management-auction-action-btn,
+.management-row-actions .management-view-car-btn,
+.management-row-actions .quick-verify-btn,
+.management-row-actions .management-inventory-badge,
+.management-row-actions .management-auction-badge {
+  width: auto !important;
+  min-width: max-content !important;
+  max-width: none !important;
+  height: 34px !important;
+  padding: 0 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  font-size: 11.5px !important;
+  font-weight: 750 !important;
+  white-space: nowrap !important;
+  line-height: 1 !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+}
+
+.management-row-actions button.management-publish-btn span,
+.management-row-actions button.management-auction-action-btn span,
+.management-row-actions button.management-view-car-btn span,
+.management-row-actions button.quick-verify-btn span,
+.management-row-actions .management-inventory-badge span,
+.management-row-actions .management-auction-badge span {
+  display: inline !important;
+  white-space: nowrap !important;
+}
+
+/* Management Row Actions Scroller on Mobile & Tablet */
+@media (max-width: 1024px) {
+  .management-row-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    gap: 8px !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding-bottom: 4px !important;
+  }
+  .management-row-actions::-webkit-scrollbar {
+    display: none !important;
+  }
+}
+
+/* AuctionManager Lot Card Responsive Layout */
+.auction-manager-lot-card {
+  display: grid !important;
+  grid-template-columns: 140px minmax(220px, 1.8fr) minmax(180px, 1.2fr) minmax(180px, 1fr) !important;
+  gap: 18px !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 900px) {
+  .auction-manager-lot-card {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+    padding: 14px !important;
+  }
+  .auction-manager-lot-card > div:first-child {
+    width: 100% !important;
+    height: 180px !important;
+  }
+  .auction-manager-lot-card > div:last-child {
+    align-items: stretch !important;
+  }
+}
+
+/* Vehicle Image Adjuster Mobile Layout */
+@media (max-width: 768px) {
+  .vehicle-adjuster-split {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+}
+
+/* Nav Location Pill Mobile Truncation & Safety */
+@media (max-width: 640px) {
+  .nav-brand-group {
+    max-width: calc(100% - 90px) !important;
+  }
+  .nav-location-name {
+    max-width: 75px !important;
+  }
+  .nav-wrap {
+    gap: 4px !important;
+  }
+}
+
 
