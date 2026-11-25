@@ -16,7 +16,7 @@ const valuationSchema = z.object({
   transmission: z.string().trim().max(30).optional().default('Manual'),
   owners: z.coerce.number().int().min(1).max(10).optional().default(1),
   condition: z.string().trim().max(40).optional().default('Good'),
-  city: z.string().trim().max(80).optional().default('Bengaluru'),
+  city: z.string().trim().max(80).optional().default('Junagadh'),
   registration: z.string().trim().max(20).optional().default(''),
 });
 

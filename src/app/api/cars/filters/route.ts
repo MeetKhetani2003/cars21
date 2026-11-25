@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '../../../../server/mongodb';
+import { sortCityNames } from '../../../../lib/cities';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,10 +30,25 @@ export async function GET() {
     ]);
 
     const base = buildOptions(cars);
-    const allCities = [...new Set([
-      ...managedCities.map(c => String(c.name || '').trim()),
-      ...cars.map(car => String(car.city ?? '').trim())
-    ].filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    const cityMetaLookup: Record<string, { state?: string; pincode?: string; popular?: boolean }> = {};
+    for (const c of managedCities) {
+      const name = String(c.name || '').trim();
+      if (name) {
+        cityMetaLookup[name.toLowerCase()] = {
+          state: String(c.state || ''),
+          pincode: String(c.pincode || ''),
+          popular: Boolean(c.popular),
+        };
+      }
+    }
+
+    const allCities = sortCityNames(
+      [...new Set([
+        ...managedCities.map(c => String(c.name || '').trim()),
+        ...cars.map(car => String(car.city ?? '').trim())
+      ].filter(Boolean))],
+      cityMetaLookup
+    );
 
     const allMakes = [...new Set([
       ...managedMakes.map(m => String(m.name || '').trim()),
@@ -44,12 +60,50 @@ export async function GET() {
       ...cars.map(car => String(car.model ?? '').trim())
     ].filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
-    const popularCities = managedCities.filter(c => c.popular).map(c => String(c.name)).filter(Boolean);
+    const popularCities = sortCityNames(
+      managedCities.filter(c => c.popular).map(c => String(c.name)).filter(Boolean),
+      cityMetaLookup
+    );
+    const makeCounts = cars.reduce<Record<string, number>>((acc, car) => {
+      const m = String(car.make ?? '').trim();
+      if (m) acc[m.toLowerCase()] = (acc[m.toLowerCase()] || 0) + 1;
+      return acc;
+    }, {});
+
     const popularMakes = managedMakes.filter(m => m.popular).map(m => ({
       make: String(m.name),
       code: String(m.code || m.name.slice(0, 2).toUpperCase()),
-      country: String(m.country || '')
+      country: String(m.country || ''),
+      count: makeCounts[String(m.name).trim().toLowerCase()] || 0,
     }));
+
+    const seenMakes = new Set<string>();
+    const allMakesMeta: Array<{ make: string; code: string; country: string; count: number; popular: boolean }> = [];
+    for (const m of managedMakes) {
+      const name = String(m.name || '').trim();
+      if (!name) continue;
+      seenMakes.add(name.toLowerCase());
+      allMakesMeta.push({
+        make: name,
+        code: String(m.code || name.slice(0, 2).toUpperCase()),
+        country: String(m.country || ''),
+        count: makeCounts[name.toLowerCase()] || 0,
+        popular: Boolean(m.popular),
+      });
+    }
+    for (const mName of base.makes) {
+      if (!seenMakes.has(mName.toLowerCase())) {
+        seenMakes.add(mName.toLowerCase());
+        allMakesMeta.push({
+          make: mName,
+          code: mName.slice(0, 2).toUpperCase(),
+          country: '',
+          count: makeCounts[mName.toLowerCase()] || 0,
+          popular: false,
+        });
+      }
+    }
+    allMakesMeta.sort((a, b) => Number(b.popular) - Number(a.popular) || a.make.localeCompare(b.make));
 
     return NextResponse.json({
       ...base,
@@ -58,6 +112,7 @@ export async function GET() {
       models: allModels.length ? allModels : base.models,
       popularCities,
       popularMakes,
+      allMakesMeta,
       source: 'mongodb'
     });
   } catch (error: any) {

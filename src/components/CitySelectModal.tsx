@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, MapPin, X, Check, Sparkles, Building2, Compass } from 'lucide-react';
+import { isGujaratCity, sortCityItems } from '../lib/cities';
 
 export interface CityItem {
   id: string;
@@ -14,18 +15,22 @@ export interface CityItem {
 }
 
 const DEFAULT_METROS: CityItem[] = [
-  { id: 'bengaluru', name: 'Bengaluru', state: 'Karnataka', pincode: '560001', popular: true, code: 'BLR', landmark: 'Vidhana Soudha' },
-  { id: 'mumbai', name: 'Mumbai', state: 'Maharashtra', pincode: '400001', popular: true, code: 'MUM', landmark: 'Gateway of India' },
-  { id: 'delhi-ncr', name: 'Delhi NCR', state: 'Delhi', pincode: '110001', popular: true, code: 'DEL', landmark: 'India Gate' },
-  { id: 'hyderabad', name: 'Hyderabad', state: 'Telangana', pincode: '500001', popular: true, code: 'HYD', landmark: 'Charminar' },
-  { id: 'pune', name: 'Pune', state: 'Maharashtra', pincode: '411001', popular: true, code: 'PUN', landmark: 'Shaniwar Wada' },
-  { id: 'chennai', name: 'Chennai', state: 'Tamil Nadu', pincode: '600001', popular: true, code: 'CHN', landmark: 'Central Station' },
+  { id: 'junagadh', name: 'Junagadh', state: 'Gujarat', pincode: '362001', popular: true, code: 'JND', landmark: 'Uparkot Fort' },
+  { id: 'rajkot', name: 'Rajkot', state: 'Gujarat', pincode: '360001', popular: true, code: 'RJT', landmark: 'Race Course' },
   { id: 'ahmedabad', name: 'Ahmedabad', state: 'Gujarat', pincode: '380001', popular: true, code: 'AMD', landmark: 'Sabarmati' },
-  { id: 'junagadh-ho', name: 'Junagadh (HO)', state: 'Gujarat', pincode: '362001', popular: true, code: 'JND', landmark: 'Uparkot Fort' },
-  { id: 'junagadh-city', name: 'Junagadh City (Sardarbag)', state: 'Gujarat', pincode: '362002', popular: true, code: 'JND', landmark: 'Bhavnath' },
   { id: 'surat', name: 'Surat', state: 'Gujarat', pincode: '395001', popular: true, code: 'STV', landmark: 'Diamond City' },
-  { id: 'kolkata', name: 'Kolkata', state: 'West Bengal', pincode: '700001', popular: true, code: 'KOL', landmark: 'Howrah Bridge' },
-  { id: 'jaipur', name: 'Jaipur', state: 'Rajasthan', pincode: '302001', popular: true, code: 'JAI', landmark: 'Hawa Mahal' },
+  { id: 'vadodara', name: 'Vadodara', state: 'Gujarat', pincode: '390001', popular: true, code: 'VDR', landmark: 'Lakshmi Vilas' },
+  { id: 'jamnagar', name: 'Jamnagar', state: 'Gujarat', pincode: '361001', popular: true, code: 'JMN', landmark: 'Lakhota Lake' },
+  { id: 'bhavnagar', name: 'Bhavnagar', state: 'Gujarat', pincode: '364001', popular: true, code: 'BHV', landmark: 'Takhteshwar' },
+  { id: 'gandhinagar', name: 'Gandhinagar', state: 'Gujarat', pincode: '382010', popular: true, code: 'GNR', landmark: 'Akshardham' },
+  { id: 'mumbai', name: 'Mumbai', state: 'Maharashtra', pincode: '400001', popular: false, code: 'MUM', landmark: 'Gateway of India' },
+  { id: 'delhi-ncr', name: 'Delhi NCR', state: 'Delhi', pincode: '110001', popular: false, code: 'DEL', landmark: 'India Gate' },
+  { id: 'bengaluru', name: 'Bengaluru', state: 'Karnataka', pincode: '560001', popular: false, code: 'BLR', landmark: 'Vidhana Soudha' },
+  { id: 'pune', name: 'Pune', state: 'Maharashtra', pincode: '411001', popular: false, code: 'PUN', landmark: 'Shaniwar Wada' },
+  { id: 'hyderabad', name: 'Hyderabad', state: 'Telangana', pincode: '500001', popular: false, code: 'HYD', landmark: 'Charminar' },
+  { id: 'chennai', name: 'Chennai', state: 'Tamil Nadu', pincode: '600001', popular: false, code: 'CHN', landmark: 'Central Station' },
+  { id: 'kolkata', name: 'Kolkata', state: 'West Bengal', pincode: '700001', popular: false, code: 'KOL', landmark: 'Howrah Bridge' },
+  { id: 'jaipur', name: 'Jaipur', state: 'Rajasthan', pincode: '302001', popular: false, code: 'JAI', landmark: 'Hawa Mahal' },
 ];
 
 // Stylized visual icons for metro cities
@@ -127,23 +132,30 @@ export function CitySelectModal({ isOpen, onClose, currentCity, onSelectCity }: 
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch all listed cities dynamically from API
+  // Fetch all listed cities dynamically from API (Gujarat first, then other states)
   useEffect(() => {
     let alive = true;
     const METRO_INFO: Record<string, { code: string; landmark: string }> = {
+      'junagadh': { code: 'JND', landmark: 'Uparkot Fort' },
+      'rajkot': { code: 'RJT', landmark: 'Race Course' },
+      'ahmedabad': { code: 'AMD', landmark: 'Sabarmati' },
+      'surat': { code: 'STV', landmark: 'Diamond City' },
+      'vadodara': { code: 'VDR', landmark: 'Lakshmi Vilas' },
+      'jamnagar': { code: 'JMN', landmark: 'Lakhota Lake' },
+      'bhavnagar': { code: 'BHV', landmark: 'Takhteshwar' },
+      'gandhinagar': { code: 'GNR', landmark: 'Akshardham' },
+      'porbandar': { code: 'PBD', landmark: 'Kirti Mandir' },
       'bengaluru': { code: 'BLR', landmark: 'Vidhana Soudha' },
       'mumbai': { code: 'MUM', landmark: 'Gateway of India' },
       'delhi ncr': { code: 'DEL', landmark: 'India Gate' },
       'hyderabad': { code: 'HYD', landmark: 'Charminar' },
       'pune': { code: 'PUN', landmark: 'Shaniwar Wada' },
       'chennai': { code: 'CHN', landmark: 'Central Station' },
-      'ahmedabad': { code: 'AMD', landmark: 'Sabarmati' },
       'kolkata': { code: 'KOL', landmark: 'Howrah Bridge' },
       'jaipur': { code: 'JAI', landmark: 'Hawa Mahal' },
       'chandigarh': { code: 'IXC', landmark: 'Open Hand' },
       'kochi': { code: 'COK', landmark: 'Marine Drive' },
       'lucknow': { code: 'LKO', landmark: 'Rumi Darwaza' },
-      'surat': { code: 'STV', landmark: 'Diamond City' },
       'indore': { code: 'IDR', landmark: 'Rajwada Palace' }
     };
 
@@ -166,11 +178,11 @@ export function CitySelectModal({ isOpen, onClose, currentCity, onSelectCity }: 
                   state: c.state || '',
                   pincode: c.pincode || '',
                   popular: Boolean(c.popular),
-                  code: info?.code || c.name.slice(0, 3).toUpperCase(),
-                  landmark: info?.landmark || c.state || 'Metro'
+                  code: info?.code || (isGujaratCity(c.name, c.state, c.pincode) ? 'GJ' : c.name.slice(0, 3).toUpperCase()),
+                  landmark: info?.landmark || c.state || 'Hub'
                 };
               });
-            setCities(mapped);
+            setCities(sortCityItems(mapped));
             return;
           }
         }
@@ -184,17 +196,18 @@ export function CitySelectModal({ isOpen, onClose, currentCity, onSelectCity }: 
             const mapped: CityItem[] = fData.cities.map((name: string) => {
               const normKey = name.toLowerCase().trim();
               const info = METRO_INFO[normKey];
+              const isGuj = isGujaratCity(name);
               return {
                 id: normKey.replace(/[^a-z0-9]+/g, '-'),
                 name,
-                state: 'India',
+                state: isGuj ? 'Gujarat' : 'India',
                 pincode: '',
-                popular: popularSet.has(name) || ['Bengaluru', 'Mumbai', 'Delhi NCR', 'Hyderabad', 'Pune', 'Chennai'].includes(name),
-                code: info?.code || name.slice(0, 3).toUpperCase(),
-                landmark: info?.landmark || 'India'
+                popular: popularSet.has(name) || isGuj,
+                code: info?.code || (isGuj ? 'GJ' : name.slice(0, 3).toUpperCase()),
+                landmark: info?.landmark || (isGuj ? 'Gujarat' : 'India')
               };
             });
-            setCities(mapped);
+            setCities(sortCityItems(mapped));
           }
         }
       } catch {
@@ -229,22 +242,30 @@ export function CitySelectModal({ isOpen, onClose, currentCity, onSelectCity }: 
     return () => window.removeEventListener('keydown', handleKey);
   }, [isOpen, onClose]);
 
-  // Filtered lists by both name, state, and pincode
-  const { popularList, otherList } = useMemo(() => {
+  // Filtered lists prioritized by Gujarat first, then other states
+  const { gujaratPrimaryList, gujaratTownList, otherStatesList } = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const sorted = sortCityItems(cities);
     const filtered = q
-      ? cities.filter(c => 
-          c.name.toLowerCase().includes(q) || 
-          c.state.toLowerCase().includes(q) || 
+      ? sorted.filter(c =>
+          c.name.toLowerCase().includes(q) ||
+          c.state.toLowerCase().includes(q) ||
           (c.code && c.code.toLowerCase().includes(q)) ||
           (c.pincode && c.pincode.toLowerCase().includes(q))
         )
-      : cities;
+      : sorted;
 
-    const popular = filtered.filter(c => c.popular);
-    const others = filtered.filter(c => !c.popular);
+    const gujaratAll = filtered.filter(c => isGujaratCity(c.name, c.state, c.pincode));
+    const others = filtered.filter(c => !isGujaratCity(c.name, c.state, c.pincode));
 
-    return { popularList: popular, otherList: others };
+    const gujaratPrimary = gujaratAll.filter(c => c.popular || c.name.toLowerCase() === 'junagadh');
+    const gujaratTowns = gujaratAll.filter(c => !(c.popular || c.name.toLowerCase() === 'junagadh'));
+
+    return {
+      gujaratPrimaryList: gujaratPrimary.length > 0 ? gujaratPrimary : gujaratAll,
+      gujaratTownList: gujaratPrimary.length > 0 ? gujaratTowns : [],
+      otherStatesList: others
+    };
   }, [cities, query]);
 
   if (!isOpen) return null;
@@ -314,17 +335,17 @@ export function CitySelectModal({ isOpen, onClose, currentCity, onSelectCity }: 
             )}
           </div>
 
-          {/* Featured / Popular Metros Section */}
-          {popularList.length > 0 && (
+          {/* First Priority: Gujarat Primary Hubs */}
+          {gujaratPrimaryList.length > 0 && (
             <div className="city-section-block">
               <div className="city-section-head">
                 <span className="city-section-title">
-                  <Sparkles size={14} className="city-sparkle-icon" /> POPULAR METROS
+                  <Sparkles size={14} className="city-sparkle-icon" /> GUJARAT PRIMARY CITIES
                 </span>
-                <span className="city-section-count">{popularList.length} cities</span>
+                <span className="city-section-count">{gujaratPrimaryList.length} cities</span>
               </div>
               <div className="city-metro-grid">
-                {popularList.map(city => {
+                {gujaratPrimaryList.map(city => {
                   const active = isCurrent(city.name);
                   return (
                     <button
@@ -353,17 +374,48 @@ export function CitySelectModal({ isOpen, onClose, currentCity, onSelectCity }: 
             </div>
           )}
 
-          {/* All Other Listed Cities */}
-          {otherList.length > 0 && (
+          {/* More Gujarat Cities & Pincode Hubs */}
+          {gujaratTownList.length > 0 && (
             <div className="city-section-block">
               <div className="city-section-head">
                 <span className="city-section-title">
-                  <MapPin size={14} /> ALL LISTED CITIES
+                  <MapPin size={14} /> MORE GUJARAT CITIES
                 </span>
-                <span className="city-section-count">{otherList.length} cities</span>
+                <span className="city-section-count">{gujaratTownList.length} cities</span>
               </div>
               <div className="city-list-grid">
-                {otherList.map(city => {
+                {gujaratTownList.map(city => {
+                  const active = isCurrent(city.name);
+                  return (
+                    <button
+                      key={city.id}
+                      type="button"
+                      className={`city-list-item ${active ? 'is-active' : ''}`}
+                      onClick={() => handleSelect(city.name)}
+                    >
+                      <span className="city-item-dot" />
+                      <span className="city-item-name">{city.name}</span>
+                      {city.pincode && <span className="city-pincode-pill">{city.pincode}</span>}
+                      {city.state && <span className="city-item-state">({city.state})</span>}
+                      {active && <Check size={14} className="city-item-check" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Other States Cities (Shown After Gujarat) */}
+          {otherStatesList.length > 0 && (
+            <div className="city-section-block">
+              <div className="city-section-head">
+                <span className="city-section-title">
+                  <MapPin size={14} /> OTHER STATES CITIES
+                </span>
+                <span className="city-section-count">{otherStatesList.length} cities</span>
+              </div>
+              <div className="city-list-grid">
+                {otherStatesList.map(city => {
                   const active = isCurrent(city.name);
                   return (
                     <button
@@ -385,7 +437,7 @@ export function CitySelectModal({ isOpen, onClose, currentCity, onSelectCity }: 
           )}
 
           {/* Empty search state */}
-          {popularList.length === 0 && otherList.length === 0 && (
+          {gujaratPrimaryList.length === 0 && gujaratTownList.length === 0 && otherStatesList.length === 0 && (
             <div className="city-modal-empty">
               <MapPin size={32} />
               <b>No cities found matching &quot;{query}&quot;</b>

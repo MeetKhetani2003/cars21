@@ -362,7 +362,7 @@ const DEFAULT_FALLBACK_CITIES: CityItem[] = [
   { id: 'chennai', name: 'Chennai', state: 'Tamil Nadu', pincode: '600001', popular: true },
 ];
 
-const blankCar: Omit<CarRecord, 'id'> = { make: '', model: '', variant: '', year: new Date().getFullYear(), km: 0, fuel: 'Petrol', transmission: 'Automatic', owners: 1, price: 0, city: 'Bengaluru', area: '', body: 'SUV', score: 0, badge: 'Cars21 listing', image: '', color: '', sellerName: '', sellerPhone: '', sellerWhatsApp: '', status: 'active' };
+const blankCar: Omit<CarRecord, 'id'> = { make: '', model: '', variant: '', year: new Date().getFullYear(), km: 0, fuel: 'Petrol', transmission: 'Automatic', owners: 1, price: 0, city: 'Junagadh', area: '', body: 'SUV', score: 0, badge: 'Cars21 listing', image: '', color: '', sellerName: '', sellerPhone: '', sellerWhatsApp: '', status: 'active' };
 const statusLabel: Record<string, string> = { active: 'Live', pending: 'Needs review', paused: 'Paused', sold: 'Sold', new: 'New', contacted: 'Contacted', in_progress: 'In progress', visit_booked: 'Visit booked', closed: 'Closed' };
 
 export function ManagementPanel({ role: expectedRole }: { role: Role }) {
@@ -1725,7 +1725,7 @@ function CarEditor({
         <div className="management-form-pair">
           <label className="management-field">
             City / Location
-            <select required name="city" defaultValue={value.city || (cities[0]?.name || 'Bengaluru')}>
+            <select required name="city" defaultValue={value.city || (cities[0]?.name || 'Junagadh')}>
               <option value="" disabled>Select listed city</option>
               {cities.map(c => (
                 <option key={c.id} value={c.name}>

@@ -10,6 +10,7 @@ import {
 import { Link, useNavigate } from '../lib/navigation';
 import type { Car } from '../data';
 import { calcEmi, formatINR, formatShort } from '../data';
+import { sortCityNames } from '../lib/cities';
 import { useBuyerExperience } from './BuyerExperienceProvider';
 import { CarCard } from './CarCard';
 
@@ -70,7 +71,7 @@ export function FeaturedCarsSection({ cars: initialCars, loading = false }: Feat
 
   // Synchronize selected city with global city changes and localStorage
   const [cityOptions, setCityOptions] = useState<string[]>([
-    'Bengaluru', 'Mumbai', 'Delhi NCR', 'Hyderabad', 'Pune', 'Chennai', 'Ahmedabad', 'Kolkata'
+    'Junagadh', 'Rajkot', 'Ahmedabad', 'Surat', 'Vadodara', 'Jamnagar', 'Bhavnagar', 'Mumbai', 'Delhi NCR', 'Bengaluru', 'Pune', 'Hyderabad', 'Chennai', 'Kolkata'
   ]);
 
   useEffect(() => {
@@ -90,26 +91,34 @@ export function FeaturedCarsSection({ cars: initialCars, loading = false }: Feat
     return () => window.removeEventListener('cars21:city-change', handleGlobalCityChange);
   }, []);
 
-  // Fetch active listed cities dynamically
+  // Fetch active listed cities dynamically (Gujarat prioritized first)
   useEffect(() => {
     const set = new Set<string>();
+    const metaLookup: Record<string, { state?: string; pincode?: string; popular?: boolean }> = {};
     initialCars.forEach(c => {
       if (c.city) set.add(c.city);
     });
-    ['Bengaluru', 'Mumbai', 'Delhi NCR', 'Hyderabad', 'Pune', 'Chennai', 'Ahmedabad', 'Kolkata'].forEach(c => set.add(c));
+    ['Junagadh', 'Rajkot', 'Ahmedabad', 'Surat', 'Vadodara', 'Jamnagar', 'Bhavnagar', 'Mumbai', 'Delhi NCR', 'Bengaluru', 'Pune', 'Hyderabad', 'Chennai', 'Kolkata'].forEach(c => set.add(c));
 
     fetch('/api/admin/cities')
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (Array.isArray(data?.cities)) {
           data.cities.forEach((c: any) => {
-            if (c.name && c.active !== false) set.add(c.name);
+            if (c.name && c.status !== 'inactive' && c.active !== false) {
+              set.add(c.name);
+              metaLookup[String(c.name).trim().toLowerCase()] = {
+                state: String(c.state || ''),
+                pincode: String(c.pincode || ''),
+                popular: Boolean(c.popular)
+              };
+            }
           });
         }
-        setCityOptions(Array.from(set).sort());
+        setCityOptions(sortCityNames(Array.from(set), metaLookup));
       })
       .catch(() => {
-        setCityOptions(Array.from(set).sort());
+        setCityOptions(sortCityNames(Array.from(set), metaLookup));
       });
   }, [initialCars]);
 
@@ -536,24 +545,6 @@ export function FeaturedCarsSection({ cars: initialCars, loading = false }: Feat
             </button>
           </div>
         )}
-
-        {/* BOTTOM SECTION PROMO BANNER */}
-        <div className="featured-bottom-guarantee-banner">
-          <div className="banner-badge-col">
-            <div className="banner-icon-box">
-              <ShieldCheck size={28} />
-            </div>
-            <div>
-              <b>Cars21 100% Peace-of-Mind Guarantee</b>
-              <p>7-day full refund if not completely satisfied, plus 12-month roadside assistance &amp; powertrain coverage.</p>
-            </div>
-          </div>
-          <div className="banner-links-col">
-            <Link href="/inspection" className="banner-link-pill">
-              Learn about our 140-point inspection <ArrowRight size={14} />
-            </Link>
-          </div>
-        </div>
 
       </div>
 

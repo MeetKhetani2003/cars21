@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, type CSSProperties } from 'react';
 import { Link, useNavigate } from '../lib/navigation';
 import {
   ArrowRight, Check, CarFront, ShieldCheck, FileCheck2, TrendingUp,
@@ -13,6 +13,7 @@ import { CarCard } from '../components/CarCard';
 import { SectionTitle, TrustStrip } from '../components/shared';
 import { HomeEmiCalculator } from '../components/HomeEmiCalculator';
 import { FeaturedCarsSection } from '../components/FeaturedCarsSection';
+import { BrandLogo, DEFAULT_BRAND_CATALOG, type BrandCatalogItem } from '../components/BrandLogo';
 import { estimateCarValuation } from '../lib/valuation';
 import { useBuyerExperience } from '../components/BuyerExperienceProvider';
 
@@ -20,14 +21,15 @@ type HomeFilters = {
   cities: string[];
   makes: string[];
   popularCities?: string[];
-  popularMakes?: { make: string; code: string; country?: string }[];
+  popularMakes?: { make: string; code: string; country?: string; count?: number }[];
+  allMakesMeta?: BrandCatalogItem[];
   minPrice: number;
   maxPrice: number;
 };
 
 export function HomePage() {
   const { isLeadCaptured, openBuyCarLeadModal } = useBuyerExperience();
-  const [hubTab, setHubTab] = useState<'buy' | 'sell' | 'val' | 'dealer'>('buy');
+  const [hubTab, setHubTab] = useState<'buy' | 'sell'>('buy');
   const [city, setCity] = useState('');
   const [make, setMake] = useState('');
   const [budget, setBudget] = useState('');
@@ -37,6 +39,7 @@ export function HomePage() {
 
   // Interactive Simulator State
   const [simBody, setSimBody] = useState<'SUV' | 'Sedan' | 'Hatchback' | 'Electric'>('SUV');
+  const [simFuel, setSimFuel] = useState<'Petrol' | 'Diesel' | 'CNG' | 'Electric'>('Petrol');
   const [simYear, setSimYear] = useState(2021);
   const [simKm, setSimKm] = useState(32000);
   const [simCondition, setSimCondition] = useState<'Excellent' | 'Good' | 'Fair'>('Excellent');
@@ -66,6 +69,7 @@ export function HomePage() {
           makes: filterData.makes || [],
           popularCities: filterData.popularCities || [],
           popularMakes: filterData.popularMakes || [],
+          allMakesMeta: filterData.allMakesMeta || [],
           minPrice: filterData.minPrice || 0,
           maxPrice: filterData.maxPrice || 0
         });
@@ -156,16 +160,22 @@ export function HomePage() {
       year: simYear,
       km: simKm,
       condition: simCondition,
-      fuel: simBody === 'Electric' ? 'Electric' : 'Petrol'
+      fuel: simBody === 'Electric' ? 'Electric' : simFuel
     });
+
+    const span = Math.max(1, val.marketRange.high - val.marketRange.low);
+    const markerPct = Math.min(88, Math.max(12, Math.round(((val.fairMarketValue - val.marketRange.low) / span) * 100)));
 
     return {
       low: (val.marketRange.low / 100000).toFixed(2),
       high: (val.marketRange.high / 100000).toFixed(2),
       midFormatted: formatShort(val.fairMarketValue),
-      demandScore: val.demandIndex
+      instantCashFormatted: formatShort(val.instantCashPrice),
+      confidenceScore: val.confidenceScore,
+      demandScore: val.demandIndex,
+      markerPct
     };
-  }, [simBody, simYear, simKm, simCondition]);
+  }, [simBody, simFuel, simYear, simKm, simCondition]);
 
   // Filter cars based on selected inventory tab
   const displayedCars = useMemo(() => {
@@ -178,14 +188,13 @@ export function HomePage() {
   }, [featuredCars, inventoryTab]);
 
   return <>
-    {/* MINIMAL STREAMLINED HERO SECTION (SEARCH & FEATURES ONLY, NO IMAGE) */}
-    <section className="luminous-hero minimal-hero">
+    {/* SIMPLE STREAMLINED HERO SECTION (BUY & SELL ONLY) */}
+    <section className="luminous-hero minimal-hero simple-hero">
       <div className="container minimal-hero-container">
-        {/* Header Copy */}
         <div className="minimal-hero-header">
           <div className="hero-trust-badge">
             <span className="trust-badge-dot" />
-            <span>⭐ 4.9/5 Rating · 2,450+ Certified Cars</span>
+            <span>4.9/5 Rated · Certified Pre-Owned Marketplace</span>
           </div>
 
           <h1 className="luminous-hero-title">
@@ -193,44 +202,44 @@ export function HomePage() {
           </h1>
 
           <p className="luminous-hero-desc">
-            India&apos;s certified automotive marketplace. Transparent dealer pricing, 140+ point cloud inspection, and 7-day unconditional money-back guarantee.
+            Transparent pricing, 140-point inspected vehicles, and instant offers across India.
           </p>
         </div>
 
-        {/* Integrated Multi-Tab Command Hub Card */}
-        <div className="luminous-command-card minimal-search-card">
-          <div className="luminous-hub-tabs" role="tablist">
-            <button
-              type="button"
-              className={`luminous-tab ${hubTab === 'buy' ? 'active' : ''}`}
-              onClick={() => setHubTab('buy')}
-            >
-              <Search size={15} /> Buy Verified Cars
-            </button>
-            <button
-              type="button"
-              className={`luminous-tab ${hubTab === 'sell' ? 'active' : ''}`}
-              onClick={() => setHubTab('sell')}
-            >
-              <Zap size={15} /> Sell Your Car <span className="hub-tab-badge">Instant Cash</span>
-            </button>
-            <button
-              type="button"
-              className={`luminous-tab ${hubTab === 'val' ? 'active' : ''}`}
-              onClick={() => setHubTab('val')}
-            >
-              <Sliders size={15} /> AI Valuation
-            </button>
-          </div>
+        {/* Clean 2-Option Mode Switcher + Search Card */}
+        <div className="simple-hero-switch" role="tablist" aria-label="Choose buy or sell">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={hubTab === 'buy'}
+            className={`simple-hero-switch-btn ${hubTab === 'buy' ? 'active' : ''}`}
+            onClick={() => setHubTab('buy')}
+          >
+            <Search size={15} />
+            <span>Buy Cars</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={hubTab === 'sell'}
+            className={`simple-hero-switch-btn ${hubTab === 'sell' ? 'active' : ''}`}
+            onClick={() => setHubTab('sell')}
+          >
+            <Zap size={15} />
+            <span>Sell Car</span>
+            <span className="hub-tab-badge">Instant Cash</span>
+          </button>
+        </div>
 
-          {hubTab === 'buy' && (
+        <div className="luminous-command-card minimal-search-card simple-search-card">
+          {hubTab === 'buy' ? (
             <form onSubmit={handleSearchSubmit}>
               <div className="luminous-search-row">
                 <div className="luminous-input-group">
                   <Search size={16} />
                   <input
                     type="search"
-                    placeholder="Search Honda City, Creta, Nexon EV..."
+                    placeholder="Search make, model (e.g. Swift, Ertiga, Creta)..."
                     value={query}
                     onChange={e => setQuery(e.target.value)}
                   />
@@ -239,7 +248,7 @@ export function HomePage() {
                 <div className="luminous-select-group">
                   <MapPin size={15} />
                   <select value={city} onChange={e => setCity(e.target.value)}>
-                    <option value="">All Metros</option>
+                    <option value="">All Cities</option>
                     {filters.cities.map(item => <option key={item} value={item}>{item}</option>)}
                   </select>
                   <ChevronDown size={14} className="select-chevron" />
@@ -263,13 +272,11 @@ export function HomePage() {
                 <span className="luminous-chip" onClick={() => handleQuickFilter('Creta', 'Hyundai')}>Hyundai Creta</span>
                 <span className="luminous-chip" onClick={() => handleQuickFilter('Electric')}>EVs &amp; Hybrids</span>
                 <span className="luminous-chip" onClick={() => handleQuickFilter('', '', 'low')}>Under ₹10 Lakhs</span>
-                <span className="luminous-chip" onClick={() => handleQuickFilter('City', 'Honda')}>Honda City</span>
+                <span className="luminous-chip" onClick={() => handleQuickFilter('Swift', 'Maruti Suzuki')}>Maruti Swift</span>
                 <span className="luminous-chip" onClick={() => handleQuickFilter('SUV')}>Compact SUVs</span>
               </div>
             </form>
-          )}
-
-          {hubTab === 'sell' && (
+          ) : (
             <form onSubmit={handleSellSubmit} className="luminous-sell-form">
               <div className="plate-search-box">
                 <div className="plate-ind-tag">
@@ -279,7 +286,7 @@ export function HomePage() {
                 <input
                   type="text"
                   className="plate-input"
-                  placeholder="ENTER VEHICLE NUMBER (e.g. KA 01 AB 1234)"
+                  placeholder="ENTER VEHICLE NUMBER OR MODEL (e.g. KA 01 AB 1234)"
                   value={sellInput}
                   onChange={e => setSellInput(e.target.value)}
                 />
@@ -295,53 +302,6 @@ export function HomePage() {
               </div>
             </form>
           )}
-
-          {hubTab === 'val' && (
-            <div className="luminous-val-panel">
-              <div>
-                <b>Calculate instant AI valuation</b>
-                <p>Our valuation engine references real-time dealer auction pricing across 6 metros.</p>
-              </div>
-              <Link href="/sell-car/valuation" className="luminous-submit-btn">
-                Launch Valuation Engine <ArrowRight size={16} />
-              </Link>
-            </div>
-          )}
-        </div>
-
-        {/* Visible Core Features Strip in Hero */}
-        <div className="hero-features-bar">
-          <div className="hero-feature-card">
-            <div className="hero-feature-icon green"><ShieldCheck size={20} /></div>
-            <div className="hero-feature-text">
-              <strong>140-Point Inspection</strong>
-              <span>Engine, battery &amp; chassis verified</span>
-            </div>
-          </div>
-
-          <div className="hero-feature-card">
-            <div className="hero-feature-icon blue"><Clock size={20} /></div>
-            <div className="hero-feature-text">
-              <strong>7-Day Money Back</strong>
-              <span>100% unconditional refund</span>
-            </div>
-          </div>
-
-          <div className="hero-feature-card">
-            <div className="hero-feature-icon orange"><Zap size={20} /></div>
-            <div className="hero-feature-text">
-              <strong>Instant 30-Min Payout</strong>
-              <span>Direct bank transfer for sellers</span>
-            </div>
-          </div>
-
-          <div className="hero-feature-card">
-            <div className="hero-feature-icon purple"><FileCheck2 size={20} /></div>
-            <div className="hero-feature-text">
-              <strong>100% Free RC Transfer</strong>
-              <span>Doorstep pickup &amp; zero paperwork</span>
-            </div>
-          </div>
         </div>
       </div>
     </section>
@@ -351,270 +311,73 @@ export function HomePage() {
     {/* SMART CAR LOAN EMI CALCULATOR (GATED WITH RECORDED ACTIVITY) */}
     <HomeEmiCalculator />
 
-    {/* CARS24 SUPER-APP QUICK SERVICES GRID */}
-    <section className="container services-superapp-section">
-      <div className="superapp-grid">
-        <Link 
-          href="/buy-cars" 
-          className="superapp-item"
-          onClick={(e) => {
-            if (!isLeadCaptured) {
-              e.preventDefault();
-              openBuyCarLeadModal(() => nav('/buy-cars'));
-            }
-          }}
-        >
-          <div className="superapp-icon-wrap blue"><CarFront size={26} /></div>
-          <b>Buy Used Cars</b>
-          <small>2,450+ Inspected</small>
-        </Link>
-        <Link href="/sell-car" className="superapp-item">
-          <div className="superapp-icon-wrap orange"><Zap size={26} /></div>
-          <b>Sell Your Car</b>
-          <small>Instant Cash Offer</small>
-        </Link>
-        <Link href="/loans24" className="superapp-item">
-          <div className="superapp-icon-wrap green"><Banknote size={26} /></div>
-          <b>Car Loans &amp; EMI</b>
-          <small>From 8.75% Interest</small>
-        </Link>
-        <Link href="/sell-car/valuation" className="superapp-item">
-          <div className="superapp-icon-wrap amber"><Sliders size={26} /></div>
-          <b>Valuation Engine</b>
-          <small>Live Market Price</small>
-        </Link>
-        <Link href="/inspection" className="superapp-item">
-          <div className="superapp-icon-wrap indigo"><ShieldCheck size={26} /></div>
-          <b>140-Point Check</b>
-          <small>Digital Health Report</small>
-        </Link>
-        <Link href="/dealer-auctions" className="superapp-item">
-          <div className="superapp-icon-wrap purple"><Gavel size={26} /></div>
-          <b>Dealer Auctions</b>
-          <small>Live Wholesale Bidding</small>
-        </Link>
-      </div>
-    </section>
-
-    {/* POPULAR BRANDS SHOWCASE STRIP */}
+    {/* ALL CAR BRANDS LOGO GRID */}
     <section className="container brands-showcase-section">
       <div className="brands-strip-title">
-        <b>Popular Brands in Demand</b>
+        <div>
+          <b>Explore All Car Companies</b>
+          <small className="brands-strip-sub">Browse verified listings by manufacturer</small>
+        </div>
         <Link href="/buy-cars">View all makes <ArrowRight size={13} /></Link>
       </div>
       <div className="brands-showcase-grid">
-        {((filters.popularMakes && filters.popularMakes.length > 0)
-          ? filters.popularMakes
+        {((filters.allMakesMeta && filters.allMakesMeta.length > 0)
+          ? filters.allMakesMeta
           : (filters.makes && filters.makes.length > 0)
-            ? filters.makes.slice(0, 8).map(m => ({ make: m, code: m.slice(0, 2).toUpperCase() }))
-            : [
-                { make: 'Maruti Suzuki', code: 'MS' },
-                { make: 'Hyundai', code: 'HY' },
-                { make: 'Tata', code: 'TA' },
-                { make: 'Mahindra', code: 'MH' },
-                { make: 'Honda', code: 'HO' },
-                { make: 'Toyota', code: 'TY' },
-                { make: 'Kia', code: 'KA' },
-                { make: 'Volkswagen', code: 'VW' },
-              ]
+            ? filters.makes.map((m): BrandCatalogItem => ({ make: m, code: m.slice(0, 2).toUpperCase(), count: 0 }))
+            : DEFAULT_BRAND_CATALOG
         ).map(b => (
           <Link key={b.make} href={`/buy-cars?make=${encodeURIComponent(b.make)}`} className="brand-pill-card">
-            <span className="brand-initial-icon">{b.code || b.make.slice(0, 2).toUpperCase()}</span>
+            <span className="brand-logo-stage">
+              <BrandLogo make={b.make} code={b.code} />
+            </span>
             <b>{b.make}</b>
-            <small>Explore listings</small>
+            <small>{b.count && b.count > 0 ? `${b.count} ${b.count === 1 ? 'car' : 'cars'}` : 'Explore cars'}</small>
           </Link>
         ))}
       </div>
     </section>
 
-    {/* THE CARS21 ASSURANCE BENTO GRID */}
-    <section className="container" style={{ margin: '48px auto' }}>
-      <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto 28px' }}>
-        <span className="eyebrow" style={{ color: '#2563eb' }}>THE CARS21 STANDARD</span>
-        <h2 style={{ fontSize: 'clamp(28px, 3.5vw, 42px)', fontWeight: 800, letterSpacing: '-0.035em', margin: '8px 0 12px', color: '#0f172a' }}>
-          Zero Guesswork. 100% Peace of Mind.
-        </h2>
-        <p style={{ fontSize: '14px', color: '#64748b', margin: 0, lineHeight: 1.65 }}>
-          India&apos;s most rigorous automotive inspection standard, instant guaranteed payouts, and unconditional return policies.
-        </p>
-      </div>
-
-      <div className="bento-assurance-grid">
-        {/* Bento 1: Large 140+ Point Inspection */}
-        <div className="bento-card bento-card-large">
-          <div>
-            <span className="bento-badge-pill"><ShieldCheck size={14} /> CERTIFIED STANDARD</span>
-            <h3>140+ Point Cloud Diagnostics</h3>
-            <p>Every vehicle undergoes multi-stage hardware and OBD-II cloud diagnostic analysis by certified vehicle engineers before being listed.</p>
-
-            <div className="bento-checklist">
-              <div className="bento-check-row">
-                <span><CheckCircle2 size={16} /> Engine &amp; Transmission Drivetrain</span>
-                <span className="bento-check-score">99% Passed</span>
-              </div>
-              <div className="bento-check-row">
-                <span><CheckCircle2 size={16} /> OBD-II ECU Sensor &amp; Wiring Scan</span>
-                <span className="bento-check-score">0 Errors</span>
-              </div>
-              <div className="bento-check-row">
-                <span><CheckCircle2 size={16} /> Suspension, Steering &amp; Brakes</span>
-                <span className="bento-check-score">98% Verified</span>
-              </div>
-              <div className="bento-check-row">
-                <span><CheckCircle2 size={16} /> Digital Paint Thickness Meter (Accident Shield)</span>
-                <span className="bento-check-score">Non-Accidental</span>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ marginTop: '24px' }}>
-            <Link href="/inspection" className="button button-dark button-small">
-              View Inspection Checklist <ArrowUpRight size={14} />
-            </Link>
-          </div>
-        </div>
-
-        {/* Bento 2: 7-Day Money Back */}
-        <div className="bento-card">
-          <div className="bento-icon-box orange">
-            <Clock size={24} />
-          </div>
-          <h3>7-Day Money Back</h3>
-          <p>Drive your car for up to 7 days or 500 km. If it doesn&apos;t fit your lifestyle, return it for a 100% full refund with zero questions.</p>
-          <span className="bento-micro-stat"><Award size={14} /> 100% Money-Back Pledge</span>
-        </div>
-
-        {/* Bento 3: Instant 30-Min Bank Payout */}
-        <div className="bento-card">
-          <div className="bento-icon-box blue">
-            <Banknote size={24} />
-          </div>
-          <h3>Instant Payout in 30 Min</h3>
-          <p>Direct bank IMPS/NEFT transfer executed on the spot before handing over car keys. No waiting or follow-ups.</p>
-          <span className="bento-micro-stat"><Zap size={14} /> Instant Bank Credit</span>
-        </div>
-
-        {/* Bento 4: Free RC Transfer */}
-        <div className="bento-card">
-          <div className="bento-icon-box emerald">
-            <FileCheck2 size={24} />
-          </div>
-          <h3>100% Free RC Transfer</h3>
-          <p>We handle complete RTO documentation, transfer fees, and deliver the transferred registration certificate to your doorstep.</p>
-          <span className="bento-micro-stat"><CheckCircle size={14} /> Tracked in Dashboard</span>
-        </div>
-
-        {/* Bento 5: 12-Month Comprehensive Warranty */}
-        <div className="bento-card">
-          <div className="bento-icon-box indigo">
-            <Shield size={24} />
-          </div>
-          <h3>12-Month Warranty</h3>
-          <p>Major mechanical and electrical systems covered with pan-India cashless roadside assistance and certified workshops.</p>
-          <span className="bento-micro-stat"><ShieldCheck size={14} /> Free Roadside Assist</span>
-        </div>
-      </div>
-    </section>
-
-    {/* INTENT SPLIT GATEWAY (BUYER VS SELLER) */}
-    <section className="section container">
-      <SectionTitle
-        eyebrow="YOUR CAR DESTINATION"
-        title="Engineered for Buyers, Sellers &amp; Dealers"
-        copy="Two transparent pathways backed by digital verification and guaranteed transactions."
-      />
-      <div className="intent-grid">
-        <Link href="/buy-cars" className="intent-card">
-          <div>
-            <span className="intent-badge">The Buyer Hub</span>
-            <h3>Find &amp; Own With 100% Peace of Mind</h3>
-            <p>Every vehicle on Cars21 is verified with high-resolution inspection reports, documented history, and clear upfront pricing.</p>
-            <div className="intent-points">
-              <span className="intent-point"><CheckCircle2 /> 140-point full digital inspection report</span>
-              <span className="intent-point"><CheckCircle2 /> 7-day money-back guarantee &amp; warranty</span>
-              <span className="intent-point"><CheckCircle2 /> Instant digital loan approval with Loans24</span>
-            </div>
-          </div>
-          <span className="intent-action">Browse Verified Cars <ArrowRight size={16} /></span>
-        </Link>
-
-        <Link href="/sell-car" className="intent-card seller">
-          <div>
-            <span className="intent-badge seller-badge">The Seller Gateway</span>
-            <h3>Sell Fast at the Market's Best Price</h3>
-            <p>Get a transparent valuation backed by live dealer bidding. Free doorstep inspection and instant payment upon agreement.</p>
-            <div className="intent-points">
-              <span className="intent-point"><CheckCircle2 /> Indicative estimate in under 60 seconds</span>
-              <span className="intent-point"><CheckCircle2 /> Free doorstep technician visit &amp; test</span>
-              <span className="intent-point"><CheckCircle2 /> Same-day payment &amp; hassle-free RC transfer</span>
-            </div>
-          </div>
-          <span className="intent-action">Get Car Price <ArrowRight size={16} /></span>
-        </Link>
-      </div>
-    </section>
-
-    {/* BROWSE BY BODY TYPE WITH MODERN CARDS */}
-    <section className="section section-soft">
-      <div className="container">
-        <SectionTitle
-          eyebrow="EXPLORE CATEGORIES"
-          title="Browse by Body Style &amp; Purpose"
-          copy="Tailored for family adventures, city commuting, or executive road trips."
-          link="/buy-cars"
-          linkText="View all listings"
-        />
-        <div className="category-grid">
-          {[
-            { name: 'SUVs & Crossovers', body: 'SUV', count: '142 cars', caption: 'High clearance & spacious cabin', letter: 'SUV' },
-            { name: 'Executive Sedans', body: 'Sedan', count: '96 cars', caption: 'Smooth highway comfort', letter: 'SED' },
-            { name: 'City Hatchbacks', body: 'Hatchback', count: '118 cars', caption: 'Compact & fuel efficient', letter: 'HAT' },
-            { name: 'Electric & Hybrid', body: 'Electric', count: '38 cars', caption: 'Zero emissions, smart tech', letter: 'EV' },
-            { name: 'Automatic Drive', body: 'Automatic', count: '210 cars', caption: 'Effortless stop-and-go driving', letter: 'AT' },
-            { name: 'Luxury & Premium', body: 'Luxury', count: '45 cars', caption: 'Top tier refinement & status', letter: 'LUX' }
-          ].map((c) => (
-            <Link href={`/buy-cars?body=${c.body}`} className="modern-category-card" key={c.name}>
-              <div className="category-top">
-                <span className="category-icon-box">{c.letter}</span>
-                <span className="category-count-badge">{c.count}</span>
-              </div>
-              <div className="category-body">
-                <b>{c.name}</b>
-                <p>{c.caption}</p>
-              </div>
-              <div className="category-footer-arrow">
-                <ArrowRight size={16} />
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
-    </section>
-
-    {/* FEATURED INVENTORY SHOWCASE WITH TABS */}
-
     {/* INTERACTIVE REAL-TIME VALUATION SIMULATOR (SAAS WIDGET) */}
     <section className="val-sim-section">
+      <div className="val-sim-ambient" aria-hidden="true" />
       <div className="container val-sim-grid">
         <div className="val-sim-copy">
-          <span className="eyebrow"><Sparkles size={13} style={{ color: '#2563eb' }} /> ALGORITHMIC VALUATION ENGINE</span>
+          <span className="val-eyebrow-pill">
+            <Sparkles size={13} /> ALGORITHMIC VALUATION ENGINE
+          </span>
           <h2>Know exactly what your car is worth today.</h2>
           <p>
-            Unlike traditional dealership estimates, Cars21 analyzes historical auction bidding data, current regional demand, and condition-based degradation to generate a fair market valuation in real time.
+            Unlike arbitrary dealership quotes, Cars21 cross-references live wholesale auction bids, regional demand, and condition depreciation in real time.
           </p>
 
-          <div className="inline-bullets">
-            <span><Check /> Backed by live bidding data from 1,200+ verified dealers</span>
-            <span><Check /> 100% free, no obligation to sell</span>
-            <span><Check /> Inspection locks in guaranteed offer</span>
+          <div className="val-telemetry-strip">
+            <div className="val-telemetry-tile">
+              <b>1,200+</b>
+              <small>Verified Dealers</small>
+            </div>
+            <div className="val-telemetry-tile">
+              <b>60 sec</b>
+              <small>Instant Quote</small>
+            </div>
+            <div className="val-telemetry-tile">
+              <b>4,200+</b>
+              <small>Sales Benchmarked</small>
+            </div>
+          </div>
+
+          <div className="val-inline-bullets">
+            <span><CheckCircle2 size={16} /> Backed by live bidding data from certified dealers</span>
+            <span><CheckCircle2 size={16} /> 100% free quote with zero obligation to sell</span>
+            <span><CheckCircle2 size={16} /> Doorstep check locks in a binding cash offer</span>
           </div>
 
           <div className="val-sim-actions">
-            <Link className="button button-dark" href="/sell-car">
+            <Link className="button button-orange val-cta-primary" href="/sell-car">
               Book Free Inspection <ArrowRight size={16} />
             </Link>
-            <Link className="button button-outline" href="/sell-car/valuation">
-              Advanced Valuation Report
+            <Link className="val-btn-ghost" href="/sell-car/valuation">
+              Advanced Valuation Report <ArrowUpRight size={15} />
             </Link>
           </div>
         </div>
@@ -623,23 +386,31 @@ export function HomePage() {
         <div className="val-interactive-card">
           <div className="sim-header">
             <span className="sim-header-title">
-              <Cpu size={16} /> Real-Time Pricing Simulator
+              <span className="sim-icon-badge"><Cpu size={15} /></span>
+              <span>Real-Time Pricing Simulator</span>
             </span>
-            <span className="sim-badge">LIVE DEMO</span>
+            <span className="sim-badge">
+              <span className="sim-live-dot" /> LIVE ENGINE
+            </span>
           </div>
 
           <div className="sim-controls">
             <div>
-              <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700, display: 'block', marginBottom: '8px' }}>
-                VEHICLE BODY TYPE
-              </span>
+              <div className="sim-slider-label">
+                <span>Body Style</span>
+                <small className="sim-hint">Category</small>
+              </div>
               <div className="sim-type-selector">
                 {(['SUV', 'Sedan', 'Hatchback', 'Electric'] as const).map(type => (
                   <button
                     key={type}
                     type="button"
                     className={`sim-type-btn ${simBody === type ? 'active' : ''}`}
-                    onClick={() => setSimBody(type)}
+                    onClick={() => {
+                      setSimBody(type);
+                      if (type === 'Electric') setSimFuel('Electric');
+                      else if (simFuel === 'Electric') setSimFuel('Petrol');
+                    }}
                   >
                     {type}
                   </button>
@@ -647,25 +418,57 @@ export function HomePage() {
               </div>
             </div>
 
+            <div>
+              <div className="sim-slider-label">
+                <span>Fuel Type</span>
+                <b>{simBody === 'Electric' ? 'Electric' : simFuel}</b>
+              </div>
+              <div className="sim-type-selector">
+                {(['Petrol', 'Diesel', 'CNG', 'Electric'] as const).map(fuel => {
+                  const active = (simBody === 'Electric' ? 'Electric' : simFuel) === fuel;
+                  return (
+                    <button
+                      key={fuel}
+                      type="button"
+                      className={`sim-type-btn ${active ? 'active' : ''}`}
+                      onClick={() => {
+                        setSimFuel(fuel);
+                        if (fuel === 'Electric') setSimBody('Electric');
+                        else if (simBody === 'Electric') setSimBody('SUV');
+                      }}
+                    >
+                      {fuel}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="sim-slider-row">
               <div className="sim-slider-label">
                 <span>Registration Year</span>
-                <b>{simYear}</b>
+                <b className="sim-val-pill">{simYear}</b>
               </div>
               <input
                 type="range"
                 min={2018}
-                max={2024}
+                max={2025}
                 value={simYear}
                 onChange={e => setSimYear(Number(e.target.value))}
                 className="sim-range"
+                style={{ '--slider-pct': `${((simYear - 2018) / (2025 - 2018)) * 100}%` } as CSSProperties}
+                aria-label="Registration year"
               />
+              <div className="sim-range-extents">
+                <small>2018</small>
+                <small>2025</small>
+              </div>
             </div>
 
             <div className="sim-slider-row">
               <div className="sim-slider-label">
                 <span>Odometer Mileage</span>
-                <b>{(simKm / 1000).toFixed(0)}k km</b>
+                <b className="sim-val-pill">{(simKm / 1000).toFixed(0)},000 km</b>
               </div>
               <input
                 type="range"
@@ -675,15 +478,21 @@ export function HomePage() {
                 value={simKm}
                 onChange={e => setSimKm(Number(e.target.value))}
                 className="sim-range"
+                style={{ '--slider-pct': `${((simKm - 10000) / (90000 - 10000)) * 100}%` } as CSSProperties}
+                aria-label="Odometer mileage"
               />
+              <div className="sim-range-extents">
+                <small>10,000 km</small>
+                <small>90,000 km</small>
+              </div>
             </div>
 
             <div className="sim-slider-row">
               <div className="sim-slider-label">
-                <span>Vehicle Condition</span>
+                <span>Overall Condition</span>
                 <b>{simCondition}</b>
               </div>
-              <div className="sim-type-selector" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+              <div className="sim-type-selector sim-condition-grid">
                 {(['Excellent', 'Good', 'Fair'] as const).map(c => (
                   <button
                     key={c}
@@ -700,33 +509,51 @@ export function HomePage() {
 
           {/* DYNAMIC RESULT */}
           <div className="sim-output-box">
-            <div className="sim-price-callout">
-              <span>Estimated Valuation</span>
-              <b>₹ {calculatedValuation.low} – {calculatedValuation.high} <small>Lakh</small></b>
+            <div className="sim-output-top">
+              <div className="sim-price-callout">
+                <span>ESTIMATED MARKET RANGE</span>
+                <b>
+                  ₹{calculatedValuation.low} – {calculatedValuation.high} <small>Lakh</small>
+                </b>
+              </div>
+              <div className="sim-mid-badge">
+                <small>Instant Cash Offer</small>
+                <strong>{calculatedValuation.instantCashFormatted}</strong>
+              </div>
             </div>
 
-            <div className="sim-bars">
-              {Array.from({ length: 18 }, (_, i) => {
-                const heightPercent = 25 + (i * 4) + ((simYear - 2018) * 4) - ((simKm / 90000) * 15);
-                const isHighlight = i >= 11 && i <= 15;
-                return (
-                  <div
-                    key={i}
-                    className={`sim-bar ${isHighlight ? 'highlight' : ''}`}
-                    style={{ height: `${Math.min(100, Math.max(15, heightPercent))}%` }}
-                  />
-                );
-              })}
+            {/* Continuous Market Range Spectrum */}
+            <div className="sim-spectrum-wrap">
+              <div className="sim-spectrum-track">
+                <div className="sim-spectrum-fill" />
+                <span
+                  className="sim-spectrum-pin"
+                  style={{ left: `${calculatedValuation.markerPct}%` }}
+                  title={`Fair Value: ${calculatedValuation.midFormatted}`}
+                />
+              </div>
+              <div className="sim-spectrum-labels">
+                <small>Quick Cash ({calculatedValuation.instantCashFormatted})</small>
+                <small className="sim-mid-label">Fair Market ({calculatedValuation.midFormatted})</small>
+                <small>Top Retail</small>
+              </div>
             </div>
 
             <div className="sim-meta-row">
-              <span><CheckCircle size={14} /> Market Demand: <b>{calculatedValuation.demandScore}</b></span>
-              <span>Based on 4,200+ transactions</span>
+              <span>
+                <CheckCircle size={13} /> Demand: <b>{calculatedValuation.demandScore}</b>
+              </span>
+              <span className="sim-confidence-tag">
+                {calculatedValuation.confidenceScore}% Model Confidence
+              </span>
             </div>
           </div>
 
           <div className="sim-cta-wrap">
-            <Link href={`/sell-car?body=${simBody}&year=${simYear}&km=${simKm}`} className="button button-primary">
+            <Link
+              href={`/sell-car?body=${simBody}&fuel=${simBody === 'Electric' ? 'Electric' : simFuel}&year=${simYear}&km=${simKm}`}
+              className="button button-primary sim-lock-btn"
+            >
               Lock in This Valuation <ArrowRight size={16} />
             </Link>
           </div>
@@ -735,66 +562,133 @@ export function HomePage() {
     </section>
 
     {/* B2B DEALER & ENTERPRISE SAAS ECOSYSTEM */}
-    <section className="section container">
-      <SectionTitle
-        eyebrow="ENTERPRISE AUTOMOTIVE SAAS"
-        title="Built for Dealers, Fleets &amp; Tech-Driven Mobility"
-        copy="Cars21 provides the operating system connecting verified sellers, certified dealerships, and retail buyers."
-      />
-
-      <div className="saas-grid">
-        <div className="saas-card">
+    <section className="saas-ecosystem-section">
+      <div className="container">
+        <div className="saas-section-head">
           <div>
-            <div className="saas-card-icon">
-              <Gavel size={26} />
-            </div>
-            <h3>Live B2B Dealer Auctions</h3>
-            <p>Dealers bid on verified vehicles in real time. Transparent auction logs with guaranteed vehicle delivery and clear title transfer.</p>
-            <div className="saas-bullets">
-              <span className="saas-bullet"><Check /> Real-time competitive digital bidding</span>
-              <span className="saas-bullet"><Check /> Certified inspection documentation</span>
-              <span className="saas-bullet"><Check /> Instant escrow settlement</span>
-            </div>
+            <span className="saas-eyebrow-pill">
+              <Building2 size={12} /> ENTERPRISE AUTOMOTIVE OS
+            </span>
+            <h2 className="saas-section-title">Built for Dealers, Fleets &amp; Tech-Driven Mobility</h2>
+            <p className="saas-section-copy">
+              The unified operating system connecting verified sellers, inspected inventory, and wholesale dealer networks across India.
+            </p>
           </div>
-          <Link href="/dealer-auctions" className="saas-card-link">
-            Explore Dealer Auctions <ArrowUpRight size={14} />
+          <Link href="/dealers" className="button button-outline saas-head-cta">
+            Explore Partner Network <ArrowRight size={15} />
           </Link>
         </div>
 
-        <div className="saas-card">
-          <div>
-            <div className="saas-card-icon emerald">
-              <Cpu size={26} />
-            </div>
-            <h3>140-Point Cloud Diagnostics</h3>
-            <p>Proprietary inspection app and checklists standardized across 200+ certified vehicle inspectors nationwide.</p>
-            <div className="saas-bullets">
-              <span className="saas-bullet"><Check /> OBD-II diagnostic code scanning</span>
-              <span className="saas-bullet"><Check /> High-resolution exterior paint meters</span>
-              <span className="saas-bullet"><Check /> Instant downloadable PDF reports</span>
-            </div>
-          </div>
-          <Link href="/inspection" className="saas-card-link">
-            See Inspection Standard <ArrowUpRight size={14} />
-          </Link>
-        </div>
+        <div className="saas-grid">
+          {/* Card 1: B2B Dealer Auctions */}
+          <div className="saas-card saas-tone-blue">
+            <div>
+              <div className="saas-card-top">
+                <div className="saas-card-icon">
+                  <Gavel size={24} />
+                </div>
+                <span className="saas-pill-badge blue">
+                  <span className="saas-pulse-dot" /> LIVE BIDDING
+                </span>
+              </div>
 
-        <div className="saas-card">
-          <div>
-            <div className="saas-card-icon purple">
-              <Building2 size={26} />
+              <h3>Live B2B Dealer Auctions</h3>
+              <p>Dealers bid on pre-inspected vehicles in real time with transparent logs, escrow protection, and automated RC transfer.</p>
+
+              <div className="saas-preview-box">
+                <div className="saas-preview-row">
+                  <span className="saas-preview-tag">WHOLESALE LOT</span>
+                  <b className="saas-preview-status live">Active Floor</b>
+                </div>
+                <div className="saas-preview-metric">
+                  <strong>₹6,45,000</strong>
+                  <small>18 live dealer bids · Anti-sniping on</small>
+                </div>
+              </div>
+
+              <div className="saas-bullets">
+                <span className="saas-bullet"><CheckCircle2 size={15} /> Real-time competitive digital bidding</span>
+                <span className="saas-bullet"><CheckCircle2 size={15} /> 140-point dossier attached to every lot</span>
+                <span className="saas-bullet"><CheckCircle2 size={15} /> Protected escrow &amp; title handover</span>
+              </div>
             </div>
-            <h3>Dealer Inventory &amp; CRM API</h3>
-            <p>Sync inventory, track buyer leads, reveal verified customer contacts, and run multi-city dealer showrooms.</p>
-            <div className="saas-bullets">
-              <span className="saas-bullet"><Check /> Instant customer phone reveal CRM</span>
-              <span className="saas-bullet"><Check /> Multi-channel inventory syndication</span>
-              <span className="saas-bullet"><Check /> Tiered dealer subscription plans</span>
-            </div>
+            <Link href="/dealer-auctions" className="saas-card-link">
+              <span>Explore Dealer Auctions</span>
+              <ArrowUpRight size={15} />
+            </Link>
           </div>
-          <Link href="/dealers" className="saas-card-link">
-            Browse Dealer Showrooms <ArrowUpRight size={14} />
-          </Link>
+
+          {/* Card 2: 140-Point Cloud Diagnostics */}
+          <div className="saas-card saas-tone-emerald">
+            <div>
+              <div className="saas-card-top">
+                <div className="saas-card-icon emerald">
+                  <Cpu size={24} />
+                </div>
+                <span className="saas-pill-badge emerald">140 CHECKPOINTS</span>
+              </div>
+
+              <h3>140-Point Cloud Diagnostics</h3>
+              <p>Standardized technician workflows combining OBD-II telemetry scans, paint-depth gauges, and tamper-proof media.</p>
+
+              <div className="saas-preview-box">
+                <div className="saas-preview-row">
+                  <span className="saas-preview-tag">DIAGNOSTIC SCORE</span>
+                  <b className="saas-preview-status pass">98 / 100 Verified</b>
+                </div>
+                <div className="saas-preview-bars">
+                  <span>Engine &amp; ECU <b>OK</b></span>
+                  <span>Chassis Meter <b>Clean</b></span>
+                </div>
+              </div>
+
+              <div className="saas-bullets">
+                <span className="saas-bullet"><CheckCircle2 size={15} /> OBD-II diagnostic fault code scanning</span>
+                <span className="saas-bullet"><CheckCircle2 size={15} /> Digital panel thickness verification</span>
+                <span className="saas-bullet"><CheckCircle2 size={15} /> Shareable digital inspection reports</span>
+              </div>
+            </div>
+            <Link href="/inspection" className="saas-card-link">
+              <span>See Inspection Standard</span>
+              <ArrowUpRight size={15} />
+            </Link>
+          </div>
+
+          {/* Card 3: Dealer Inventory & CRM API */}
+          <div className="saas-card saas-tone-purple">
+            <div>
+              <div className="saas-card-top">
+                <div className="saas-card-icon purple">
+                  <Building2 size={24} />
+                </div>
+                <span className="saas-pill-badge purple">DEALER CRM</span>
+              </div>
+
+              <h3>Dealer Inventory &amp; CRM Suite</h3>
+              <p>Publish certified stock across metros, capture intent-verified buyer leads, and manage showroom inquiries in one portal.</p>
+
+              <div className="saas-preview-box">
+                <div className="saas-preview-row">
+                  <span className="saas-preview-tag">SHOWROOM PIPELINE</span>
+                  <b className="saas-preview-status crm">Pan-India Sync</b>
+                </div>
+                <div className="saas-preview-bars">
+                  <span>Buyer Reveals <b>Instant</b></span>
+                  <span>RC Workflow <b>Tracked</b></span>
+                </div>
+              </div>
+
+              <div className="saas-bullets">
+                <span className="saas-bullet"><CheckCircle2 size={15} /> Direct buyer lead &amp; test-drive CRM</span>
+                <span className="saas-bullet"><CheckCircle2 size={15} /> Multi-city showroom storefronts</span>
+                <span className="saas-bullet"><CheckCircle2 size={15} /> Flexible dealer subscription tiers</span>
+              </div>
+            </div>
+            <Link href="/dealers" className="saas-card-link">
+              <span>Browse Dealer Showrooms</span>
+              <ArrowUpRight size={15} />
+            </Link>
+          </div>
         </div>
       </div>
     </section>
@@ -887,40 +781,6 @@ export function HomePage() {
       </div>
     </section>
 
-    {/* FINANCING & LOANS24 BANNER */}
-    <section className="section container">
-      <div className="finance-banner">
-        <div className="finance-art">
-          <div className="finance-orbit orbit-a" />
-          <div className="finance-orbit orbit-b" />
-          <div className="finance-card-visual">
-            <span>LOANS<span>24</span></span>
-            <small>SMART AUTOMOTIVE FINANCING</small>
-            <b>EMI that fits your budget.</b>
-            <div className="mini-chart">
-              {Array.from({ length: 12 }, (_, i) => <i key={i} />)}
-            </div>
-          </div>
-        </div>
-
-        <div className="finance-copy">
-          <span className="eyebrow">LOANS24 DIGITAL LENDING</span>
-          <h2>Instant pre-approvals with 9+ partner banks.</h2>
-          <p>
-            Financing your next car shouldn't mean endless paperwork. Enjoy transparent interest rates starting at 8.75% and loan tenures up to 84 months with fast digital verification.
-          </p>
-          <div className="finance-actions">
-            <Link className="button button-light" href="/loans24/emi-calculator">
-              Calculate Your EMI <ArrowRight size={16} />
-            </Link>
-            <Link className="text-link text-link-light" href="/loans24">
-              Check Eligibility <ArrowUpRight size={14} />
-            </Link>
-          </div>
-        </div>
-      </div>
-    </section>
-
     {/* VERIFIED SOCIAL PROOF / REVIEWS */}
     <section className="section container">
       <SectionTitle
@@ -1009,51 +869,6 @@ export function HomePage() {
               <p>{f[1]}</p>
             </details>
           ))}
-        </div>
-      </div>
-    </section>
-
-    {/* CLOSING HIGH-IMPACT PLATFORM CTA */}
-    <section className="container platform-cta-wrap">
-      <div className="platform-cta-banner">
-        <div className="platform-cta-copy">
-          <span className="eyebrow" style={{ color: '#38bdf8' }}>READY TO GET STARTED?</span>
-          <h2>The modern way to buy, sell &amp; finance cars.</h2>
-          <p>
-            Join over 18,000 satisfied car owners and 1,200+ certified dealership partners across India.
-          </p>
-          <div className="platform-cta-btns">
-            <Link className="button button-primary" href="/buy-cars">
-              Explore 2,450+ Verified Cars <ArrowRight size={17} />
-            </Link>
-            <Link className="button button-outline-light" href="/sell-car">
-              Sell Your Car Today <Zap size={16} />
-            </Link>
-          </div>
-        </div>
-
-        <div className="platform-cta-perks">
-          <div className="cta-perk-item">
-            <div className="cta-perk-icon"><ShieldCheck size={18} /></div>
-            <div>
-              <b>140-Point AI Diagnostics</b>
-              <small>Standardized digital inspection reports</small>
-            </div>
-          </div>
-          <div className="cta-perk-item">
-            <div className="cta-perk-icon"><Banknote size={18} /></div>
-            <div>
-              <b>Instant Bank Payout</b>
-              <small>Funds transferred within 30 minutes</small>
-            </div>
-          </div>
-          <div className="cta-perk-item">
-            <div className="cta-perk-icon"><Building2 size={18} /></div>
-            <div>
-              <b>1,200+ Verified Dealers</b>
-              <small>Nationwide wholesale auction network</small>
-            </div>
-          </div>
         </div>
       </div>
     </section>

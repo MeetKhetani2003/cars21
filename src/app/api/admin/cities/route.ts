@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isAdminRequest } from '../../../../server/auth';
 import { getDb } from '../../../../server/mongodb';
+import { sortCityItems } from '../../../../lib/cities';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -126,12 +127,17 @@ export async function GET(request: NextRequest) {
         }
       }
     }
-    const cities = await collection.find({}).sort({ popular: -1, name: 1 }).toArray();
+    const rawCities = await collection.find({}).toArray();
+    const mapped = rawCities.map(({ _id, ...city }) => ({
+      ...city,
+      name: String((city as any).name || ''),
+      state: String((city as any).state || ''),
+      pincode: String((city as any).pincode || ''),
+      popular: Boolean((city as any).popular),
+      id: (city as any).id || String(_id),
+    }));
     return NextResponse.json({
-      cities: cities.map(({ _id, ...city }) => ({
-        ...city,
-        id: city.id || String(_id),
-      }))
+      cities: sortCityItems(mapped),
     });
   } catch {
     return NextResponse.json({ error: 'Cities are temporarily unavailable.' }, { status: 503 });

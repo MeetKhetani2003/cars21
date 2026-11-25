@@ -11,13 +11,14 @@ import {
 import { Link } from './lib/navigation';
 import { useBuyerExperience } from './components/BuyerExperienceProvider';
 import { CitySelectModal } from './components/CitySelectModal';
+import { DEFAULT_CITY } from './lib/cities';
 import { ManagementPanel } from './experiences/management';
 import { HomePage, InventoryPage, CarPage, SellPage, VehicleDetailsPage, ValuationPage, InspectionBookingPage, InspectionStatusPage, OfferPage, AuctionResultPage, InspectionPage, VehicleHistoryPage, LoansPage, EmiPage, EligibilityPage, DealerPage, AuctionPage, HelpPage, AccountPage, InspectorPage, OperationsPage, NotFoundPage } from './experiences';
 
 export function SiteHeader(){
   const router = useRouter();
   const [open,setOpen]=useState(false);
-  const [city,setCity]=useState('Bengaluru');
+  const [city,setCity]=useState(DEFAULT_CITY);
   const [cityModalOpen,setCityModalOpen]=useState(false);
   const {buyer, openLoginModal, wishlistIds, isLeadCaptured, openBuyCarLeadModal}=useBuyerExperience();
   const close=()=>setOpen(false);

@@ -46,7 +46,7 @@ export function SellerListingsPanel() {
       <label className="field-label">Fuel<select value={form.fuel} onChange={e=>setForm(v=>({...v,fuel:e.target.value}))}>{['Petrol','Diesel','CNG','Electric','Hybrid'].map(x=><option key={x}>{x}</option>)}</select></label>
       <label className="field-label">Transmission<select value={form.transmission} onChange={e=>setForm(v=>({...v,transmission:e.target.value}))}>{['Manual','Automatic'].map(x=><option key={x}>{x}</option>)}</select></label>
       <label className="field-label">Owners<input type="number" required min="1" max="10" value={form.owners} onChange={e=>setForm(v=>({...v,owners:e.target.value}))}/></label>
-      <label className="field-label">City<input required minLength={2} maxLength={60} value={form.city} onChange={e=>setForm(v=>({...v,city:e.target.value}))} placeholder="Bengaluru"/></label>
+      <label className="field-label">City<input required minLength={2} maxLength={60} value={form.city} onChange={e=>setForm(v=>({...v,city:e.target.value}))} placeholder="Junagadh"/></label>
       <label className="field-label">Area<input maxLength={80} value={form.area} onChange={e=>setForm(v=>({...v,area:e.target.value}))} placeholder="Indiranagar"/></label>
       <label className="field-label">Body type<select value={form.body} onChange={e=>setForm(v=>({...v,body:e.target.value}))}>{['Hatchback','Sedan','SUV','MUV','Coupe','Electric'].map(x=><option key={x}>{x}</option>)}</select></label>
       <label className="field-label">Colour<input maxLength={40} value={form.color} onChange={e=>setForm(v=>({...v,color:e.target.value}))}/></label>

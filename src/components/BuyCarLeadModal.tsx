@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { ArrowRight, Check, CheckCircle2, MapPin, MessageSquareText, ShieldCheck, Sparkles, User, X } from 'lucide-react';
+import { sortCityNames } from '../lib/cities';
 
 const DEFAULT_POPULAR_METROS = [
   'Junagadh',
@@ -74,11 +75,22 @@ export function BuyCarLeadModal({
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data.cities) && data.cities.length > 0) {
-          const names = data.cities.filter((c: any) => c.status !== 'inactive').map((c: any) => c.name);
-          setAllCities(prev => [...new Set([...names, ...prev])]);
-          const pop = data.cities.filter((c: any) => c.popular && c.status !== 'inactive').map((c: any) => c.name);
+          const active = data.cities.filter((c: any) => c.status !== 'inactive');
+          const metaLookup: Record<string, { state?: string; pincode?: string; popular?: boolean }> = {};
+          active.forEach((c: any) => {
+            if (c.name) {
+              metaLookup[String(c.name).trim().toLowerCase()] = {
+                state: String(c.state || ''),
+                pincode: String(c.pincode || ''),
+                popular: Boolean(c.popular)
+              };
+            }
+          });
+          const names = active.map((c: any) => c.name);
+          setAllCities(prev => sortCityNames([...new Set([...names, ...prev])], metaLookup));
+          const pop = active.filter((c: any) => c.popular).map((c: any) => c.name);
           if (pop.length > 0) {
-            setPopularMetros(prev => [...new Set([...pop, ...prev])]);
+            setPopularMetros(prev => sortCityNames([...new Set([...pop, ...prev])], metaLookup));
           }
         }
       })

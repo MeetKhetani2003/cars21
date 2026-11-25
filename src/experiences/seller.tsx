@@ -57,12 +57,13 @@ type CityItem = {
 
 const DEFAULT_METROS: CityItem[] = [
   { id: 'junagadh-ho', name: 'Junagadh', state: 'Gujarat', pincode: '362001', popular: true },
-  { id: 'bengaluru', name: 'Bengaluru', state: 'Karnataka', pincode: '560001', popular: true },
-  { id: 'mumbai', name: 'Mumbai', state: 'Maharashtra', pincode: '400001', popular: true },
-  { id: 'delhi-ncr', name: 'Delhi NCR', state: 'Delhi', pincode: '110001', popular: true },
-  { id: 'hyderabad', name: 'Hyderabad', state: 'Telangana', pincode: '500001', popular: true },
-  { id: 'pune', name: 'Pune', state: 'Maharashtra', pincode: '411001', popular: true },
+  { id: 'rajkot', name: 'Rajkot', state: 'Gujarat', pincode: '360001', popular: true },
   { id: 'ahmedabad', name: 'Ahmedabad', state: 'Gujarat', pincode: '380001', popular: true },
+  { id: 'surat', name: 'Surat', state: 'Gujarat', pincode: '395001', popular: true },
+  { id: 'vadodara', name: 'Vadodara', state: 'Gujarat', pincode: '390001', popular: true },
+  { id: 'mumbai', name: 'Mumbai', state: 'Maharashtra', pincode: '400001', popular: false },
+  { id: 'delhi-ncr', name: 'Delhi NCR', state: 'Delhi', pincode: '110001', popular: false },
+  { id: 'bengaluru', name: 'Bengaluru', state: 'Karnataka', pincode: '560001', popular: false },
 ];
 
 // ============================================================================
@@ -329,7 +330,7 @@ export function VehicleDetailsPage() {
 
               <label className="field-label">
                 City / Location
-                <select name="city" defaultValue={parsedReg.defaultCity || 'Bengaluru'}>
+                <select name="city" defaultValue={parsedReg.defaultCity || 'Junagadh'}>
                   {cities.map(c => (
                     <option key={c.id} value={c.name}>
                       {c.name}{c.pincode ? ` (${c.pincode})` : ''} - {c.state}
@@ -478,7 +479,7 @@ export function ValuationPage() {
   const [owners, setOwners] = useState(Number(search.get('owners') || 1));
   const [fuel, setFuel] = useState(search.get('fuel') || 'Petrol');
   const [transmission, setTransmission] = useState(search.get('transmission') || 'Manual');
-  const [city, setCity] = useState(search.get('city') || 'Bengaluru');
+  const [city, setCity] = useState(search.get('city') || 'Junagadh');
   const [registration, setRegistration] = useState(search.get('registration') || search.get('reg') || '');
 
   // Makes & Cities data
