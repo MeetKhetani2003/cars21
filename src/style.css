@@ -4847,12 +4847,12 @@ button:disabled{cursor:not-allowed;opacity:.55}
 
 /* Dark Obsidian Luxury Result Card */
 .emi-result-card{
-  background:linear-gradient(160deg,#0b1120 0%,#101b33 55%,#162442 100%);
-  color:#ffffff;
-  border:1px solid rgba(255,255,255,0.12);
-  border-radius:24px;
+  background:linear-gradient(160deg,#0b1120 0%,#101b33 55%,#162442 100%) !important;
+  color:#ffffff !important;
+  border:1px solid rgba(255,255,255,0.12) !important;
+  border-radius:24px !important;
   padding:28px;
-  box-shadow:0 28px 65px -15px rgba(15,23,42,0.45);
+  box-shadow:0 28px 65px -15px rgba(15,23,42,0.45) !important;
   position:sticky;
   top:90px;
   overflow:hidden;
@@ -5654,8 +5654,7 @@ h1, h2, h3, h4, h5, h6,
 .category-card,
 .assurance-box,
 .sticky-booking-hub-card,
-.emi-controls-card,
-.emi-result-card {
+.emi-controls-card {
   background: #ffffff !important;
   border: 1px solid rgba(226, 232, 240, 0.85) !important;
   border-radius: var(--radius-lg) !important;
